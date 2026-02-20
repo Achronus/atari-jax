@@ -77,14 +77,48 @@ class TIAState:
         uint8[64] — Shadow copy of the 64 TIA write-only registers.
         `regs[i]` holds the last value written to TIA address `i & 0x3F`.
     collisions : jax.Array
-        uint16 — 15 collision-latch bits (Phase 2).
+        uint16 — 15 collision-latch bits packed as:
+        bits 15-14 CXM0P, 13-12 CXM1P, 11-10 CXP0FB, 9-8 CXP1FB,
+        7-6 CXM0FB, 5-4 CXM1FB, 3 CXBLPF, 1 CXPPMM(P0P1), 0 CXPPMM(M0M1).
+        Cleared only by a write to CXCLR (TIA 0x2C).
     scanline : jax.Array
         uint8[160] — Colour-index pixel buffer for the current scanline.
+    p0_pos : jax.Array
+        uint8 — Player 0 horizontal pixel position (0–159).
+        Set when RESP0 (TIA 0x10) is written; shifted by HMOVE.
+    p1_pos : jax.Array
+        uint8 — Player 1 horizontal pixel position (0–159).
+    m0_pos : jax.Array
+        uint8 — Missile 0 horizontal pixel position (0–159).
+    m1_pos : jax.Array
+        uint8 — Missile 1 horizontal pixel position (0–159).
+    bl_pos : jax.Array
+        uint8 — Ball horizontal pixel position (0–159).
+    hpos : jax.Array
+        uint8 — Horizontal color-clock counter within the current scanline
+        (0–227).  Reset to 0 at the start of each scanline; advanced by
+        `cycles × 3` after each CPU instruction.  Read by `tia_write` when
+        RESP*/RESM*/RESBL are written to derive the sprite position.
+    wsync : jax.Array
+        bool — WSYNC stall active.  Set by a write to WSYNC (TIA 0x02);
+        cleared at the start of the next scanline.  While True the CPU
+        cycle step is skipped (cycles still advance).
+    fire : jax.Array
+        bool — FIRE button pressed.  True ⇒ INPT4/INPT5 bit 7 reads as 0
+        (active-low); False ⇒ reads as 0x80.
     """
 
     regs: jax.Array
     collisions: jax.Array
     scanline: jax.Array
+    p0_pos: jax.Array
+    p1_pos: jax.Array
+    m0_pos: jax.Array
+    m1_pos: jax.Array
+    bl_pos: jax.Array
+    hpos: jax.Array
+    wsync: jax.Array
+    fire: jax.Array
 
 
 @chex.dataclass
@@ -179,12 +213,21 @@ def new_tia_state() -> TIAState:
     Returns
     -------
     state : TIAState
-        All registers, collision latches, and scanline buffer zeroed.
+        All registers, collision latches, scanline buffer, and sprite
+        positions zeroed; `wsync` and `fire` False.
     """
     return TIAState(
         regs=jnp.zeros(64, dtype=jnp.uint8),
         collisions=jnp.uint16(0),
         scanline=jnp.zeros(160, dtype=jnp.uint8),
+        p0_pos=jnp.uint8(0),
+        p1_pos=jnp.uint8(0),
+        m0_pos=jnp.uint8(0),
+        m1_pos=jnp.uint8(0),
+        bl_pos=jnp.uint8(0),
+        hpos=jnp.uint8(0),
+        wsync=jnp.bool_(False),
+        fire=jnp.bool_(False),
     )
 
 
