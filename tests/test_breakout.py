@@ -1,0 +1,83 @@
+"""Unit tests for atari_jax.games.roms.breakout — reward and terminal logic.
+
+Run with:
+    pytest tests/test_breakout.py -v
+"""
+
+import jax.numpy as jnp
+import pytest
+
+from atari_jax.games.roms.breakout import (
+    LIVES_ADDR,
+    SCORE_X,
+    SCORE_Y,
+    get_lives,
+    get_reward,
+    is_terminal,
+)
+
+
+def _ram(overrides=None):
+    """Return a zeroed 128-byte RAM array with optional ``{index: value}`` overrides."""
+    data = jnp.zeros(128, dtype=jnp.uint8)
+    if overrides:
+        for idx, val in overrides.items():
+            data = data.at[idx].set(jnp.uint8(val))
+    return data
+
+
+def test_get_reward_zero():
+    ram = _ram()
+    assert float(get_reward(ram, ram)) == 0.0
+
+
+def test_get_reward_ones():
+    # SCORE_X ones nibble: 0x01 → 1 point
+    ram_prev = _ram()
+    ram_curr = _ram({SCORE_X: 0x01})
+    assert float(get_reward(ram_prev, ram_curr)) == 1.0
+
+
+def test_get_reward_ones_tens():
+    # SCORE_X = 0x10 → tens=1, ones=0 → 10 points
+    ram_prev = _ram()
+    ram_curr = _ram({SCORE_X: 0x10})
+    assert float(get_reward(ram_prev, ram_curr)) == 10.0
+
+
+def test_get_reward_hundreds():
+    # SCORE_Y = 0x01 → hundreds=1 → 100 points
+    ram_prev = _ram()
+    ram_curr = _ram({SCORE_Y: 0x01})
+    assert float(get_reward(ram_prev, ram_curr)) == 100.0
+
+
+def test_get_reward_combined():
+    # SCORE_Y=0x01, SCORE_X=0x23 → 100 + 20 + 3 = 123 points
+    ram_prev = _ram()
+    ram_curr = _ram({SCORE_Y: 0x01, SCORE_X: 0x23})
+    assert float(get_reward(ram_prev, ram_curr)) == 123.0
+
+
+def test_is_terminal_false_before_start():
+    # lives_prev = 0 → game never started → not terminal even if ram lives = 0
+    ram = _ram({LIVES_ADDR: 0})
+    assert not bool(is_terminal(ram, jnp.int32(0)))
+
+
+def test_is_terminal_true():
+    # lives_prev = 5, current lives = 0 → terminal
+    ram = _ram({LIVES_ADDR: 0})
+    assert bool(is_terminal(ram, jnp.int32(5)))
+
+
+def test_is_terminal_false_mid_game():
+    # lives_prev = 3, current lives = 2 → still playing
+    ram = _ram({LIVES_ADDR: 2})
+    assert not bool(is_terminal(ram, jnp.int32(3)))
+
+
+def test_is_terminal_false_when_lives_equal():
+    # lives_prev = 5, current lives = 5 → no change, not terminal
+    ram = _ram({LIVES_ADDR: 5})
+    assert not bool(is_terminal(ram, jnp.int32(5)))
