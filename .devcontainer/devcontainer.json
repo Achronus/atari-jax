@@ -1,0 +1,17 @@
+{
+  "name": "JAX-ALE",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "atari-jax",
+  "workspaceFolder": "/workspace",
+  "extensions": [
+    "ms-python.python",
+    "ms-python.pylance",
+    "ms-toolsai.jupyter",
+    "charliermarsh.ruff",
+    "eamodio.gitlens"
+  ],
+  "settings": {
+    "python.defaultInterpreterPath": "/usr/local/bin/python3",
+    "editor.formatOnSave": true
+  }
+}

@@ -1,0 +1,8 @@
+services:
+  atari-jax:
+    build: .
+    volumes:
+      - .:/workspace
+    stdin_open: true
+    tty: true
+    command: bash
