@@ -28,9 +28,8 @@ cycles : jax.Array
 Unimplemented slots fall through to `_op_undef` (advance PC by 1).
 
 Implemented: load/store, transfer, branch, jump/subroutine, stack, flag ops,
-             NOP, BRK, RTI.
-Pending: ADC, SBC, INC, DEC, AND, ORA, EOR, CMP, CPX, CPY, ASL, LSR, ROL,
-         ROR, BIT.
+             NOP, BRK, RTI, ADC, SBC, AND, ORA, EOR, CMP, CPX, CPY, INC, DEC,
+             INX, INY, DEX, DEY, ASL, LSR, ROL, ROR, BIT.
 """
 
 from typing import Tuple
@@ -40,6 +39,96 @@ import jax.numpy as jnp
 
 from atari_jax.core.bus import bus_read
 from atari_jax.core.cpu._helpers import _op_undef
+from atari_jax.core.cpu._ops_alu import (
+    _op_adc_abs,
+    _op_adc_absx,
+    _op_adc_absy,
+    _op_adc_imm,
+    _op_adc_indx,
+    _op_adc_indy,
+    _op_adc_zp,
+    _op_adc_zpx,
+    _op_and_abs,
+    _op_and_absx,
+    _op_and_absy,
+    _op_and_imm,
+    _op_and_indx,
+    _op_and_indy,
+    _op_and_zp,
+    _op_and_zpx,
+    _op_asl_abs,
+    _op_asl_absx,
+    _op_asl_acc,
+    _op_asl_zp,
+    _op_asl_zpx,
+    _op_bit_abs,
+    _op_bit_zp,
+    _op_cmp_abs,
+    _op_cmp_absx,
+    _op_cmp_absy,
+    _op_cmp_imm,
+    _op_cmp_indx,
+    _op_cmp_indy,
+    _op_cmp_zp,
+    _op_cmp_zpx,
+    _op_cpx_abs,
+    _op_cpx_imm,
+    _op_cpx_zp,
+    _op_cpy_abs,
+    _op_cpy_imm,
+    _op_cpy_zp,
+    _op_dec_abs,
+    _op_dec_absx,
+    _op_dec_zp,
+    _op_dec_zpx,
+    _op_dex,
+    _op_dey,
+    _op_eor_abs,
+    _op_eor_absx,
+    _op_eor_absy,
+    _op_eor_imm,
+    _op_eor_indx,
+    _op_eor_indy,
+    _op_eor_zp,
+    _op_eor_zpx,
+    _op_inc_abs,
+    _op_inc_absx,
+    _op_inc_zp,
+    _op_inc_zpx,
+    _op_inx,
+    _op_iny,
+    _op_lsr_abs,
+    _op_lsr_absx,
+    _op_lsr_acc,
+    _op_lsr_zp,
+    _op_lsr_zpx,
+    _op_ora_abs,
+    _op_ora_absx,
+    _op_ora_absy,
+    _op_ora_imm,
+    _op_ora_indx,
+    _op_ora_indy,
+    _op_ora_zp,
+    _op_ora_zpx,
+    _op_rol_abs,
+    _op_rol_absx,
+    _op_rol_acc,
+    _op_rol_zp,
+    _op_rol_zpx,
+    _op_ror_abs,
+    _op_ror_absx,
+    _op_ror_acc,
+    _op_ror_zp,
+    _op_ror_zpx,
+    _op_sbc_abs,
+    _op_sbc_absx,
+    _op_sbc_absy,
+    _op_sbc_imm,
+    _op_sbc_indx,
+    _op_sbc_indy,
+    _op_sbc_zp,
+    _op_sbc_zpx,
+)
 from atari_jax.core.cpu._ops_branch import (
     _op_bcc,
     _op_bcs,
@@ -193,6 +282,114 @@ _T[0xB8] = _op_clv
 _T[0x00] = _op_brk
 _T[0x40] = _op_rti
 _T[0xEA] = _op_nop
+
+# ADC
+_T[0x69] = _op_adc_imm
+_T[0x65] = _op_adc_zp
+_T[0x75] = _op_adc_zpx
+_T[0x6D] = _op_adc_abs
+_T[0x7D] = _op_adc_absx
+_T[0x79] = _op_adc_absy
+_T[0x61] = _op_adc_indx
+_T[0x71] = _op_adc_indy
+
+# SBC
+_T[0xE9] = _op_sbc_imm
+_T[0xE5] = _op_sbc_zp
+_T[0xF5] = _op_sbc_zpx
+_T[0xED] = _op_sbc_abs
+_T[0xFD] = _op_sbc_absx
+_T[0xF9] = _op_sbc_absy
+_T[0xE1] = _op_sbc_indx
+_T[0xF1] = _op_sbc_indy
+
+# AND
+_T[0x29] = _op_and_imm
+_T[0x25] = _op_and_zp
+_T[0x35] = _op_and_zpx
+_T[0x2D] = _op_and_abs
+_T[0x3D] = _op_and_absx
+_T[0x39] = _op_and_absy
+_T[0x21] = _op_and_indx
+_T[0x31] = _op_and_indy
+
+# ORA
+_T[0x09] = _op_ora_imm
+_T[0x05] = _op_ora_zp
+_T[0x15] = _op_ora_zpx
+_T[0x0D] = _op_ora_abs
+_T[0x1D] = _op_ora_absx
+_T[0x19] = _op_ora_absy
+_T[0x01] = _op_ora_indx
+_T[0x11] = _op_ora_indy
+
+# EOR
+_T[0x49] = _op_eor_imm
+_T[0x45] = _op_eor_zp
+_T[0x55] = _op_eor_zpx
+_T[0x4D] = _op_eor_abs
+_T[0x5D] = _op_eor_absx
+_T[0x59] = _op_eor_absy
+_T[0x41] = _op_eor_indx
+_T[0x51] = _op_eor_indy
+
+# CMP
+_T[0xC9] = _op_cmp_imm
+_T[0xC5] = _op_cmp_zp
+_T[0xD5] = _op_cmp_zpx
+_T[0xCD] = _op_cmp_abs
+_T[0xDD] = _op_cmp_absx
+_T[0xD9] = _op_cmp_absy
+_T[0xC1] = _op_cmp_indx
+_T[0xD1] = _op_cmp_indy
+
+# CPX / CPY
+_T[0xE0] = _op_cpx_imm
+_T[0xE4] = _op_cpx_zp
+_T[0xEC] = _op_cpx_abs
+_T[0xC0] = _op_cpy_imm
+_T[0xC4] = _op_cpy_zp
+_T[0xCC] = _op_cpy_abs
+
+# INC / DEC
+_T[0xE6] = _op_inc_zp
+_T[0xF6] = _op_inc_zpx
+_T[0xEE] = _op_inc_abs
+_T[0xFE] = _op_inc_absx
+_T[0xE8] = _op_inx
+_T[0xC8] = _op_iny
+_T[0xC6] = _op_dec_zp
+_T[0xD6] = _op_dec_zpx
+_T[0xCE] = _op_dec_abs
+_T[0xDE] = _op_dec_absx
+_T[0xCA] = _op_dex
+_T[0x88] = _op_dey
+
+# ASL / LSR / ROL / ROR
+_T[0x0A] = _op_asl_acc
+_T[0x06] = _op_asl_zp
+_T[0x16] = _op_asl_zpx
+_T[0x0E] = _op_asl_abs
+_T[0x1E] = _op_asl_absx
+_T[0x4A] = _op_lsr_acc
+_T[0x46] = _op_lsr_zp
+_T[0x56] = _op_lsr_zpx
+_T[0x4E] = _op_lsr_abs
+_T[0x5E] = _op_lsr_absx
+_T[0x2A] = _op_rol_acc
+_T[0x26] = _op_rol_zp
+_T[0x36] = _op_rol_zpx
+_T[0x2E] = _op_rol_abs
+_T[0x3E] = _op_rol_absx
+_T[0x6A] = _op_ror_acc
+_T[0x66] = _op_ror_zp
+_T[0x76] = _op_ror_zpx
+_T[0x6E] = _op_ror_abs
+_T[0x7E] = _op_ror_absx
+
+# BIT
+_T[0x24] = _op_bit_zp
+_T[0x2C] = _op_bit_abs
 
 OPCODE_TABLE = _T
 
