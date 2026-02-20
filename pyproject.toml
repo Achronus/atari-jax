@@ -3,5 +3,24 @@ name = "atari-jax"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13.9"
-dependencies = []
+requires-python = ">=3.13"
+dependencies = [
+    "chex>=0.1.91",
+    "flax>=0.12.3",
+    "gymnasium[other]>=1.2.3",
+    "jax>=0.9.0.1",
+    "optax>=0.2.7",
+]
+
+[dependency-groups]
+test = ["pytest>=9.0.2"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["atari_jax"]
+
+[tool.uv]
+exclude-dependencies = ["uvloop"]
