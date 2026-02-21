@@ -29,14 +29,14 @@ import jax
 import jax.numpy as jnp
 import pytest
 
-from atari_jax.core.state import new_atari_state
-from atari_jax.env.spaces import Box, Discrete
+from atarax.core.state import new_atari_state
+from atarax.env._compile import setup_cache
+from atarax.env.spaces import Box, Discrete
 
 
 def pytest_configure(config):
     cache_dir = os.path.join(os.path.dirname(__file__), ".jax-cache")
-    os.makedirs(cache_dir, exist_ok=True)
-    jax.config.update("jax_compilation_cache_dir", cache_dir)
+    setup_cache(cache_dir)
 
 
 class FakeEnv:
