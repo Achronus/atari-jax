@@ -13,8 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Load ROM bytes from ale-py into a JAX uint8 array."""
-
 import chex
 import jax.numpy as jnp
 

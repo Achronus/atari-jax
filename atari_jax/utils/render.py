@@ -13,8 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Shared pygame renderer for human-mode display of an AtariState screen."""
-
 import numpy as np
 
 from atari_jax.core.state import AtariState
@@ -49,7 +47,7 @@ def render(
             "Install it with: pip install pygame"
         ) from exc
 
-    screen_np = np.asarray(state.screen)          # (210, 160, 3) uint8
+    screen_np = np.asarray(state.screen)  # (210, 160, 3) uint8
     h, w = screen_np.shape[:2]
 
     # pygame.surfarray.make_surface expects (width, height, 3)

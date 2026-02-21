@@ -13,10 +13,32 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Utilities — ROM loading and observation preprocessing."""
+from atari_jax.env.atari_env import AtariEnv, EnvParams
+from atari_jax.env.spaces import Box, Discrete
+from atari_jax.env.vec_env import make_rollout_fn
+from atari_jax.env.wrappers import (
+    BaseWrapper,
+    ClipRewardWrapper,
+    EpisodicLifeState,
+    EpisodicLifeWrapper,
+    FrameStackState,
+    FrameStackWrapper,
+    GrayscaleWrapper,
+    ResizeWrapper,
+)
 
-from atari_jax.utils.preprocess import preprocess
-from atari_jax.utils.render import render
-from atari_jax.utils.rom_loader import load_rom
-
-__all__ = ["load_rom", "preprocess", "render"]
+__all__ = [
+    "AtariEnv",
+    "BaseWrapper",
+    "Box",
+    "ClipRewardWrapper",
+    "Discrete",
+    "EnvParams",
+    "EpisodicLifeState",
+    "EpisodicLifeWrapper",
+    "FrameStackState",
+    "FrameStackWrapper",
+    "GrayscaleWrapper",
+    "make_rollout_fn",
+    "ResizeWrapper",
+]
