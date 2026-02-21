@@ -28,7 +28,7 @@ from atari_jax.env.wrappers.utils import resize
 
 class ResizeWrapper(BaseWrapper):
     """
-    Resize 2-D grayscale observations to `(out_h, out_w)` using bilinear
+    Resize 2-D grayscale observations to `(h, w)` using bilinear
     interpolation.
 
     Expects the inner environment to produce `uint8[H, W]` observations
@@ -38,22 +38,17 @@ class ResizeWrapper(BaseWrapper):
     ----------
     env : AtariEnv | BaseWrapper
         Inner environment returning 2-D grayscale observations.
-    out_h : int
-        Output height in pixels. Defaults to 84.
-    out_w : int
-        Output width in pixels. Defaults to 84.
+    h : int (optional)
+        Output height in pixels. Default is `84`.
+    w : int (optional)
+        Output width in pixels. Default is `84`.
     """
 
-    def __init__(
-        self,
-        env: "AtariEnv | BaseWrapper",
-        out_h: int = 84,
-        out_w: int = 84,
-    ) -> None:
+    def __init__(self, env: "AtariEnv | BaseWrapper", h: int = 84, w: int = 84) -> None:
         super().__init__(env)
 
-        self._out_h = out_h
-        self._out_w = out_w
+        self._out_h = h
+        self._out_w = w
 
     def reset(self, key: chex.Array) -> Tuple[chex.Array, AtariState]:
         """

@@ -59,8 +59,8 @@ class FrameStackWrapper(BaseWrapper):
     ----------
     env : AtariEnv | BaseWrapper
         Inner environment returning 2-D observations.
-    n_stack : int
-        Number of frames to stack. Defaults to 4.
+    n_stack : int (optional)
+        Number of frames to stack. Default is `4`.
     """
 
     def __init__(self, env: "AtariEnv | BaseWrapper", n_stack: int = 4) -> None:
