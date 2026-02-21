@@ -22,21 +22,21 @@ if TYPE_CHECKING:
 
 from atarax.core.state import AtariState
 from atarax.env.spaces import Box
-from atarax.env.wrappers.base import BaseWrapper
+from atarax.env.wrappers.base import Wrapper
 from atarax.env.wrappers.utils import resize
 
 
-class ResizeWrapper(BaseWrapper):
+class ResizeObservation(Wrapper):
     """
     Resize 2-D grayscale observations to `(h, w)` using bilinear
     interpolation.
 
     Expects the inner environment to produce `uint8[H, W]` observations
-    (i.e. wrap with `GrayscaleWrapper` first).
+    (i.e. wrap with `GrayscaleObservation` first).
 
     Parameters
     ----------
-    env : AtariEnv | BaseWrapper
+    env : AtariEnv | Wrapper
         Inner environment returning 2-D grayscale observations.
     h : int (optional)
         Output height in pixels. Default is `84`.
@@ -44,7 +44,7 @@ class ResizeWrapper(BaseWrapper):
         Output width in pixels. Default is `84`.
     """
 
-    def __init__(self, env: "AtariEnv | BaseWrapper", h: int = 84, w: int = 84) -> None:
+    def __init__(self, env: "AtariEnv | Wrapper", h: int = 84, w: int = 84) -> None:
         super().__init__(env)
 
         self._out_h = h

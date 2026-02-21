@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Tests for FrameStackWrapper."""
+"""Tests for FrameStackObservation."""
 
 import chex
 import jax
@@ -21,9 +21,9 @@ import jax.numpy as jnp
 
 from atarax.env.wrappers import (
     FrameStackState,
-    FrameStackWrapper,
-    GrayscaleWrapper,
-    ResizeWrapper,
+    FrameStackObservation,
+    GrayscaleObservation,
+    ResizeObservation,
 )
 
 _key = jax.random.PRNGKey(0)
@@ -31,7 +31,7 @@ _action = jnp.int32(0)
 
 
 def _make_env(fake_env, n_stack=4):
-    return FrameStackWrapper(ResizeWrapper(GrayscaleWrapper(fake_env)), n_stack=n_stack)
+    return FrameStackObservation(ResizeObservation(GrayscaleObservation(fake_env)), n_stack=n_stack)
 
 
 def test_reset_obs_shape(fake_env):

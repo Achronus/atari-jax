@@ -13,13 +13,13 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Tests for ResizeWrapper and the preprocess() utility."""
+"""Tests for ResizeObservation and the preprocess() utility."""
 
 import chex
 import jax
 import jax.numpy as jnp
 
-from atarax.env.wrappers import GrayscaleWrapper, ResizeWrapper
+from atarax.env.wrappers import GrayscaleObservation, ResizeObservation
 from atarax.utils.preprocess import preprocess
 
 _key = jax.random.PRNGKey(0)
@@ -40,26 +40,26 @@ def test_preprocess_jit_compiles():
 
 
 def test_reset_obs_shape(fake_env):
-    env = ResizeWrapper(GrayscaleWrapper(fake_env))
+    env = ResizeObservation(GrayscaleObservation(fake_env))
     obs, _ = env.reset(_key)
     chex.assert_shape(obs, (84, 84))
     chex.assert_type(obs, jnp.uint8)
 
 
 def test_step_obs_shape(fake_env):
-    env = ResizeWrapper(GrayscaleWrapper(fake_env))
+    env = ResizeObservation(GrayscaleObservation(fake_env))
     _, state = env.reset(_key)
     obs, _, _, _, _ = env.step(state, _action)
     chex.assert_shape(obs, (84, 84))
 
 
 def test_observation_space(fake_env):
-    env = ResizeWrapper(GrayscaleWrapper(fake_env), h=84, w=84)
+    env = ResizeObservation(GrayscaleObservation(fake_env), h=84, w=84)
     assert env.observation_space.shape == (84, 84)
 
 
 def test_custom_output_size(fake_env):
-    env = ResizeWrapper(GrayscaleWrapper(fake_env), h=42, w=42)
+    env = ResizeObservation(GrayscaleObservation(fake_env), h=42, w=42)
     _, state = env.reset(_key)
     obs, _, _, _, _ = env.step(state, _action)
     chex.assert_shape(obs, (42, 42))
@@ -67,7 +67,7 @@ def test_custom_output_size(fake_env):
 
 
 def test_jit_compiles(fake_env):
-    env = ResizeWrapper(GrayscaleWrapper(fake_env))
+    env = ResizeObservation(GrayscaleObservation(fake_env))
     _, state = env.reset(_key)
     obs, _, reward, done, _ = jax.jit(env.step)(state, _action)
     chex.assert_shape(obs, (84, 84))

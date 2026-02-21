@@ -25,13 +25,13 @@ import jax.numpy as jnp
 
 from atarax.env.vec_env import make_rollout_fn
 from atarax.env.wrappers import (
-    ClipRewardWrapper,
+    ClipReward,
     EpisodicLifeState,
-    EpisodicLifeWrapper,
+    EpisodicLife,
     FrameStackState,
-    FrameStackWrapper,
-    GrayscaleWrapper,
-    ResizeWrapper,
+    FrameStackObservation,
+    GrayscaleObservation,
+    ResizeObservation,
 )
 
 _key = jax.random.PRNGKey(0)
@@ -40,20 +40,20 @@ _action = jnp.int32(0)
 
 def _dqn_stack(env):
     """Standard DQN preprocessing: grayscale → resize → frame-stack → clip → episodic-life."""
-    return EpisodicLifeWrapper(
-        ClipRewardWrapper(FrameStackWrapper(ResizeWrapper(GrayscaleWrapper(env))))
+    return EpisodicLife(
+        ClipReward(FrameStackObservation(ResizeObservation(GrayscaleObservation(env))))
     )
 
 
 def test_stateless_chain_reset_shape(fake_env):
-    env = ClipRewardWrapper(GrayscaleWrapper(fake_env))
+    env = ClipReward(GrayscaleObservation(fake_env))
     obs, _ = env.reset(_key)
     chex.assert_shape(obs, (210, 160))
     chex.assert_type(obs, jnp.uint8)
 
 
 def test_stateless_chain_step_shapes(fake_env):
-    env = ClipRewardWrapper(GrayscaleWrapper(fake_env))
+    env = ClipReward(GrayscaleObservation(fake_env))
     _, state = env.reset(_key)
     obs, _, reward, done, _ = env.step(state, _action)
     chex.assert_shape(obs, (210, 160))
@@ -62,7 +62,7 @@ def test_stateless_chain_step_shapes(fake_env):
 
 
 def test_stateless_chain_reward_clipped(fake_env):
-    env = ClipRewardWrapper(GrayscaleWrapper(fake_env))
+    env = ClipReward(GrayscaleObservation(fake_env))
     _, state = env.reset(_key)
     _, _, reward, _, _ = env.step(state, _action)
     assert float(reward) == 1.0

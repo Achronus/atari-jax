@@ -13,44 +13,44 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Tests for GrayscaleWrapper."""
+"""Tests for GrayscaleObservation."""
 
 import chex
 import jax
 import jax.numpy as jnp
 
-from atarax.env.wrappers import GrayscaleWrapper
+from atarax.env.wrappers import GrayscaleObservation
 
 _key = jax.random.PRNGKey(0)
 _action = jnp.int32(0)
 
 
 def test_reset_obs_shape(fake_env):
-    env = GrayscaleWrapper(fake_env)
+    env = GrayscaleObservation(fake_env)
     obs, _ = env.reset(_key)
     chex.assert_shape(obs, (210, 160))
     chex.assert_type(obs, jnp.uint8)
 
 
 def test_step_obs_shape(fake_env):
-    env = GrayscaleWrapper(fake_env)
+    env = GrayscaleObservation(fake_env)
     _, state = env.reset(_key)
     obs, _, _, _, _ = env.step(state, _action)
     chex.assert_shape(obs, (210, 160))
 
 
 def test_observation_space(fake_env):
-    env = GrayscaleWrapper(fake_env)
+    env = GrayscaleObservation(fake_env)
     assert env.observation_space.shape == (210, 160)
 
 
 def test_action_space_delegated(fake_env):
-    env = GrayscaleWrapper(fake_env)
+    env = GrayscaleObservation(fake_env)
     assert env.action_space.n == 18
 
 
 def test_jit_compiles(fake_env):
-    env = GrayscaleWrapper(fake_env)
+    env = GrayscaleObservation(fake_env)
     _, state = env.reset(_key)
     obs, _, reward, done, _ = jax.jit(env.step)(state, _action)
     chex.assert_shape(obs, (210, 160))

@@ -73,8 +73,8 @@ env = make("atari/breakout-v0", preset=True)
 obs, state = env.reset(key)                   # obs: uint8[84, 84, 4]
 
 # Custom wrapper list (applied innermost → outermost)
-from atarax.env import GrayscaleWrapper, ResizeWrapper
-env = make("atari/breakout-v0", wrappers=[GrayscaleWrapper, ResizeWrapper])
+from atarax.env import GrayscaleObservation, ResizeObservation
+env = make("atari/breakout-v0", wrappers=[GrayscaleObservation, ResizeObservation])
 
 # Spinner shown on first (compilation) call of each method
 env = make("atari/breakout-v0", preset=True, show_compile_progress=True)
@@ -137,17 +137,19 @@ Keyboard controls for `play()`:
 
 ## Wrappers
 
-Five composable RL preprocessing wrappers, each accepting an `AtariEnv` or
+Seven composable RL preprocessing wrappers, each accepting an `AtariEnv` or
 another wrapper and exposing the same `reset(key)` / `step(state, action)`
 interface.
 
 | Wrapper | Input | Output | Description | Extra state |
 | --- | --- | --- | --- | --- |
-| `GrayscaleWrapper` | `uint8[210, 160, 3]` | `uint8[210, 160]` | NTSC luminance conversion | — |
-| `ResizeWrapper(out_h, out_w)` | `uint8[H, W]` | `uint8[out_h, out_w]` | Bilinear resize (default 84×84) | — |
-| `FrameStackWrapper(n_stack)` | `uint8[H, W]` | `uint8[H, W, n_stack]` | Rolling frame buffer (default 4) | `FrameStackState` |
-| `ClipRewardWrapper` | any reward | `float32 ∈ {−1, 0, +1}` | Sign clipping | — |
-| `EpisodicLifeWrapper` | any env | same obs | Terminal on every life loss | `EpisodicLifeState` |
+| `GrayscaleObservation` | `uint8[210, 160, 3]` | `uint8[210, 160]` | NTSC luminance conversion | — |
+| `ResizeObservation(out_h, out_w)` | `uint8[H, W]` | `uint8[out_h, out_w]` | Bilinear resize (default 84×84) | — |
+| `NormalizeObservation` | `uint8[...]` | `float32[...]` in `[0, 1]` | Divide by 255 | — |
+| `FrameStackObservation(n_stack)` | `uint8[H, W]` | `uint8[H, W, n_stack]` | Rolling frame buffer (default 4) | `FrameStackState` |
+| `ClipReward` | any reward | `float32 ∈ {−1, 0, +1}` | Sign clipping | — |
+| `EpisodicLife` | any env | same obs | Terminal on every life loss | `EpisodicLifeState` |
+| `RecordEpisodeStatistics` | any env | same obs | Tracks episode return + length in `info["episode"]` | `EpisodeStatisticsState` |
 
 Stateless wrappers pass the inner state through unchanged. Stateful wrappers
 return a `chex.dataclass` pytree that carries extra data alongside the inner
@@ -166,9 +168,11 @@ env = make("atari/breakout-v0", preset=True, jit_compile=True)
 key = jax.random.PRNGKey(0)
 obs, state = env.reset(key)           # obs: uint8[84, 84, 4]
 obs, state, reward, done, info = env.step(state, env.sample(key))
-# done              — True on life loss or game over
-# reward            — clipped to {-1, 0, +1}
-# info["real_done"] — True only on true game over
+# done                 — True on life loss or game over
+# reward               — clipped to {-1, 0, +1}
+# info["real_done"]    — True only on true game over
+# info["episode"]["r"] — episode return (non-zero at done)
+# info["episode"]["l"] — episode length (non-zero at done)
 ```
 
 ## Supported Games

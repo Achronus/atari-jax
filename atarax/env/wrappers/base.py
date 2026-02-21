@@ -25,7 +25,7 @@ from atarax.core.state import AtariState
 from atarax.env.spaces import Box, Discrete
 
 
-class BaseWrapper(ABC):
+class Wrapper(ABC):
     """
     Abstract base class for AtariEnv wrappers.
 
@@ -36,11 +36,11 @@ class BaseWrapper(ABC):
 
     Parameters
     ----------
-    env : AtariEnv | BaseWrapper
+    env : AtariEnv | Wrapper
         Inner environment to wrap
     """
 
-    def __init__(self, env: "AtariEnv | BaseWrapper") -> None:
+    def __init__(self, env: "AtariEnv | Wrapper") -> None:
         self._env = env
 
     @abstractmethod

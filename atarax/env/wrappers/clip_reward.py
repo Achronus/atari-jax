@@ -19,23 +19,23 @@ import chex
 import jax.numpy as jnp
 
 from atarax.core.state import AtariState
-from atarax.env.wrappers.base import BaseWrapper
+from atarax.env.wrappers.base import Wrapper
 
 if TYPE_CHECKING:
     from atarax.env.atari_env import AtariEnv
 
 
-class ClipRewardWrapper(BaseWrapper):
+class ClipReward(Wrapper):
     """
     Clip rewards to the sign of the reward: `{−1, 0, +1}`.
 
     Parameters
     ----------
-    env : AtariEnv | BaseWrapper
+    env : AtariEnv | Wrapper
         Inner environment to wrap.
     """
 
-    def __init__(self, env: "AtariEnv | BaseWrapper") -> None:
+    def __init__(self, env: "AtariEnv | Wrapper") -> None:
         super().__init__(env)
 
     def reset(self, key: chex.Array) -> Tuple[chex.Array, AtariState]:

@@ -22,13 +22,13 @@ if TYPE_CHECKING:
     from atarax.env.atari_env import AtariEnv
 
 from atarax.core.state import AtariState
-from atarax.env.wrappers.base import BaseWrapper
+from atarax.env.wrappers.base import Wrapper
 
 
 @chex.dataclass
 class EpisodicLifeState:
     """
-    State for `EpisodicLifeWrapper`.
+    State for `EpisodicLife`.
 
     Parameters
     ----------
@@ -46,7 +46,7 @@ class EpisodicLifeState:
     real_done: chex.Array
 
 
-class EpisodicLifeWrapper(BaseWrapper):
+class EpisodicLife(Wrapper):
     """
     Signal terminal on every life loss, not only on true game over.
 
@@ -56,12 +56,12 @@ class EpisodicLifeWrapper(BaseWrapper):
 
     Parameters
     ----------
-    env : AtariEnv | BaseWrapper
+    env : AtariEnv | Wrapper
         Inner environment. Its `step` must return `info["lives"]` (int32),
         and its `reset` state chain must terminate at an `AtariState`.
     """
 
-    def __init__(self, env: "AtariEnv | BaseWrapper") -> None:
+    def __init__(self, env: "AtariEnv | Wrapper") -> None:
         super().__init__(env)
 
     def reset(self, key: chex.Array) -> Tuple[chex.Array, EpisodicLifeState]:

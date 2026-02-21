@@ -24,13 +24,13 @@ if TYPE_CHECKING:
 
 from atarax.core.state import AtariState
 from atarax.env.spaces import Box
-from atarax.env.wrappers.base import BaseWrapper
+from atarax.env.wrappers.base import Wrapper
 
 
 @chex.dataclass
 class FrameStackState:
     """
-    State for `FrameStackWrapper`.
+    State for `FrameStackObservation`.
 
     Parameters
     ----------
@@ -45,7 +45,7 @@ class FrameStackState:
     obs_stack: jax.Array
 
 
-class FrameStackWrapper(BaseWrapper):
+class FrameStackObservation(Wrapper):
     """
     Maintain a sliding window of the last `n_stack` observations.
 
@@ -57,13 +57,13 @@ class FrameStackWrapper(BaseWrapper):
 
     Parameters
     ----------
-    env : AtariEnv | BaseWrapper
+    env : AtariEnv | Wrapper
         Inner environment returning 2-D observations.
     n_stack : int (optional)
         Number of frames to stack. Default is `4`.
     """
 
-    def __init__(self, env: "AtariEnv | BaseWrapper", n_stack: int = 4) -> None:
+    def __init__(self, env: "AtariEnv | Wrapper", n_stack: int = 4) -> None:
         super().__init__(env)
 
         self._n_stack = n_stack

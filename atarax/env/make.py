@@ -27,12 +27,13 @@ from atarax.env.atari_env import AtariEnv, EnvParams
 from atarax.env.spec import EnvSpec
 from atarax.env.vec_env import VecEnv
 from atarax.env.wrappers import (
-    BaseWrapper,
-    ClipRewardWrapper,
-    EpisodicLifeWrapper,
-    FrameStackWrapper,
-    GrayscaleWrapper,
-    ResizeWrapper,
+    Wrapper,
+    ClipReward,
+    EpisodicLife,
+    FrameStackObservation,
+    GrayscaleObservation,
+    RecordEpisodeStatistics,
+    ResizeObservation,
 )
 from atarax.games.registry import GAME_IDS
 
@@ -83,7 +84,7 @@ def make(
     jit_compile: bool = True,
     cache_dir: pathlib.Path | str | None = DEFAULT_CACHE_DIR,
     show_compile_progress: bool = False,
-) -> AtariEnv | BaseWrapper:
+) -> AtariEnv | Wrapper:
     """
     Create an `AtariEnv`, optionally with wrappers applied.
 
@@ -105,11 +106,12 @@ def make(
 
         Wrappers applied (in order):
 
-        - `GrayscaleWrapper`
-        - `ResizeWrapper` (84x84)
-        - `FrameStackWrapper` (4 frames)
-        - `ClipRewardWrapper`
-        - `EpisodicLifeWrapper`
+        - `GrayscaleObservation`
+        - `ResizeObservation` (84x84)
+        - `FrameStackObservation` (4 frames)
+        - `ClipReward`
+        - `EpisodicLife`
+        - `RecordEpisodeStatistics`
 
     jit_compile : bool (optional)
         JIT-compile `reset`, `step`, and `sample` on the first call.
@@ -123,7 +125,7 @@ def make(
 
     Returns
     -------
-    env : AtariEnv | BaseWrapper
+    env : AtariEnv | Wrapper
         Configured environment.
 
     Raises
@@ -144,11 +146,12 @@ def make(
     env = AtariEnv(ale_name, params or EnvParams())
 
     if preset:
-        env = GrayscaleWrapper(env)
-        env = ResizeWrapper(env, h=84, w=84)
-        env = FrameStackWrapper(env, n_stack=4)
-        env = ClipRewardWrapper(env)
-        env = EpisodicLifeWrapper(env)
+        env = GrayscaleObservation(env)
+        env = ResizeObservation(env, h=84, w=84)
+        env = FrameStackObservation(env, n_stack=4)
+        env = ClipReward(env)
+        env = EpisodicLife(env)
+        env = RecordEpisodeStatistics(env)
     elif wrappers:
         for wrapper_cls in wrappers:
             env = wrapper_cls(env)

@@ -15,22 +15,30 @@
 
 """Observation and reward wrappers for AtariEnv."""
 
-from atarax.env.wrappers.base import BaseWrapper
+from atarax.env.wrappers.base import Wrapper
+from atarax.env.wrappers.clip_reward import ClipReward
+from atarax.env.wrappers.episodic_life import EpisodicLife, EpisodicLifeState
+from atarax.env.wrappers.frame_stack import FrameStackObservation, FrameStackState
+from atarax.env.wrappers.grayscale import GrayscaleObservation
+from atarax.env.wrappers.normalize_obs import NormalizeObservation
+from atarax.env.wrappers.record_episode_statistics import (
+    EpisodeStatisticsState,
+    RecordEpisodeStatistics,
+)
+from atarax.env.wrappers.resize import ResizeObservation
 from atarax.env.wrappers.utils import to_gray
-from atarax.env.wrappers.clip_reward import ClipRewardWrapper
-from atarax.env.wrappers.episodic_life import EpisodicLifeState, EpisodicLifeWrapper
-from atarax.env.wrappers.frame_stack import FrameStackState, FrameStackWrapper
-from atarax.env.wrappers.grayscale import GrayscaleWrapper
-from atarax.env.wrappers.resize import ResizeWrapper
 
 __all__ = [
-    "BaseWrapper",
-    "ClipRewardWrapper",
-    "to_gray",
+    "ClipReward",
+    "EpisodicLife",
     "EpisodicLifeState",
-    "EpisodicLifeWrapper",
+    "EpisodeStatisticsState",
+    "FrameStackObservation",
     "FrameStackState",
-    "FrameStackWrapper",
-    "GrayscaleWrapper",
-    "ResizeWrapper",
+    "GrayscaleObservation",
+    "NormalizeObservation",
+    "RecordEpisodeStatistics",
+    "ResizeObservation",
+    "to_gray",
+    "Wrapper",
 ]

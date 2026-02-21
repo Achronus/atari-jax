@@ -22,11 +22,11 @@ if TYPE_CHECKING:
 
 from atarax.core.state import AtariState
 from atarax.env.spaces import Box
-from atarax.env.wrappers.base import BaseWrapper
+from atarax.env.wrappers.base import Wrapper
 from atarax.env.wrappers.utils import to_gray
 
 
-class GrayscaleWrapper(BaseWrapper):
+class GrayscaleObservation(Wrapper):
     """
     Convert RGB observations to grayscale using the NTSC luminance formula.
 
@@ -35,11 +35,11 @@ class GrayscaleWrapper(BaseWrapper):
 
     Parameters
     ----------
-    env : AtariEnv | BaseWrapper
+    env : AtariEnv | Wrapper
         Inner environment to wrap.
     """
 
-    def __init__(self, env: "AtariEnv | BaseWrapper") -> None:
+    def __init__(self, env: "AtariEnv | Wrapper") -> None:
         super().__init__(env)
 
     def reset(self, key: chex.Array) -> Tuple[chex.Array, AtariState]:

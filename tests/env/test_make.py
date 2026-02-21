@@ -29,7 +29,7 @@ from atarax.env import (
     AtariEnv,
     EnvSpec,
     EpisodicLifeState,
-    GrayscaleWrapper,
+    GrayscaleObservation,
     VecEnv,
     make,
     make_vec,
@@ -55,8 +55,8 @@ def test_make_invalid_id_raises():
 
 
 def test_make_wrappers_list():
-    env = make(_BREAKOUT, wrappers=[GrayscaleWrapper])
-    assert isinstance(env, GrayscaleWrapper)
+    env = make(_BREAKOUT, wrappers=[GrayscaleObservation])
+    assert isinstance(env, GrayscaleObservation)
 
 
 def test_make_preset_dqn_obs_shape():
@@ -68,7 +68,7 @@ def test_make_preset_dqn_obs_shape():
 
 def test_make_preset_and_wrappers_raises():
     with pytest.raises(ValueError, match="not both"):
-        make(_BREAKOUT, wrappers=[GrayscaleWrapper], preset=True)
+        make(_BREAKOUT, wrappers=[GrayscaleObservation], preset=True)
 
 
 def test_make_vec_returns_vec_env():

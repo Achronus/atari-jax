@@ -20,7 +20,7 @@ import jax
 
 if TYPE_CHECKING:
     from atarax.env.atari_env import AtariEnv
-    from atarax.env.wrappers.base import BaseWrapper
+    from atarax.env.wrappers.base import Wrapper
 
 from atarax.core.state import AtariState
 from atarax.env._compile import _wrap_with_spinner
@@ -36,7 +36,7 @@ class VecEnv:
 
     Parameters
     ----------
-    env : AtariEnv | BaseWrapper
+    env : AtariEnv | Wrapper
         Single-instance environment to vectorize.
     n_envs : int
         Number of parallel environments.  Used to split the PRNG key in
@@ -51,7 +51,7 @@ class VecEnv:
 
     def __init__(
         self,
-        env: "AtariEnv | BaseWrapper",
+        env: "AtariEnv | Wrapper",
         n_envs: int,
         jit_compile: bool = True,
         show_compile_progress: bool = False,
@@ -191,7 +191,7 @@ class VecEnv:
         return self._n_envs
 
 
-def make_rollout_fn(env: "AtariEnv | BaseWrapper") -> Callable:
+def make_rollout_fn(env: "AtariEnv | Wrapper") -> Callable:
     """
     Build a compiled rollout function for `env`.
 
@@ -208,7 +208,7 @@ def make_rollout_fn(env: "AtariEnv | BaseWrapper") -> Callable:
 
     Parameters
     ----------
-    env : AtariEnv | BaseWrapper
+    env : AtariEnv | Wrapper
         Environment that exposes `step(state, action)`.
 
     Returns

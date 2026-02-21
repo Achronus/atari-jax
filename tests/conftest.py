@@ -19,7 +19,7 @@ Enables the JAX persistent XLA compilation cache so that expensive JIT
 compilations (e.g. the full emulator reset/step graph) are written to disk
 on the first run and reused on all subsequent runs.
 
-FakeEnv is a ROM-free environment that mirrors the AtariEnv/BaseWrapper
+FakeEnv is a ROM-free environment that mirrors the AtariEnv/Wrapper
 interface; it is available to all test subdirectories.
 """
 
@@ -40,7 +40,7 @@ def pytest_configure(config):
 
 
 class FakeEnv:
-    """Minimal ROM-free env that mirrors the AtariEnv/BaseWrapper interface."""
+    """Minimal ROM-free env that mirrors the AtariEnv/Wrapper interface."""
 
     def reset(self, key):
         state = new_atari_state()
