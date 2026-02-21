@@ -149,6 +149,9 @@ _GAMES: list[GameSpec] = [
 # Maps ALE game name → game_id integer.
 GAME_IDS: dict[str, int] = {g.ale_name: g.game_id for g in _GAMES}
 
+# Maps canonical "atari/<name>-v0" identifier → game_id integer.
+ENV_IDS: dict[str, int] = {f"atari/{name}-v0": idx for name, idx in GAME_IDS.items()}
+
 # Ordered lists of bound methods, indexed by game_id.
 # Used by jax.lax.switch in the dispatch functions.
 REWARD_FNS = [g.game.get_reward for g in _GAMES]

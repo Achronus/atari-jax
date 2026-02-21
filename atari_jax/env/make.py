@@ -20,6 +20,7 @@ from typing import List, Type, Union
 import jax
 
 from atari_jax.env.atari_env import AtariEnv, EnvParams
+from atari_jax.env.spec import EnvSpec
 from atari_jax.env.vec_env import VecEnv
 from atari_jax.env.wrappers import (
     BaseWrapper,
@@ -29,10 +30,48 @@ from atari_jax.env.wrappers import (
     GrayscaleWrapper,
     ResizeWrapper,
 )
+from atari_jax.games.registry import GAME_IDS
+
+_ENV_ID_RE = re.compile(r"^([^/]+)/(.+)-v(\d+)$")
+
+
+def _resolve_spec(game_id: str | EnvSpec) -> str:
+    """
+    Return the ALE name from an `EnvSpec` or `"[engine]/[name]-v[N]"` string.
+
+    Parameters
+    ----------
+    game_id : str | EnvSpec
+        Environment identifier.
+
+    Returns
+    -------
+    ale_name : str
+        Internal ALE game name (e.g. `"breakout"`).
+
+    Raises
+    ------
+    id_error : ValueError
+        If `game_id` is a string that does not match the
+        `"[engine]/[name]-v[N]"` format.
+    """
+    if isinstance(game_id, EnvSpec):
+        return game_id.env_name
+
+    m = _ENV_ID_RE.match(game_id)
+
+    if not m:
+        raise ValueError(
+            f"Invalid environment ID {game_id!r}. "
+            "Use an EnvSpec or the format 'atari/<game_name>-v0', "
+            "e.g. EnvSpec('atari', 'breakout') or 'atari/breakout-v0'."
+        )
+
+    return m.group(2)
 
 
 def make(
-    game_id: str,
+    game_id: str | EnvSpec,
     *,
     params: EnvParams | None = None,
     wrappers: List[Type] | None = None,
@@ -44,8 +83,10 @@ def make(
 
     Parameters
     ----------
-    game_id : str
-        ALE game name (e.g. `"breakout"`).
+    game_id : str | EnvSpec
+        Environment identifier — either an `EnvSpec` (e.g.
+        `EnvSpec("atari", "breakout")`) or the canonical string
+        `"atari/breakout-v0"`.
     params : EnvParams (optional)
         Environment parameters; defaults to `EnvParams()`.
     wrappers : List[Type] (optional)
@@ -59,7 +100,7 @@ def make(
         Wrappers applied (in order):
 
         - `GrayscaleWrapper`
-        - `ResizeWrapper` (84×84)
+        - `ResizeWrapper` (84x84)
         - `FrameStackWrapper` (4 frames)
         - `ClipRewardWrapper`
         - `EpisodicLifeWrapper`
@@ -77,11 +118,18 @@ def make(
     ------
     wrapper_error : ValueError
         If both `wrappers` and `preset` are provided.
+    id_error : ValueError
+        If `game_id` is a string that does not match the
+        `"[engine]/[name]-v[N]"` format.
     """
+    ale_name = _resolve_spec(game_id)
+
     if wrappers is not None and preset:
         raise ValueError("Provide either `wrappers` or `preset`, not both.")
 
     env: Union[AtariEnv, BaseWrapper] = AtariEnv(game_id, params or EnvParams())
+
+    env = AtariEnv(ale_name, params or EnvParams())
 
     if preset:
         env = GrayscaleWrapper(env)
@@ -102,7 +150,7 @@ def make(
 
 
 def make_vec(
-    game_id: str,
+    game_id: str | EnvSpec,
     n_envs: int,
     *,
     params: EnvParams | None = None,
@@ -119,8 +167,10 @@ def make_vec(
 
     Parameters
     ----------
-    game_id : str
-        ALE game name (e.g. `"breakout"`).
+    game_id : str | EnvSpec
+        Environment identifier — either an `EnvSpec` (e.g.
+        `EnvSpec("atari", "breakout")`) or the canonical string
+        `"atari/breakout-v0"`.
     n_envs : int
         Number of parallel environments.
     params : EnvParams (optional)
