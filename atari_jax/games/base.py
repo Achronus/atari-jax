@@ -18,18 +18,25 @@
 from abc import ABC, abstractmethod
 
 import chex
+import jax
+import jax.numpy as jnp
 
-from atari_jax.core.state import AtariState
+from atari_jax.core.cpu import cpu_reset
+from atari_jax.core.frame import emulate_frame
+from atari_jax.core.state import AtariState, new_atari_state
 
 
 class AtariGame(ABC):
     """Abstract base class for a supported Atari game.
 
-    Each subclass implements reward extraction, terminal detection,
-    and the reset/step loop for one ROM.  All methods operate on
-    JAX arrays and are fully compatible with `jax.jit` and `jax.vmap` —
-    ``self`` is a Python-level constant that JAX never traces.
+    Subclasses implement reward extraction, terminal detection, and lives
+    counting for one ROM.  The shared `reset` and `step` entry points are
+    provided by this base class.  All methods operate on JAX arrays and are
+    fully compatible with `jax.jit` and `jax.vmap` — ``self`` is a
+    Python-level constant that JAX never traces.
     """
+
+    _WARMUP_FRAMES: int = 60
 
     @abstractmethod
     def get_lives(self, ram: chex.Array) -> chex.Array:
@@ -86,10 +93,13 @@ class AtariGame(ABC):
         """
         raise NotImplementedError()
 
-    @abstractmethod
     def reset(self, rom: chex.Array) -> AtariState:
         """
         Initialise the machine and run warm-up frames.
+
+        Loads the CPU reset vector from the ROM, runs `_WARMUP_FRAMES` NOOP
+        frames, then captures the initial lives count and zeroes the episode
+        counters.
 
         Parameters
         ----------
@@ -99,16 +109,33 @@ class AtariGame(ABC):
         Returns
         -------
         state : AtariState
-            Ready-to-play machine state.
+            Ready-to-play machine state with `lives`, `reward`, `terminal`,
+            and `episode_frame` initialised.
         """
-        raise NotImplementedError()
+        state = new_atari_state()
+        state = cpu_reset(state, rom)
+        state = jax.lax.fori_loop(
+            0,
+            self._WARMUP_FRAMES,
+            lambda _, s: emulate_frame(s, rom, jnp.int32(0)),
+            state,
+        )
+        return state.__replace__(
+            lives=self.get_lives(state.riot.ram),
+            episode_frame=jnp.int32(0),
+            terminal=jnp.bool_(False),
+            reward=jnp.float32(0.0),
+        )
 
-    @abstractmethod
     def step(
         self, state: AtariState, rom: chex.Array, action: chex.Array
     ) -> AtariState:
         """
         Apply one action and emulate one ALE frame.
+
+        Captures the pre-step RAM, runs `emulate_frame`, then updates
+        `reward`, `lives`, `terminal`, and `episode_frame` using this
+        game's RAM-extraction logic.
 
         Parameters
         ----------
@@ -124,4 +151,13 @@ class AtariGame(ABC):
         state : AtariState
             Updated state after the frame, with episode fields populated.
         """
-        raise NotImplementedError()
+        ram_prev = state.riot.ram
+        lives_prev = state.lives
+        state = emulate_frame(state, rom, action)
+        ram_curr = state.riot.ram
+        return state.__replace__(
+            reward=self.get_reward(ram_prev, ram_curr),
+            lives=self.get_lives(ram_curr),
+            terminal=self.is_terminal(ram_curr, lives_prev),
+            episode_frame=(state.episode_frame + jnp.int32(1)).astype(jnp.int32),
+        )
