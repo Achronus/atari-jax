@@ -34,10 +34,10 @@ class EpisodicLifeState:
     ----------
     env_state : AtariState
         Underlying machine state (may itself be a wrapped state).
-    prev_lives : jax.Array
-        int32 — Lives count observed at the previous step (or at `reset`);
-        compared with the current lives to detect a life loss.
-    real_done : jax.Array
+    prev_lives : chex.Array
+        int32 — Lives count at the end of the previous step (or at `reset`);
+        compared against `info["lives"]` each step to detect a life loss.
+    real_done : chex.Array
         bool — `True` when the game itself (not just a life) is over.
     """
 
@@ -57,7 +57,8 @@ class EpisodicLifeWrapper(BaseWrapper):
     Parameters
     ----------
     env : AtariEnv | BaseWrapper
-        Inner environment whose states have a `lives` field.
+        Inner environment. Its `step` must return `info["lives"]` (int32),
+        and its `reset` state chain must terminate at an `AtariState`.
     """
 
     def __init__(self, env: "AtariEnv | BaseWrapper") -> None:
@@ -75,14 +76,20 @@ class EpisodicLifeWrapper(BaseWrapper):
         Returns
         -------
         obs : chex.Array
-            uint8[210, 160, 3] — First RGB observation.
+            First observation from the inner reset.
         state : EpisodicLifeState
-            Wrapper state with `real_done=False` and lives from the reset.
+            Wrapper state with `real_done=False` and `prev_lives` initialized
+            from the base `AtariState` at the bottom of the state chain.
         """
         obs, env_state = self._env.reset(key)
+        base = env_state
+
+        while hasattr(base, "env_state"):
+            base = base.env_state  # type: ignore
+
         return obs, EpisodicLifeState(
             env_state=env_state,
-            prev_lives=env_state.lives,
+            prev_lives=base.lives,
             real_done=jnp.bool_(False),
         )
 
@@ -117,11 +124,13 @@ class EpisodicLifeWrapper(BaseWrapper):
         obs, env_state, reward, real_done, info = self._env.step(
             state.env_state, action
         )
-        new_lives = env_state.lives
+        new_lives = info["lives"]
+
         done = (new_lives < state.prev_lives) | real_done
         new_state = EpisodicLifeState(
             env_state=env_state,
             prev_lives=new_lives,
             real_done=real_done,
         )
+
         return obs, new_state, reward, done, dict(info, real_done=real_done)
