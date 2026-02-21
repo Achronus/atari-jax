@@ -14,8 +14,9 @@
 # ==============================================================================
 
 from atari_jax.env.atari_env import AtariEnv, EnvParams
+from atari_jax.env.make import make, make_vec
 from atari_jax.env.spaces import Box, Discrete
-from atari_jax.env.vec_env import make_rollout_fn
+from atari_jax.env.vec_env import VecEnv, make_rollout_fn
 from atari_jax.env.wrappers import (
     BaseWrapper,
     ClipRewardWrapper,
@@ -39,6 +40,9 @@ __all__ = [
     "FrameStackState",
     "FrameStackWrapper",
     "GrayscaleWrapper",
+    "make",
     "make_rollout_fn",
+    "make_vec",
+    "VecEnv",
     "ResizeWrapper",
 ]
