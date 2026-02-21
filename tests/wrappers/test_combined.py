@@ -28,9 +28,11 @@ from atarax.env.wrappers import (
     ClipReward,
     EpisodicLifeState,
     EpisodicLife,
+    EpisodeStatisticsState,
     FrameStackState,
     FrameStackObservation,
     GrayscaleObservation,
+    RecordEpisodeStatistics,
     ResizeObservation,
 )
 
@@ -39,9 +41,11 @@ _action = jnp.int32(0)
 
 
 def _dqn_stack(env):
-    """Standard DQN preprocessing: grayscale → resize → frame-stack → clip → episodic-life."""
-    return EpisodicLife(
-        ClipReward(FrameStackObservation(ResizeObservation(GrayscaleObservation(env))))
+    """Standard DQN preprocessing: grayscale → resize → frame-stack → clip → episodic-life → record-stats."""
+    return RecordEpisodeStatistics(
+        EpisodicLife(
+            ClipReward(FrameStackObservation(ResizeObservation(GrayscaleObservation(env))))
+        )
     )
 
 
@@ -78,8 +82,9 @@ def test_dqn_reset_obs_shape(fake_env):
 def test_dqn_reset_state_types(fake_env):
     env = _dqn_stack(fake_env)
     _, state = env.reset(_key)
-    assert isinstance(state, EpisodicLifeState)
-    assert isinstance(state.env_state, FrameStackState)
+    assert isinstance(state, EpisodeStatisticsState)
+    assert isinstance(state.env_state, EpisodicLifeState)
+    assert isinstance(state.env_state.env_state, FrameStackState)
 
 
 def test_dqn_step_obs_shape(fake_env):
@@ -107,8 +112,18 @@ def test_dqn_step_state_types_preserved(fake_env):
     env = _dqn_stack(fake_env)
     _, state = env.reset(_key)
     _, new_state, _, _, _ = env.step(state, _action)
-    assert isinstance(new_state, EpisodicLifeState)
-    assert isinstance(new_state.env_state, FrameStackState)
+    assert isinstance(new_state, EpisodeStatisticsState)
+    assert isinstance(new_state.env_state, EpisodicLifeState)
+    assert isinstance(new_state.env_state.env_state, FrameStackState)
+
+
+def test_dqn_step_info_has_episode(fake_env):
+    env = _dqn_stack(fake_env)
+    _, state = env.reset(_key)
+    _, _, _, _, info = env.step(state, _action)
+    assert "episode" in info
+    assert "r" in info["episode"]
+    assert "l" in info["episode"]
 
 
 def test_dqn_jit_compiles(fake_env):
@@ -138,7 +153,7 @@ def test_dqn_rollout_jit_compiles(fake_env):
     actions = jnp.zeros(8, dtype=jnp.int32)
     final_state, (obs, reward, done, info) = rollout(state, actions)
     chex.assert_shape(obs, (8, 84, 84, 4))
-    assert isinstance(final_state, EpisodicLifeState)
+    assert isinstance(final_state, EpisodeStatisticsState)
 
 
 def test_dqn_rollout_vmap(fake_env):
