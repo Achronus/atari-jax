@@ -18,10 +18,10 @@ class ROMMetadata:
         int32 — Bankswitching scheme: 0=none, 1=F8, 2=F6, 3=F4, …
     """
 
-    scheme_id: jax.Array
+    scheme_id: chex.Array
 
 
-def cart_read(rom: jax.Array, bank: jax.Array, addr13: jax.Array) -> jax.Array:
+def cart_read(rom: chex.Array, bank: chex.Array, addr13: chex.Array) -> chex.Array:
     """
     Read one byte from the cartridge ROM.
 
@@ -46,9 +46,9 @@ def cart_read(rom: jax.Array, bank: jax.Array, addr13: jax.Array) -> jax.Array:
 
 def cart_write(
     state: AtariState,
-    scheme_id: jax.Array,
-    addr13: jax.Array,
-    value: jax.Array,
+    scheme_id: chex.Array,
+    addr13: chex.Array,
+    value: chex.Array,
 ) -> AtariState:
     """
     Handle bankswitching writes.

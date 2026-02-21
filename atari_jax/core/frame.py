@@ -1,5 +1,6 @@
 """Frame-level emulation loop — one ALE frame = 262 scanlines × 76 CPU cycles."""
 
+import chex
 import jax
 import jax.numpy as jnp
 
@@ -20,7 +21,7 @@ _SWCHA: jax.Array = jnp.array(
 )
 
 
-def emulate_scanline(state: AtariState, rom: jax.Array, sl_idx: jax.Array) -> AtariState:
+def emulate_scanline(state: AtariState, rom: chex.Array, sl_idx: chex.Array) -> AtariState:
     """
     Emulate one scanline: run the CPU for 76 cycles then render if visible.
 
@@ -85,7 +86,7 @@ def emulate_scanline(state: AtariState, rom: jax.Array, sl_idx: jax.Array) -> At
     )
 
 
-def emulate_frame(state: AtariState, rom: jax.Array, action: jax.Array) -> AtariState:
+def emulate_frame(state: AtariState, rom: chex.Array, action: chex.Array) -> AtariState:
     """
     Emulate one full ALE frame (262 scanlines).
 

@@ -16,6 +16,7 @@ and RIOT RAM (0x180–0x1FF, bit-7=1).  In practice the 6502 SP starts at
 0xFF so valid stack addresses are 0x1FF–0x180, all in RIOT RAM.
 """
 
+import chex
 import jax
 import jax.numpy as jnp
 
@@ -53,7 +54,7 @@ def _region(addr13: jax.Array) -> jax.Array:
     )
 
 
-def bus_read(state: AtariState, rom: jax.Array, addr: jax.Array) -> jax.Array:
+def bus_read(state: AtariState, rom: chex.Array, addr: chex.Array) -> chex.Array:
     """
     Read one byte from the Atari bus.
 
@@ -89,8 +90,8 @@ def bus_read(state: AtariState, rom: jax.Array, addr: jax.Array) -> jax.Array:
 def bus_write(
     state: AtariState,
     rom_meta: ROMMetadata,
-    addr: jax.Array,
-    value: jax.Array,
+    addr: chex.Array,
+    value: chex.Array,
 ) -> AtariState:
     """
     Write one byte to the Atari bus.

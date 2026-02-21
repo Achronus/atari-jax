@@ -2,6 +2,7 @@
 
 from typing import Tuple
 
+import chex
 import jax
 import jax.numpy as jnp
 
@@ -92,11 +93,11 @@ def _hpos_to_pixel(hpos: jax.Array) -> jax.Array:
 
 
 def _build_pf_mask(
-    pf0: jax.Array,
-    pf1: jax.Array,
-    pf2: jax.Array,
-    ctrlpf: jax.Array,
-) -> jax.Array:
+    pf0: chex.Array,
+    pf1: chex.Array,
+    pf2: chex.Array,
+    ctrlpf: chex.Array,
+) -> chex.Array:
     """
     Expand PF0/PF1/PF2 register bits into a 160-pixel playfield mask.
 
@@ -139,12 +140,12 @@ def _build_pf_mask(
 
 
 def _player_mask(
-    grp: jax.Array,
-    pos: jax.Array,
-    refp: jax.Array,
-    nusiz: jax.Array,
-    px: jax.Array,
-) -> jax.Array:
+    grp: chex.Array,
+    pos: chex.Array,
+    refp: chex.Array,
+    nusiz: chex.Array,
+    px: chex.Array,
+) -> chex.Array:
     """
     Build a 160-pixel mask for a player sprite.
 
@@ -386,7 +387,7 @@ def _cx_byte(collisions: jax.Array, addr4: jax.Array) -> jax.Array:
     return (hi_bit << jnp.uint8(7)) | (lo_bit << jnp.uint8(6))
 
 
-def tia_read(state: AtariState, addr13: jax.Array) -> jax.Array:
+def tia_read(state: AtariState, addr13: chex.Array) -> chex.Array:
     """
     Read one byte from the TIA address space.
 
@@ -412,7 +413,7 @@ def tia_read(state: AtariState, addr13: jax.Array) -> jax.Array:
     return result
 
 
-def tia_write(state: AtariState, addr13: jax.Array, value: jax.Array) -> AtariState:
+def tia_write(state: AtariState, addr13: chex.Array, value: chex.Array) -> AtariState:
     """
     Write one byte to the TIA, shadowing the value and triggering side-effects.
 
@@ -540,7 +541,7 @@ def tia_write(state: AtariState, addr13: jax.Array, value: jax.Array) -> AtariSt
     return state.__replace__(tia=tia)
 
 
-def render_scanline(state: AtariState) -> Tuple[AtariState, jax.Array]:
+def render_scanline(state: AtariState) -> Tuple[AtariState, chex.Array]:
     """
     Render one scanline and update collision latches.
 

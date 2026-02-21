@@ -4,8 +4,8 @@ Run with:
     pytest tests/test_breakout.py -v
 """
 
+import chex
 import jax.numpy as jnp
-import pytest
 
 from atari_jax.games.roms.breakout import (
     LIVES_ADDR,
@@ -28,14 +28,20 @@ def _ram(overrides=None):
 
 def test_get_reward_zero():
     ram = _ram()
-    assert float(get_reward(ram, ram)) == 0.0
+    reward = get_reward(ram, ram)
+    chex.assert_rank(reward, 0)
+    chex.assert_type(reward, jnp.float32)
+    assert float(reward) == 0.0
 
 
 def test_get_reward_ones():
     # SCORE_X ones nibble: 0x01 → 1 point
     ram_prev = _ram()
     ram_curr = _ram({SCORE_X: 0x01})
-    assert float(get_reward(ram_prev, ram_curr)) == 1.0
+    reward = get_reward(ram_prev, ram_curr)
+    chex.assert_rank(reward, 0)
+    chex.assert_type(reward, jnp.float32)
+    assert float(reward) == 1.0
 
 
 def test_get_reward_ones_tens():
@@ -62,7 +68,10 @@ def test_get_reward_combined():
 def test_is_terminal_false_before_start():
     # lives_prev = 0 → game never started → not terminal even if ram lives = 0
     ram = _ram({LIVES_ADDR: 0})
-    assert not bool(is_terminal(ram, jnp.int32(0)))
+    terminal = is_terminal(ram, jnp.int32(0))
+    chex.assert_rank(terminal, 0)
+    chex.assert_type(terminal, bool)
+    assert not bool(terminal)
 
 
 def test_is_terminal_true():

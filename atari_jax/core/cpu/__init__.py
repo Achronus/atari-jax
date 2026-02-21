@@ -7,7 +7,7 @@ Opcode handler contract
 -----------------------
 Every entry in `OPCODE_TABLE` shares the same signature::
 
-    def _op_xxx(state: AtariState, rom: jax.Array) -> Tuple[AtariState, jax.Array]:
+    def _op_xxx(state: AtariState, rom: chex.Array) -> Tuple[AtariState, chex.Array]:
         ...
 
 Parameters
@@ -34,6 +34,7 @@ Implemented: load/store, transfer, branch, jump/subroutine, stack, flag ops,
 
 from typing import Tuple
 
+import chex
 import jax
 import jax.numpy as jnp
 
@@ -394,7 +395,7 @@ _T[0x2C] = _op_bit_abs
 OPCODE_TABLE = _T
 
 
-def cpu_step(state: AtariState, rom: jax.Array) -> Tuple[AtariState, jax.Array]:
+def cpu_step(state: AtariState, rom: chex.Array) -> Tuple[AtariState, chex.Array]:
     """
     Fetch, decode, and execute one 6507 instruction.
 
@@ -420,7 +421,7 @@ def cpu_step(state: AtariState, rom: jax.Array) -> Tuple[AtariState, jax.Array]:
     return new_state, cycles
 
 
-def cpu_reset(state: AtariState, rom: jax.Array) -> AtariState:
+def cpu_reset(state: AtariState, rom: chex.Array) -> AtariState:
     """
     Load the reset vector from 0xFFFC/0xFFFD and set PC.
 

@@ -16,13 +16,14 @@ Timer current value (from M6532.cxx peek logic):
   if timer_val < 0: counts down at rate 1 per cycle after underflow
 """
 
+import chex
 import jax
 import jax.numpy as jnp
 
 from atari_jax.core.state import AtariState
 
 
-def riot_ram_read(state: AtariState, addr13: jax.Array) -> jax.Array:
+def riot_ram_read(state: AtariState, addr13: chex.Array) -> chex.Array:
     """
     Read one byte from RIOT RAM.
 
@@ -43,7 +44,7 @@ def riot_ram_read(state: AtariState, addr13: jax.Array) -> jax.Array:
 
 
 def riot_ram_write(
-    state: AtariState, addr13: jax.Array, value: jax.Array
+    state: AtariState, addr13: chex.Array, value: chex.Array
 ) -> AtariState:
     """
     Write one byte to RIOT RAM.
@@ -123,7 +124,7 @@ def _timer_irq_flag(state: AtariState) -> jax.Array:
     return jnp.where(normal < jnp.int32(0), jnp.uint8(0x80), jnp.uint8(0x00))
 
 
-def riot_io_read(state: AtariState, addr13: jax.Array) -> jax.Array:
+def riot_io_read(state: AtariState, addr13: chex.Array) -> chex.Array:
     """
     Read a RIOT I/O / timer register.
 
@@ -173,7 +174,7 @@ def riot_io_read(state: AtariState, addr13: jax.Array) -> jax.Array:
 _INTERVAL_SHIFTS = jnp.array([0, 3, 6, 10], dtype=jnp.uint8)
 
 
-def riot_io_write(state: AtariState, addr13: jax.Array, value: jax.Array) -> AtariState:
+def riot_io_write(state: AtariState, addr13: chex.Array, value: chex.Array) -> AtariState:
     """
     Write to a RIOT I/O / timer register.
 
