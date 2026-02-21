@@ -13,8 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
+from atari_jax.env._compile import DEFAULT_CACHE_DIR, setup_cache
 from atari_jax.env.atari_env import AtariEnv, EnvParams
-from atari_jax.env.make import make, make_vec
+from atari_jax.env.make import make, make_vec, precompile_all
 from atari_jax.env.spaces import Box, Discrete
 from atari_jax.env.spec import EnvSpec
 from atari_jax.env.vec_env import VecEnv, make_rollout_fn
@@ -34,6 +35,7 @@ __all__ = [
     "BaseWrapper",
     "Box",
     "ClipRewardWrapper",
+    "DEFAULT_CACHE_DIR",
     "Discrete",
     "EnvParams",
     "EnvSpec",
@@ -45,6 +47,8 @@ __all__ = [
     "make",
     "make_rollout_fn",
     "make_vec",
+    "precompile_all",
+    "setup_cache",
     "VecEnv",
     "ResizeWrapper",
 ]

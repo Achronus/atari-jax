@@ -15,10 +15,14 @@
 
 """Factory functions for creating AtariEnv instances."""
 
-from typing import List, Type, Union
+import pathlib
+import re
+import sys
+from typing import List, Type
 
 import jax
 
+from atari_jax.env._compile import DEFAULT_CACHE_DIR, _wrap_with_spinner, setup_cache
 from atari_jax.env.atari_env import AtariEnv, EnvParams
 from atari_jax.env.spec import EnvSpec
 from atari_jax.env.vec_env import VecEnv
@@ -77,7 +81,9 @@ def make(
     wrappers: List[Type] | None = None,
     preset: bool = False,
     jit_compile: bool = True,
-) -> Union[AtariEnv, BaseWrapper]:
+    cache_dir: pathlib.Path | str | None = DEFAULT_CACHE_DIR,
+    show_compile_progress: bool = False,
+) -> AtariEnv | BaseWrapper:
     """
     Create an `AtariEnv`, optionally with wrappers applied.
 
@@ -106,8 +112,14 @@ def make(
         - `EpisodicLifeWrapper`
 
     jit_compile : bool (optional)
-        Flag to enable/disable JIT compilation. Recommended `True` to reduce training
-        speed. Default is `True`
+        JIT-compile `reset`, `step`, and `sample` on the first call.
+        Default is `True`.
+    cache_dir : Path | str | None (optional)
+        Directory for the persistent XLA compilation cache.  Defaults to
+        `~/.cache/atari-jax/xla_cache`. Pass `None` to disable.
+    show_compile_progress : bool (optional)
+        Display a spinner on the first (compilation) call of each method.
+        Default is `False`.
 
     Returns
     -------
@@ -127,7 +139,7 @@ def make(
     if wrappers is not None and preset:
         raise ValueError("Provide either `wrappers` or `preset`, not both.")
 
-    env: Union[AtariEnv, BaseWrapper] = AtariEnv(game_id, params or EnvParams())
+    setup_cache(cache_dir)
 
     env = AtariEnv(ale_name, params or EnvParams())
 
@@ -142,9 +154,18 @@ def make(
             env = wrapper_cls(env)
 
     if jit_compile:
-        env.reset = jax.jit(env.reset)  # type: ignore[method-assign]
-        env.step = jax.jit(env.step)  # type: ignore[method-assign]
-        env.sample = jax.jit(env.sample)  # type: ignore[method-assign]
+        reset_fn = jax.jit(env.reset)
+        step_fn = jax.jit(env.step)
+        sample_fn = jax.jit(env.sample)
+
+        if show_compile_progress:
+            reset_fn = _wrap_with_spinner(reset_fn, "Compiling reset...")
+            step_fn = _wrap_with_spinner(step_fn, "Compiling step...")
+            sample_fn = _wrap_with_spinner(sample_fn, "Compiling sample...")
+
+        env.reset = reset_fn
+        env.step = step_fn
+        env.sample = sample_fn
 
     return env
 
@@ -157,6 +178,8 @@ def make_vec(
     wrappers: List[Type] | None = None,
     preset: bool = False,
     jit_compile: bool = True,
+    cache_dir: pathlib.Path | str | None = DEFAULT_CACHE_DIR,
+    show_compile_progress: bool = False,
 ) -> VecEnv:
     """
     Create a `VecEnv` with `n_envs` parallel environments.
@@ -183,8 +206,14 @@ def make_vec(
         [Mnih et al., 2015](https://www.nature.com/articles/nature14236).
         Mutually exclusive with `wrappers`.
     jit_compile : bool (optional)
-        Flag to enable/disable JIT compilation. Recommended `True` to reduce training
-        speed. Default is `True`
+        JIT-compile all vmapped functions on the first call.
+        Default is `True`.
+    cache_dir : Path or str or None (optional)
+        Directory for the persistent XLA compilation cache.  Defaults to
+        `~/.cache/atari-jax/xla_cache`.  Pass `None` to disable.
+    show_compile_progress : bool (optional)
+        Display a spinner on the first (compilation) call of each vmapped
+        method.  Default is `False`.
 
     Returns
     -------
@@ -196,6 +225,80 @@ def make_vec(
     ------
     wrapper_error : ValueError
         If both `wrappers` and `preset` are provided.
+    id_error : ValueError
+        If `game_id` is a string that does not match the
+        `"[engine]/[name]-v[N]"` format.
     """
-    env = make(game_id, params=params, wrappers=wrappers, preset=preset)
-    return VecEnv(env, n_envs, jit_compile=jit_compile)
+    env = make(
+        game_id,
+        params=params,
+        wrappers=wrappers,
+        preset=preset,
+        jit_compile=False,  # Handled by VecEnv
+        cache_dir=cache_dir,
+    )
+
+    return VecEnv(
+        env,
+        n_envs,
+        jit_compile=jit_compile,
+        show_compile_progress=show_compile_progress,
+    )
+
+
+def precompile_all(
+    *,
+    params: EnvParams | None = None,
+    preset: bool = False,
+    cache_dir: pathlib.Path | str | None = DEFAULT_CACHE_DIR,
+) -> None:
+    """
+    Compile and cache all 57 game environments.
+
+    Runs `reset()` and one `step()` for every game so that JAX traces and
+    compiles the full emulation graph and writes the result to the XLA
+    persistent cache.  Subsequent `make()` calls for any game will load from
+    cache rather than recompiling.
+
+    Useful before mass training runs or large test suites where many different
+    games will be used.
+
+    Parameters
+    ----------
+    params : EnvParams (optional)
+        Shared environment parameters. Defaults to `EnvParams()`.
+    preset : bool (optional)
+        Apply the DQN preprocessing stack to every environment.
+    cache_dir : Path | str | None (optional)
+        Cache directory.  Defaults to `~/.cache/atari-jax/xla_cache`.
+        Pass `None` to disable caching (compilation still occurs but is not
+        stored to disk).
+    """
+    setup_cache(cache_dir)
+
+    game_names = list(GAME_IDS.keys())
+    total = len(game_names)
+    key = jax.random.PRNGKey(0)
+
+    for i, game_name in enumerate(game_names, start=1):
+        spec = EnvSpec("atari", game_name)
+        label = f"{spec.id} [{i}/{total}]"
+
+        sys.stdout.write(f"\r\u29ff Compiling {label}...")
+        sys.stdout.flush()
+
+        env = make(
+            spec,
+            params=params,
+            preset=preset,
+            jit_compile=True,
+            cache_dir=None,  # Configured above
+        )
+
+        _, state = env.reset(key)
+        env.step(state, env.sample(key))
+
+        sys.stdout.write(f"\r\u2713 {label}          \n")
+        sys.stdout.flush()
+
+    print(f"All {total} environments compiled and cached.")

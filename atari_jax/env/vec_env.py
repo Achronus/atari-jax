@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from atari_jax.env.wrappers.base import BaseWrapper
 
 from atari_jax.core.state import AtariState
+from atari_jax.env._compile import _wrap_with_spinner
 from atari_jax.env.spaces import Box, Discrete
 
 
@@ -41,8 +42,11 @@ class VecEnv:
         Number of parallel environments.  Used to split the PRNG key in
         `reset` so each environment starts from a distinct random state.
     jit_compile : bool (optional)
-        Flag to enable/disable JIT compilation. Recommended `True` to reduce training
-        speed. Default is `True`
+        JIT-compile all vmapped functions on the first call.
+        Default is `True`.
+    show_compile_progress : bool (optional)
+        Display a spinner on the first (compilation) call of each vmapped
+        method.  Default is `False`.
     """
 
     def __init__(
@@ -50,6 +54,7 @@ class VecEnv:
         env: "AtariEnv | BaseWrapper",
         n_envs: int,
         jit_compile: bool = True,
+        show_compile_progress: bool = False,
     ) -> None:
         self._env = env
         self._n_envs = n_envs
@@ -62,6 +67,13 @@ class VecEnv:
             reset_fn = jax.jit(reset_fn)
             step_fn = jax.jit(step_fn)
             rollout_fn = jax.jit(rollout_fn)
+
+        if show_compile_progress:
+            reset_fn = _wrap_with_spinner(reset_fn, "Compiling vectorized reset...")
+            step_fn = _wrap_with_spinner(step_fn, "Compiling vectorized step...")
+            rollout_fn = _wrap_with_spinner(
+                rollout_fn, "Compiling vectorized rollout..."
+            )
 
         self._reset_fn = reset_fn
         self._step_fn = step_fn
