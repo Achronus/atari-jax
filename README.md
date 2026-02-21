@@ -1,4 +1,4 @@
-# Atari Jax
+# Atari Jax (Atarax)
 
 A pure-JAX implementation of all 57 standard Atari 2600 ALE environments.
 All mutable emulator state lives in an `AtariState` pytree, making each
@@ -33,7 +33,7 @@ control flow.
 ## Installation
 
 ```bash
-pip install atari-jax
+pip install atarax
 ```
 
 Or from source with [uv](https://docs.astral.sh/uv/):
@@ -58,26 +58,27 @@ ale_py.ALEInterface().loadROM(ale_py.roms.Breakout)  # accept licence on first r
 
 ```python
 import jax
-from atari_jax.env import make
+from atarax.env import EnvSpec, make
 
 key = jax.random.PRNGKey(0)
 
-# Raw environment
-env = make("breakout")
-obs, state = env.reset(key)           # obs: uint8[210, 160, 3]
+# Raw environment — use EnvSpec or the "atari/<name>-v0" string
+env = make(EnvSpec("atari", "breakout"))
+env = make("atari/breakout-v0")               # equivalent string form
+obs, state = env.reset(key)                   # obs: uint8[210, 160, 3]
 obs, state, reward, done, info = env.step(state, env.sample(key))
 
-# Full DQN preprocessing stack
-env = make("breakout", preset=True)
-obs, state = env.reset(key)           # obs: uint8[84, 84, 4]
+# Full DQN preprocessing stack (JIT-compiled + local XLA cache by default)
+env = make("atari/breakout-v0", preset=True)
+obs, state = env.reset(key)                   # obs: uint8[84, 84, 4]
 
 # Custom wrapper list (applied innermost → outermost)
-from atari_jax.env import GrayscaleWrapper, ResizeWrapper
-env = make("breakout", wrappers=[GrayscaleWrapper, ResizeWrapper])
+from atarax.env import GrayscaleWrapper, ResizeWrapper
+env = make("atari/breakout-v0", wrappers=[GrayscaleWrapper, ResizeWrapper])
 
-# JIT-compiled — reset, step, and sample are traced once and cached
-env = make("breakout", preset=True, jit_compile=True)
-obs, state = env.reset(key)
+# Spinner shown on first (compilation) call of each method
+env = make("atari/breakout-v0", preset=True, show_compile_progress=True)
+obs, state = env.reset(key)                   # ⠹ Compiling reset... → ✓ Compiling reset...
 ```
 
 ### `make_vec()`
@@ -85,12 +86,12 @@ obs, state = env.reset(key)
 ```python
 import jax
 import jax.numpy as jnp
-from atari_jax.env import make_vec
+from atarax.env import make_vec
 
 key = jax.random.PRNGKey(0)
 
 # reset() splits the key 32 ways — each env gets a distinct random start
-vec_env = make_vec("breakout", n_envs=32, preset=True)
+vec_env = make_vec("atari/breakout-v0", n_envs=32, preset=True)
 obs, states = vec_env.reset(key)              # obs: uint8[32, 84, 84, 4]
 
 # step() and sample() operate across all 32 envs simultaneously
@@ -102,9 +103,37 @@ actions = jnp.zeros((32, 128), dtype=jnp.int32)
 final_states, (obs, reward, done, info) = vec_env.rollout(states, actions)
 # obs: uint8[32, 128, 84, 84, 4]
 
-# JIT-compiled — all vmapped functions are traced once and cached
-vec_env = make_vec("breakout", n_envs=32, preset=True, jit_compile=True)
+# JIT-compiled with spinner feedback
+vec_env = make_vec("atari/breakout-v0", n_envs=32, preset=True, show_compile_progress=True)
 ```
+
+### Rendering and Interactive Play
+
+```python
+import jax
+from atarax.utils.render import play, render
+from atarax.env import make
+
+key = jax.random.PRNGKey(0)
+
+# Render a single frame in a pygame window
+env = make("atari/breakout-v0")
+obs, state = env.reset(key)
+render(state)                          # 320×420 window (scale=2 default)
+render(state, scale=4, caption="Breakout")
+
+# Play a game interactively (keyboard control, native 210×160 RGB)
+play("atari/breakout-v0")             # scale=3 default → 480×630 window
+play("atari/breakout-v0", scale=2, fps=30)
+```
+
+Keyboard controls for `play()`:
+
+| Key | Action |
+| --- | --- |
+| Arrow keys / `W A S D` | Movement |
+| `Space` | Fire |
+| `Esc` / close window | Quit |
 
 ## Wrappers
 
@@ -130,9 +159,9 @@ The standard Mnih et al. (2015) observation pipeline:
 
 ```python
 import jax
-from atari_jax.env import make
+from atarax.env import make
 
-env = make("breakout", preset=True, jit_compile=True)
+env = make("atari/breakout-v0", preset=True, jit_compile=True)
 
 key = jax.random.PRNGKey(0)
 obs, state = env.reset(key)           # obs: uint8[84, 84, 4]
@@ -173,7 +202,7 @@ control through deep reinforcement learning*, Nature):
 Look up a game ID at runtime:
 
 ```python
-from atari_jax.games.registry import GAME_IDS
+from atarax.games.registry import GAME_IDS
 game_id = GAME_IDS["seaquest"]  # → 43
 ```
 

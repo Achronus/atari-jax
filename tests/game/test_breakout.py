@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Unit tests for atari_jax.games.roms.breakout — reward and terminal logic.
+"""Unit tests for atarax.games.roms.breakout — reward and terminal logic.
 
 Run with:
     pytest tests/game/test_breakout.py -v
@@ -22,7 +22,7 @@ Run with:
 import chex
 import jax.numpy as jnp
 
-from atari_jax.games.roms.breakout import LIVES_ADDR, SCORE_X, SCORE_Y, Breakout
+from atarax.games.roms.breakout import LIVES_ADDR, SCORE_X, SCORE_Y, Breakout
 
 game = Breakout()
 

@@ -25,8 +25,8 @@ import chex
 import jax
 import jax.numpy as jnp
 
-from atari_jax.core.state import new_atari_state
-from atari_jax.env.vec_env import make_rollout_fn
+from atarax.core.state import new_atari_state
+from atarax.env.vec_env import make_rollout_fn
 
 _N_STEPS = 8
 

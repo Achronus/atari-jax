@@ -1,6 +1,6 @@
 # cart.py — ROM Cartridge & Bankswitching
 
-**File:** `atari_jax/core/cart.py`
+**File:** `atarax/core/cart.py`
 **ALE reference:** `Cart*.cxx` (CartF8.cxx, CartF6.cxx, etc.)
 
 ## Overview

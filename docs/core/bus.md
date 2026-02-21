@@ -1,6 +1,6 @@
 # bus.py — System Bus & Address Decoder
 
-**File:** `atari_jax/core/bus.py`
+**File:** `atarax/core/bus.py`
 **ALE reference:** `System.cxx` (install loop), `M6532.cxx`
 
 ## Purpose

@@ -15,7 +15,7 @@ computation compatible with `jit`, `vmap`, and `lax.scan`.
 ## Repository Layout
 
 ```text
-atari_jax/
+atarax/
   core/                 Hardware emulation layer
     state.py            AtariState pytree definition
     bus.py              13-bit address decoder + chip dispatch
@@ -101,7 +101,7 @@ primitives above.
   dataclass method), never mutate fields in place.
 - **Dtypes must be explicit** — all branches of `jax.lax.switch` / `cond`
   must return identical shapes and dtypes.
-- **Absolute imports only** — `from atari_jax.core.xxx import ...`
+- **Absolute imports only** — `from atarax.core.xxx import ...`
   (no relative dot imports).
 
 ## Testing

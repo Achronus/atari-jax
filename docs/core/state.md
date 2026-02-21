@@ -1,6 +1,6 @@
 # state.py — AtariState Pytree
 
-**File:** `atari_jax/core/state.py`
+**File:** `atarax/core/state.py`
 **ALE reference:** `System.cxx`, `M6502.cxx`, `M6532.cxx`, `TIA.cxx`
 
 ## Purpose

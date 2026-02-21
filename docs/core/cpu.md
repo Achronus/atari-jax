@@ -1,6 +1,6 @@
 # cpu.py — MOS 6507 CPU
 
-**File:** `atari_jax/core/cpu.py`
+**File:** `atarax/core/cpu.py`
 **ALE reference:** `M6502.cxx`, `M6502Hi.ins`
 
 ## Overview

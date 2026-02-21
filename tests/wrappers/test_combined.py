@@ -23,8 +23,8 @@ import chex
 import jax
 import jax.numpy as jnp
 
-from atari_jax.env.vec_env import make_rollout_fn
-from atari_jax.env.wrappers import (
+from atarax.env.vec_env import make_rollout_fn
+from atarax.env.wrappers import (
     ClipRewardWrapper,
     EpisodicLifeState,
     EpisodicLifeWrapper,

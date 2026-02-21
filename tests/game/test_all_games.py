@@ -31,8 +31,8 @@ import chex
 import jax.numpy as jnp
 import pytest
 
-from atari_jax.games.base import AtariGame
-from atari_jax.games.registry import _GAMES
+from atarax.games.base import AtariGame
+from atarax.games.registry import _GAMES
 
 _GAME_PARAMS = [(spec.ale_name, spec.game) for spec in _GAMES]
 _GAME_IDS = [spec.ale_name for spec in _GAMES]

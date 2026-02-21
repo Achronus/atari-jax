@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Unit tests for atari_jax.core.tia — palette, rasteriser, and register writes.
+"""Unit tests for atarax.core.tia — palette, rasteriser, and register writes.
 
 Run with:
     pytest tests/test_tia.py -v
@@ -21,8 +21,8 @@ Run with:
 
 import jax.numpy as jnp
 
-from atari_jax.core.state import new_atari_state
-from atari_jax.core.tia import _NTSC_PALETTE, render_scanline, tia_write
+from atarax.core.state import new_atari_state
+from atarax.core.tia import _NTSC_PALETTE, render_scanline, tia_write
 
 
 def _state_with_regs(reg_writes):

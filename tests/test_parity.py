@@ -28,16 +28,16 @@ import jax
 import jax.numpy as jnp
 import pytest
 
-from atari_jax.core.state import new_atari_state
-from atari_jax.games.roms.breakout import Breakout
-from atari_jax.utils import load_rom
+from atarax.core.state import new_atari_state
+from atarax.games.roms.breakout import Breakout
+from atarax.utils import load_rom
 
 _game = Breakout()
 
 
 @pytest.fixture(scope="module")
 def breakout_rom() -> chex.Array:
-    """Load the Breakout ROM bytes via the atari_jax ROM loader."""
+    """Load the Breakout ROM bytes via the atarax ROM loader."""
     return load_rom("breakout")
 
 

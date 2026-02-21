@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Smoke tests for atari_jax.core — import, pytree shape, and one cpu_step.
+"""Smoke tests for atarax.core — import, pytree shape, and one cpu_step.
 
 Run inside the container:
     pytest tests/test_core_smoke.py -v
@@ -21,8 +21,8 @@ Run inside the container:
 
 import jax.numpy as jnp
 
-from atari_jax.core.cpu import OPCODE_TABLE, cpu_reset, cpu_step
-from atari_jax.core.state import new_atari_state
+from atarax.core.cpu import OPCODE_TABLE, cpu_reset, cpu_step
+from atarax.core.state import new_atari_state
 
 
 def _rom(size=4096, fill=0xEA):

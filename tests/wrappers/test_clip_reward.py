@@ -19,7 +19,7 @@ import chex
 import jax
 import jax.numpy as jnp
 
-from atari_jax.env.wrappers import ClipRewardWrapper
+from atarax.env.wrappers import ClipRewardWrapper
 
 _key = jax.random.PRNGKey(0)
 _action = jnp.int32(0)

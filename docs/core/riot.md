@@ -1,6 +1,6 @@
 # riot.py — M6532 RIOT Chip
 
-**File:** `atari_jax/core/riot.py`
+**File:** `atarax/core/riot.py`
 **ALE reference:** `M6532.cxx`
 
 ## Overview

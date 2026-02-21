@@ -19,7 +19,7 @@ import chex
 import jax
 import jax.numpy as jnp
 
-from atari_jax.env.wrappers import (
+from atarax.env.wrappers import (
     FrameStackState,
     FrameStackWrapper,
     GrayscaleWrapper,

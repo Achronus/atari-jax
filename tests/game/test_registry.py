@@ -23,8 +23,8 @@ import chex
 import jax
 import jax.numpy as jnp
 
-from atari_jax.games import GAME_IDS, get_reward, is_terminal
-from atari_jax.games.registry import _GAMES, REWARD_FNS, TERMINAL_FNS
+from atarax.games import GAME_IDS, get_reward, is_terminal
+from atarax.games.registry import _GAMES, REWARD_FNS, TERMINAL_FNS
 
 
 def test_game_ids_contains_breakout():

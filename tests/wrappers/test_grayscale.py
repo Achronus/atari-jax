@@ -19,7 +19,7 @@ import chex
 import jax
 import jax.numpy as jnp
 
-from atari_jax.env.wrappers import GrayscaleWrapper
+from atarax.env.wrappers import GrayscaleWrapper
 
 _key = jax.random.PRNGKey(0)
 _action = jnp.int32(0)

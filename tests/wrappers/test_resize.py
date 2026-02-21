@@ -19,8 +19,8 @@ import chex
 import jax
 import jax.numpy as jnp
 
-from atari_jax.env.wrappers import GrayscaleWrapper, ResizeWrapper
-from atari_jax.utils.preprocess import preprocess
+from atarax.env.wrappers import GrayscaleWrapper, ResizeWrapper
+from atarax.utils.preprocess import preprocess
 
 _key = jax.random.PRNGKey(0)
 _action = jnp.int32(0)

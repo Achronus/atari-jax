@@ -27,8 +27,8 @@ import jax
 import jax.numpy as jnp
 import pytest
 
-from atari_jax.env.atari_env import EnvParams
-from atari_jax.env.spaces import Box, Discrete
+from atarax.env.atari_env import EnvParams
+from atarax.env.spaces import Box, Discrete
 
 
 def test_env_params_defaults():

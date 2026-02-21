@@ -1,6 +1,6 @@
 # tia.py — TIA (Television Interface Adaptor)
 
-**File:** `atari_jax/core/tia.py`
+**File:** `atarax/core/tia.py`
 **ALE reference:** `TIA.cxx`
 
 ## Overview
