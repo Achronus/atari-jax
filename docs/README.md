@@ -1,9 +1,16 @@
-# atari-jax — Architecture Overview
+# atari-jax — Documentation Overview
 
 A pure-JAX reimplementation of all 57 Atari 2600 ALE environments as
-vmappable pytrees.  Every environment step is a stateless function
-`(state, action) → state` that compiles with `jax.jit` and batches with
-`jax.vmap` — no Python loops, no host-side control flow.
+vmappable pytrees.  All mutable emulator state lives in an `AtariState`
+pytree, making each `step(state, action) → state` call a stateless JAX
+computation compatible with `jit`, `vmap`, and `lax.scan`.
+
+## Documentation Sections
+
+| Section | Description |
+| --- | --- |
+| **[Core hardware](core/)** | CPU, TIA, RIOT, bus, cartridge reference |
+| **[Environments](environments/)** | Per-game observation, reward, and lives details |
 
 ## Repository Layout
 
@@ -26,7 +33,7 @@ atari_jax/
     atari_env.py        AtariEnv + EnvParams
     make.py             make() / make_vec() factory functions
     spaces.py           Box + Discrete observation/action spaces
-    vec_env.py          make_rollout_fn — lax.scan-based rollout helper
+    vec_env.py          VecEnv + make_rollout_fn
     wrappers/           Composable RL preprocessing wrappers
   utils/
     rom_loader.py       load_rom(game_id) — lazy ale-py import
@@ -43,7 +50,7 @@ tests/
   wrappers/             Per-wrapper unit tests + combined DQN stack
 
 docs/
-  architecture.md       This file — design overview
+  README.md       This file — design overview and navigation
   core/                 Hardware layer reference (cpu, tia, riot, bus, cart, state)
   environments/         Per-game user reference (57 files + index)
 ```
@@ -69,69 +76,6 @@ emulate_frame ──► AtariState (screen, ram, reward, terminal, lives, …)
     │
     ▼
 AtariGame.get_reward / is_terminal ──► float32 reward, bool terminal
-```
-
-## Environment API
-
-### `AtariEnv`
-
-The primary user-facing environment.  Wraps the emulation stack with a
-gymnax-style interface: `reset(key) → (obs, state)` and
-`step(state, action) → (obs, state, reward, done, info)`.
-
-```python
-from atari_jax.env import AtariEnv, EnvParams
-
-env = AtariEnv("breakout")
-env = AtariEnv("breakout", params=EnvParams(frame_skip=4, noop_max=30))
-```
-
-`AtariEnv` is always a Python-constant object — never JAX-traced.  The
-`state` it returns is an `AtariState` pytree that is the only value that
-passes through `jit` and `vmap`.
-
-### `make()` / `make_vec()`
-
-Convenience factory functions with an optional wrapper preset:
-
-```python
-from atari_jax.env import make, make_vec
-
-env = make("breakout")                          # raw AtariEnv
-env = make("breakout", preset="dqn")            # full DQN stack
-env, rollout = make_vec("breakout", 32, preset="dqn")
-```
-
-`make(wrappers=[...])` accepts a list of wrapper classes applied innermost-first.
-`preset="dqn"` applies: Grayscale → Resize(84×84) → FrameStack(4) → ClipReward
-→ EpisodicLife.
-
-### Wrappers
-
-All five wrappers implement the same `reset` / `step` interface as `AtariEnv`.
-
-| Wrapper | Transformation | State type |
-| --- | --- | --- |
-| `GrayscaleWrapper` | `uint8[210,160,3]` → `uint8[210,160]` | pass-through |
-| `ResizeWrapper` | `uint8[H,W]` → `uint8[84,84]` | pass-through |
-| `FrameStackWrapper` | `uint8[H,W]` → `uint8[H,W,N]` | `FrameStackState` |
-| `ClipRewardWrapper` | reward → `sign(reward)` | pass-through |
-| `EpisodicLifeWrapper` | terminal on life loss | `EpisodicLifeState` |
-
-Stateless wrappers pass the inner state through unchanged.  Stateful wrappers
-carry extra fields in a `@chex.dataclass` pytree nested alongside the inner
-state, so arbitrary stacking works naturally with `jit` and `vmap`.
-
-### Compiled rollout
-
-`make_rollout_fn(env)` returns a function backed by `jax.lax.scan`:
-
-```python
-rollout = jax.jit(make_rollout_fn(env))
-final_state, (obs, reward, done, info) = rollout(state, actions)
-
-# Parallel agents via vmap
-batched = jax.jit(jax.vmap(make_rollout_fn(env)))
 ```
 
 ## JAX Dispatch Patterns

@@ -1,12 +1,10 @@
 # Atari Jax
 
-A pure-JAX reimplementation of all 57 standard Atari 2600 ALE environments as
-fully vmappable pytrees.  Inspired by [Brax](https://github.com/google/brax): every
-environment step is a stateless function `(state, action) → state` that compiles
+A pure-JAX implementation of all 57 standard Atari 2600 ALE environments.
+All mutable emulator state lives in an `AtariState` pytree, making each
+`step(state, action) → state` call a stateless JAX computation that compiles
 with `jax.jit` and batches with `jax.vmap` — no Python loops, no host-side
 control flow.
-
----
 
 ## Features
 
@@ -20,15 +18,17 @@ control flow.
   and lives counters sourced directly from the ALE reference implementation.
 - **Pytree state** — `AtariState` is a `chex.dataclass` so it works out of the
   box with `jax.tree_util`, `optax`, and `flax`.
-
----
+- **gymnax-style env API** — `AtariEnv` exposes `reset(key)` / `step(state, action)`
+  with external state, fully compatible with `jit`, `vmap`, and `lax.scan`.
+- **`make()` / `make_vec()`** — Gymnasium-familiar factory functions with optional
+  wrapper presets (including the standard DQN stack) and `jit_compile` support.
+- **Composable wrappers** — five preprocessing wrappers, all `jit` and `vmap`
+  compatible. See the [Wrappers](#wrappers) table below.
 
 ## Requirements
 
 - Python 3.13+
 - JAX 0.9+ (CPU, CUDA, or TPU backend)
-
----
 
 ## Installation
 
@@ -52,74 +52,95 @@ import ale_py
 ale_py.ALEInterface().loadROM(ale_py.roms.Breakout)  # accept licence on first run
 ```
 
----
-
 ## Quick Start
 
+### `make()`
+
 ```python
-import jax.numpy as jnp
-from atari_jax.games.registry import GAME_IDS
-from atari_jax.games.roms.breakout import Breakout
-from atari_jax.utils.rom_loader import load_rom
+import jax
+from atari_jax.env import make
 
-# Load ROM bytes via ale-py
-rom = load_rom(GAME_IDS["breakout"])  # uint8[4096]
+key = jax.random.PRNGKey(0)
 
-# Initialise the game
-game = Breakout()
-state = game.reset(rom)
+# Raw environment
+env = make("breakout")
+obs, state = env.reset(key)           # obs: uint8[210, 160, 3]
+obs, state, reward, done, info = env.step(state, env.sample(key))
 
-# Step with action 1 (FIRE)
-state = game.step(state, rom, jnp.int32(1))
+# Full DQN preprocessing stack
+env = make("breakout", preset=True)
+obs, state = env.reset(key)           # obs: uint8[84, 84, 4]
 
-print(f"reward={float(state.reward):.1f}  lives={int(state.lives)}  terminal={bool(state.terminal)}")
+# Custom wrapper list (applied innermost → outermost)
+from atari_jax.env import GrayscaleWrapper, ResizeWrapper
+env = make("breakout", wrappers=[GrayscaleWrapper, ResizeWrapper])
+
+# JIT-compiled — reset, step, and sample are traced once and cached
+env = make("breakout", preset=True, jit_compile=True)
+obs, state = env.reset(key)
 ```
 
-### JIT compilation
+### `make_vec()`
 
 ```python
 import jax
 import jax.numpy as jnp
-from atari_jax.games.roms.breakout import Breakout
-from atari_jax.utils.rom_loader import load_rom
-from atari_jax.games.registry import GAME_IDS
+from atari_jax.env import make_vec
 
-rom = load_rom(GAME_IDS["breakout"])
-game = Breakout()
+key = jax.random.PRNGKey(0)
 
-reset_jit = jax.jit(game.reset)
-step_jit  = jax.jit(game.step)
+# reset() splits the key 32 ways — each env gets a distinct random start
+vec_env = make_vec("breakout", n_envs=32, preset=True)
+obs, states = vec_env.reset(key)              # obs: uint8[32, 84, 84, 4]
 
-state = reset_jit(rom)
-state = step_jit(state, rom, jnp.int32(0))
+# step() and sample() operate across all 32 envs simultaneously
+actions = vec_env.sample(key)                 # int32[32]
+obs, states, reward, done, info = vec_env.step(states, actions)
+
+# Multi-step rollout via lax.scan + vmap
+actions = jnp.zeros((32, 128), dtype=jnp.int32)
+final_states, (obs, reward, done, info) = vec_env.rollout(states, actions)
+# obs: uint8[32, 128, 84, 84, 4]
+
+# JIT-compiled — all vmapped functions are traced once and cached
+vec_env = make_vec("breakout", n_envs=32, preset=True, jit_compile=True)
 ```
 
-### Batched rollout with vmap
+## Wrappers
+
+Five composable RL preprocessing wrappers, each accepting an `AtariEnv` or
+another wrapper and exposing the same `reset(key)` / `step(state, action)`
+interface.
+
+| Wrapper | Input | Output | Description | Extra state |
+| --- | --- | --- | --- | --- |
+| `GrayscaleWrapper` | `uint8[210, 160, 3]` | `uint8[210, 160]` | NTSC luminance conversion | — |
+| `ResizeWrapper(out_h, out_w)` | `uint8[H, W]` | `uint8[out_h, out_w]` | Bilinear resize (default 84×84) | — |
+| `FrameStackWrapper(n_stack)` | `uint8[H, W]` | `uint8[H, W, n_stack]` | Rolling frame buffer (default 4) | `FrameStackState` |
+| `ClipRewardWrapper` | any reward | `float32 ∈ {−1, 0, +1}` | Sign clipping | — |
+| `EpisodicLifeWrapper` | any env | same obs | Terminal on every life loss | `EpisodicLifeState` |
+
+Stateless wrappers pass the inner state through unchanged. Stateful wrappers
+return a `chex.dataclass` pytree that carries extra data alongside the inner
+state — both are fully compatible with `jit`, `vmap`, and `lax.scan`.
+
+### Standard DQN preprocessing stack
+
+The standard Mnih et al. (2015) observation pipeline:
 
 ```python
 import jax
-import jax.numpy as jnp
-from atari_jax.games.roms.breakout import Breakout
-from atari_jax.utils.rom_loader import load_rom
-from atari_jax.games.registry import GAME_IDS
+from atari_jax.env import make
 
-rom = load_rom(GAME_IDS["breakout"])
-game = Breakout()
+env = make("breakout", preset=True, jit_compile=True)
 
-N = 64
-roms = jnp.broadcast_to(rom, (N,) + rom.shape)
-
-# Reset N environments in parallel
-reset_batch = jax.jit(jax.vmap(game.reset))
-states = reset_batch(roms)
-
-# Step all N environments simultaneously
-actions = jnp.zeros(N, dtype=jnp.int32)
-step_batch = jax.jit(jax.vmap(game.step))
-states = step_batch(states, roms, actions)
+key = jax.random.PRNGKey(0)
+obs, state = env.reset(key)           # obs: uint8[84, 84, 4]
+obs, state, reward, done, info = env.step(state, env.sample(key))
+# done              — True on life loss or game over
+# reward            — clipped to {-1, 0, +1}
+# info["real_done"] — True only on true game over
 ```
-
----
 
 ## Supported Games
 
@@ -156,47 +177,6 @@ from atari_jax.games.registry import GAME_IDS
 game_id = GAME_IDS["seaquest"]  # → 43
 ```
 
----
-
-## Project Structure
-
-```text
-atari_jax/
-  core/
-    state.py      AtariState pytree (CPU, RIOT, TIA, cartridge + episode fields)
-    bus.py        13-bit address decoder — routes reads/writes to TIA/RIOT/ROM
-    cpu/          MOS 6507 CPU — 256-entry opcode table, all 56 legal opcodes
-    riot.py       M6532 — 128-byte RAM, interval timer, joystick I/O
-    tia.py        Full NTSC rasteriser — sprites, playfield, collisions, HMOVE
-    cart.py       ROM cartridge + F8 bankswitching
-    frame.py      emulate_frame — runs one ALE frame (262 scanlines)
-  games/
-    base.py       AtariGame ABC
-    registry.py   GameSpec, GAME_IDS, REWARD_FNS, TERMINAL_FNS
-    roms/         57 game modules — reward/terminal/lives + reset/step
-  utils/
-    rom_loader.py load_rom(game_id) — lazy ale-py import
-tests/
-  test_core_smoke.py   CPU, bus, RIOT, cartridge unit tests
-  test_tia.py          TIA rasteriser unit tests
-  test_parity.py       JIT/vmap smoke tests
-  game/
-    test_breakout.py   Breakout reward/terminal logic tests
-    test_registry.py   Registry dispatch tests
-```
-
----
-
-## Running Tests
-
-```bash
-uv run pytest tests/ -v
-```
-
-Tests run in parallel by default via `pytest-xdist`.
-
----
-
 ## Architecture Notes
 
 `AtariState` is a flat `chex.dataclass` pytree — every field is a fixed-shape
@@ -215,8 +195,6 @@ is fixed at trace time:
 | Dispatch on opcode / game ID | `jax.lax.switch` |
 | Conditional state update | `jax.lax.cond` / `jnp.where` |
 | Fixed-count loop | `jax.lax.fori_loop` |
-
----
 
 ## Licence
 
