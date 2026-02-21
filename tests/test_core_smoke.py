@@ -20,16 +20,9 @@ Run inside the container:
 """
 
 import jax.numpy as jnp
-import pytest
 
 from atari_jax.core.cpu import OPCODE_TABLE, cpu_reset, cpu_step
-from atari_jax.core.state import (
-    AtariState,
-    CPUState,
-    RIOTState,
-    TIAState,
-    new_atari_state,
-)
+from atari_jax.core.state import new_atari_state
 
 
 def _rom(size=4096, fill=0xEA):

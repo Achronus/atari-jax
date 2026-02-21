@@ -24,8 +24,7 @@ import jax
 import jax.numpy as jnp
 
 from atari_jax.games import GAME_IDS, get_reward, is_terminal
-from atari_jax.games.registry import REWARD_FNS, TERMINAL_FNS, _GAMES
-from atari_jax.games.roms.breakout import Breakout
+from atari_jax.games.registry import _GAMES, REWARD_FNS, TERMINAL_FNS
 
 
 def test_game_ids_contains_breakout():
@@ -38,12 +37,33 @@ def test_games_list_indexed_by_game_id():
         assert _GAMES[spec.game_id].ale_name == spec.ale_name
 
 
-def test_reward_fns_match_registry():
-    assert isinstance(_GAMES[GAME_IDS["breakout"]].game, Breakout)
+def test_registry_has_57_games():
+    assert len(_GAMES) == 57
 
 
-def test_terminal_fns_match_registry():
-    assert isinstance(_GAMES[GAME_IDS["breakout"]].game, Breakout)
+def test_reward_fns_has_57_entries():
+    assert len(REWARD_FNS) == 57
+
+
+def test_terminal_fns_has_57_entries():
+    assert len(TERMINAL_FNS) == 57
+
+
+def test_game_ids_dict_has_57_entries():
+    assert len(GAME_IDS) == 57
+
+
+def test_all_ale_names_unique():
+    names = [spec.ale_name for spec in _GAMES]
+    assert len(names) == len(set(names))
+
+
+def test_reward_fns_are_callable():
+    assert all(callable(fn) for fn in REWARD_FNS)
+
+
+def test_terminal_fns_are_callable():
+    assert all(callable(fn) for fn in TERMINAL_FNS)
 
 
 def _zeros_ram() -> chex.Array:

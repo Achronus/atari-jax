@@ -20,16 +20,9 @@ Run with:
 """
 
 import jax.numpy as jnp
-import pytest
 
 from atari_jax.core.state import new_atari_state
-from atari_jax.core.tia import (
-    _NTSC_PALETTE,
-    _build_pf_mask,
-    _hpos_to_pixel,
-    render_scanline,
-    tia_write,
-)
+from atari_jax.core.tia import _NTSC_PALETTE, render_scanline, tia_write
 
 
 def _state_with_regs(reg_writes):
