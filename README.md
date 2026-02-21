@@ -128,19 +128,19 @@ control through deep reinforcement learning*, Nature):
 
 | ID | `ale_name` | ID | `ale_name` | ID | `ale_name` |
 |----|------------|----|------------|----|------------|
-| 0  | breakout | 20 | fishing_derby | 40 | riverraid |
-| 1  | alien | 21 | freeway | 41 | road_runner |
-| 2  | amidar | 22 | frostbite | 42 | robotank |
-| 3  | assault | 23 | gopher | 43 | seaquest |
-| 4  | asterix | 24 | gravitar | 44 | skiing |
-| 5  | asteroids | 25 | hero | 45 | solaris |
-| 6  | atlantis | 26 | ice_hockey | 46 | space_invaders |
-| 7  | bank_heist | 27 | jamesbond | 47 | star_gunner |
-| 8  | battle_zone | 28 | kangaroo | 48 | tennis |
-| 9  | beam_rider | 29 | krull | 49 | time_pilot |
-| 10 | berzerk | 30 | kung_fu_master | 50 | tutankham |
-| 11 | bowling | 31 | montezuma_revenge | 51 | up_n_down |
-| 12 | boxing | 32 | ms_pacman | 52 | venture |
+| 0  | alien | 20 | fishing_derby | 40 | riverraid |
+| 1  | amidar | 21 | freeway | 41 | road_runner |
+| 2  | assault | 22 | frostbite | 42 | robotank |
+| 3  | asterix | 23 | gopher | 43 | seaquest |
+| 4  | asteroids | 24 | gravitar | 44 | skiing |
+| 5  | atlantis | 25 | hero | 45 | solaris |
+| 6  | bank_heist | 26 | ice_hockey | 46 | space_invaders |
+| 7  | battle_zone | 27 | jamesbond | 47 | star_gunner |
+| 8  | beam_rider | 28 | kangaroo | 48 | tennis |
+| 9  | berzerk | 29 | krull | 49 | time_pilot |
+| 10 | bowling | 30 | kung_fu_master | 50 | tutankham |
+| 11 | boxing | 31 | montezuma_revenge | 51 | up_n_down |
+| 12 | breakout | 32 | ms_pacman | 52 | venture |
 | 13 | centipede | 33 | name_this_game | 53 | video_pinball |
 | 14 | chopper_command | 34 | phoenix | 54 | wizard_of_wor |
 | 15 | crazy_climber | 35 | pitfall | 55 | yars_revenge |

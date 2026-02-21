@@ -29,7 +29,7 @@ from atari_jax.games.registry import _GAMES, REWARD_FNS, TERMINAL_FNS
 
 def test_game_ids_contains_breakout():
     assert "breakout" in GAME_IDS
-    assert GAME_IDS["breakout"] == 0
+    assert GAME_IDS["breakout"] == 12
 
 
 def test_games_list_indexed_by_game_id():
