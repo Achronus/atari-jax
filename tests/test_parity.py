@@ -27,18 +27,15 @@ import chex
 import jax
 import jax.numpy as jnp
 import pytest
-from ale_py.roms import get_rom_path
-
 from atari_jax.core.state import new_atari_state
 from atari_jax.games.roms.breakout import reset, step
+from atari_jax.utils import load_rom
 
 
 @pytest.fixture(scope="module")
 def breakout_rom() -> chex.Array:
-    """Load the Breakout ROM bytes from ale-py as a JAX uint8 array."""
-    rom_path = get_rom_path("breakout")
-    data = bytearray(rom_path.read_bytes())
-    return jnp.array(data, dtype=jnp.uint8)
+    """Load the Breakout ROM bytes via the atari_jax ROM loader."""
+    return load_rom("breakout")
 
 
 @pytest.fixture(scope="module")
