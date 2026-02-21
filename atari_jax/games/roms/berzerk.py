@@ -16,6 +16,7 @@
 """Berzerk — reward and terminal extraction, plus reset/step entry points."""
 
 import chex
+import jax
 import jax.numpy as jnp
 
 from atari_jax.games.base import AtariGame
