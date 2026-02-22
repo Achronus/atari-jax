@@ -25,15 +25,12 @@ import jax.numpy as jnp
 
 from atarax.env.vec_env import make_rollout_fn
 from atarax.env.wrappers import (
+    AtariPreprocessing,
     ClipReward,
-    EpisodicLifeState,
-    EpisodicLife,
     EpisodeStatisticsState,
+    EpisodicLifeState,
     FrameStackState,
-    FrameStackObservation,
     GrayscaleObservation,
-    RecordEpisodeStatistics,
-    ResizeObservation,
 )
 
 _key = jax.random.PRNGKey(0)
@@ -41,12 +38,8 @@ _action = jnp.int32(0)
 
 
 def _dqn_stack(env):
-    """Standard DQN preprocessing: grayscale → resize → frame-stack → clip → episodic-life → record-stats."""
-    return RecordEpisodeStatistics(
-        EpisodicLife(
-            ClipReward(FrameStackObservation(ResizeObservation(GrayscaleObservation(env))))
-        )
-    )
+    """Standard DQN preprocessing via AtariPreprocessing composite wrapper."""
+    return AtariPreprocessing(env)
 
 
 def test_stateless_chain_reset_shape(fake_env):
