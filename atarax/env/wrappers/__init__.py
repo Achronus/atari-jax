@@ -18,6 +18,7 @@
 from atarax.env.wrappers.atari_preprocessing import AtariPreprocessing
 from atarax.env.wrappers.base import Wrapper
 from atarax.env.wrappers.clip_reward import ClipReward
+from atarax.env.wrappers.discount import EpisodeDiscount
 from atarax.env.wrappers.episodic_life import EpisodicLife, EpisodicLifeState
 from atarax.env.wrappers.frame_stack import FrameStackObservation, FrameStackState
 from atarax.env.wrappers.grayscale import GrayscaleObservation
@@ -32,6 +33,7 @@ from atarax.env.wrappers.utils import to_gray
 __all__ = [
     "AtariPreprocessing",
     "ClipReward",
+    "EpisodeDiscount",
     "EpisodicLife",
     "EpisodicLifeState",
     "EpisodeStatisticsState",
