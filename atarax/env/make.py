@@ -15,8 +15,10 @@
 
 """Factory functions for creating AtariEnv instances."""
 
+import json
 import pathlib
 import re
+import shutil
 from typing import List, Type
 
 import jax
@@ -231,6 +233,52 @@ def make_vec(
     )
 
 
+_MANIFEST_NAME = "precompile_manifest.json"
+
+
+def _config_entry(
+    n_envs: int,
+    n_steps: int | None,
+    preset: bool,
+    wrappers: List[Type] | None,
+) -> dict:
+    return {
+        "n_envs": n_envs,
+        "n_steps": n_steps,
+        "preset": preset,
+        "wrappers": [w.__name__ for w in wrappers] if wrappers else None,
+    }
+
+
+def _manifest_has_config(
+    cache_dir: pathlib.Path,
+    entry: dict,
+) -> bool:
+    """Return `True` if `entry` already exists in the on-disk manifest."""
+    p = cache_dir / _MANIFEST_NAME
+    if not p.exists():
+        return False
+    try:
+        configs = json.loads(p.read_text())
+    except (OSError, json.JSONDecodeError):
+        return False
+    return entry in configs
+
+
+def _manifest_append(cache_dir: pathlib.Path, entry: dict) -> None:
+    """Add `entry` to the manifest, creating it if necessary."""
+    p = cache_dir / _MANIFEST_NAME
+    configs: list = []
+    if p.exists():
+        try:
+            configs = json.loads(p.read_text())
+        except (OSError, json.JSONDecodeError):
+            pass
+    if entry not in configs:
+        configs.append(entry)
+    p.write_text(json.dumps(configs, indent=2))
+
+
 def precompile_all(
     *,
     n_envs: int = 1,
@@ -239,6 +287,7 @@ def precompile_all(
     wrappers: List[Type] | None = None,
     preset: bool = False,
     cache_dir: pathlib.Path | str | None = DEFAULT_CACHE_DIR,
+    clear_cache: bool = False,
 ) -> None:
     """
     Compile and cache all 57 game environments.
@@ -247,6 +296,11 @@ def precompile_all(
     that JAX traces and compiles the full emulation graph and writes the result
     to the XLA persistent cache.  Subsequent `make()` / `make_vec()` calls for
     any game will load from cache rather than recompiling.
+
+    Multiple configurations can be cached side-by-side.  Each call records its
+    parameters in a `precompile_manifest.json` file inside `cache_dir`.  If a
+    matching entry already exists in that manifest the function returns
+    immediately — no recompilation occurs.
 
     The cache key depends on the exact input shapes and computation graph, so
     `n_envs`, `n_steps`, `wrappers`, and `preset` must all match how the
@@ -275,7 +329,25 @@ def precompile_all(
         Cache directory.  Defaults to `~/.cache/atari-jax/xla_cache`.
         Pass `None` to disable caching (compilation still occurs but is not
         stored to disk).
+    clear_cache : bool (optional)
+        Delete the entire cache directory before compiling, forcing a full
+        recompile of all 57 games and clearing all previously stored
+        configurations.  Default is `False`.
     """
+    entry = _config_entry(n_envs, n_steps, preset, wrappers)
+
+    if cache_dir is not None:
+        cache_path = pathlib.Path(cache_dir)
+        if clear_cache and cache_path.exists():
+            shutil.rmtree(cache_path)
+            cache_path.mkdir(parents=True, exist_ok=True)
+        elif _manifest_has_config(cache_path, entry):
+            print(
+                f"Configuration already cached at '{cache_path}'. "
+                "Using existing cache."
+            )
+            return
+
     setup_cache(cache_dir)
 
     game_names = list(GAME_IDS.keys())
@@ -322,3 +394,6 @@ def precompile_all(
                         vec_env.rollout(
                             states, jnp.zeros((n_envs, n_steps), dtype=jnp.int32)
                         )
+
+    if cache_dir is not None:
+        _manifest_append(pathlib.Path(cache_dir), entry)

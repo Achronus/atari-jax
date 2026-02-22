@@ -24,7 +24,7 @@ from typing import Callable
 import jax
 from tqdm import tqdm
 
-DEFAULT_CACHE_DIR = pathlib.Path.home() / ".cache" / "atari-jax" / "xla_cache"
+DEFAULT_CACHE_DIR = pathlib.Path.home() / ".cache" / "atarax" / "xla_cache"
 
 _cache_configured = False
 
