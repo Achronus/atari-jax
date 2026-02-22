@@ -76,7 +76,3 @@ def test_jit_compiles(fake_env):
     chex.assert_rank(reward, 0)
     chex.assert_rank(done, 0)
     assert isinstance(new_state, FrameStackState)
-    chex.assert_shape(obs, (84, 84, 4))
-    chex.assert_rank(reward, 0)
-    chex.assert_rank(done, 0)
-    assert isinstance(new_state, FrameStackState)
