@@ -30,15 +30,13 @@ from unittest.mock import MagicMock, patch
 from atarax.env.make import (
     _MANIFEST_NAME,
     _config_entry,
-    _manifest_append,
-    _manifest_has_config,
+    _manifest_add_game,
+    _manifest_has_game,
     _wrapper_str,
     precompile_all,
 )
 from atarax.env.wrappers import GrayscaleObservation, ResizeObservation
 from atarax.env.wrappers.base import _WrapperFactory
-
-_DEFAULT_ENTRY = {"n_envs": 1, "n_steps": None, "preset": False, "wrappers": None}
 
 
 def _write_manifest(directory: pathlib.Path, configs: list) -> None:
@@ -59,10 +57,14 @@ def _mock_env() -> MagicMock:
     return env
 
 
+_ONE_GAME = {"breakout": 12}
+_TWO_GAMES = {"amidar": 1, "breakout": 12}
+
+
 class TestConfigEntry:
     def test_defaults(self):
         entry = _config_entry(1, None, False, None)
-        assert entry == _DEFAULT_ENTRY
+        assert entry == {"n_envs": 1, "n_steps": None, "preset": False, "wrappers": None}
 
     def test_with_steps_and_preset(self):
         entry = _config_entry(4, 128, True, None)
@@ -119,79 +121,98 @@ class TestWrapperStr:
         assert _wrapper_str(factory) == "FrameStackObservation(n_stack=8)"
 
 
-class TestManifestHasConfig:
+class TestManifestHasGame:
     def test_missing_file_returns_false(self, tmp_path):
-        assert not _manifest_has_config(tmp_path, _DEFAULT_ENTRY)
+        assert not _manifest_has_game(tmp_path, "breakout", 1, False, None)
 
-    def test_entry_present_returns_true(self, tmp_path):
-        _write_manifest(tmp_path, [_DEFAULT_ENTRY])
-        assert _manifest_has_config(tmp_path, _DEFAULT_ENTRY)
+    def test_game_present_returns_true(self, tmp_path):
+        _manifest_add_game(tmp_path, "breakout", 1, None, False, None)
+        assert _manifest_has_game(tmp_path, "breakout", 1, False, None)
 
-    def test_entry_absent_returns_false(self, tmp_path):
-        _write_manifest(
-            tmp_path, [{"n_envs": 4, "n_steps": None, "preset": True, "wrappers": None}]
-        )
-        assert not _manifest_has_config(tmp_path, _DEFAULT_ENTRY)
+    def test_different_game_returns_false(self, tmp_path):
+        _manifest_add_game(tmp_path, "alien", 1, None, False, None)
+        assert not _manifest_has_game(tmp_path, "breakout", 1, False, None)
+
+    def test_different_n_envs_returns_false(self, tmp_path):
+        _manifest_add_game(tmp_path, "breakout", 4, None, False, None)
+        assert not _manifest_has_game(tmp_path, "breakout", 1, False, None)
+
+    def test_different_preset_returns_false(self, tmp_path):
+        _manifest_add_game(tmp_path, "breakout", 1, None, True, None)
+        assert not _manifest_has_game(tmp_path, "breakout", 1, False, None)
 
     def test_corrupt_json_returns_false(self, tmp_path):
         (tmp_path / _MANIFEST_NAME).write_text("not valid json{{")
-        assert not _manifest_has_config(tmp_path, _DEFAULT_ENTRY)
+        assert not _manifest_has_game(tmp_path, "breakout", 1, False, None)
 
-    def test_entry_among_multiple_configs(self, tmp_path):
-        other = {"n_envs": 8, "n_steps": 256, "preset": True, "wrappers": None}
-        _write_manifest(tmp_path, [other, _DEFAULT_ENTRY])
-        assert _manifest_has_config(tmp_path, _DEFAULT_ENTRY)
+    def test_n_steps_kwarg_matches_when_equal(self, tmp_path):
+        _manifest_add_game(tmp_path, "breakout", 1, 128, False, None)
+        assert _manifest_has_game(tmp_path, "breakout", 1, False, None, n_steps=128)
+
+    def test_n_steps_kwarg_fails_when_different(self, tmp_path):
+        _manifest_add_game(tmp_path, "breakout", 1, None, False, None)
+        assert not _manifest_has_game(tmp_path, "breakout", 1, False, None, n_steps=128)
+
+    def test_n_steps_omitted_ignores_field(self, tmp_path):
+        # Game compiled with n_steps=128 should still be found when n_steps omitted.
+        _manifest_add_game(tmp_path, "breakout", 1, 128, False, None)
+        assert _manifest_has_game(tmp_path, "breakout", 1, False, None)
+
+    def test_game_among_multiple_configs(self, tmp_path):
+        _manifest_add_game(tmp_path, "alien", 8, 256, True, None)
+        _manifest_add_game(tmp_path, "breakout", 1, None, False, None)
+        assert _manifest_has_game(tmp_path, "breakout", 1, False, None)
+        assert not _manifest_has_game(tmp_path, "alien", 1, False, None)
 
 
-class TestManifestAppend:
+class TestManifestAddGame:
     def test_creates_file_with_entry(self, tmp_path):
-        _manifest_append(tmp_path, _DEFAULT_ENTRY)
+        _manifest_add_game(tmp_path, "breakout", 1, None, False, None)
         configs = _read_manifest(tmp_path)
-        assert _DEFAULT_ENTRY in configs
+        assert len(configs) == 1
+        assert configs[0]["compiled"] == ["breakout"]
 
-    def test_does_not_duplicate_entry(self, tmp_path):
-        _manifest_append(tmp_path, _DEFAULT_ENTRY)
-        _manifest_append(tmp_path, _DEFAULT_ENTRY)
+    def test_does_not_duplicate_game(self, tmp_path):
+        _manifest_add_game(tmp_path, "breakout", 1, None, False, None)
+        _manifest_add_game(tmp_path, "breakout", 1, None, False, None)
         configs = _read_manifest(tmp_path)
-        assert configs.count(_DEFAULT_ENTRY) == 1
+        assert configs[0]["compiled"].count("breakout") == 1
 
-    def test_appends_to_existing_entries(self, tmp_path):
-        first = {"n_envs": 4, "n_steps": 128, "preset": True, "wrappers": None}
-        _write_manifest(tmp_path, [first])
-        _manifest_append(tmp_path, _DEFAULT_ENTRY)
+    def test_appends_second_game_to_existing_entry(self, tmp_path):
+        _manifest_add_game(tmp_path, "alien", 1, None, False, None)
+        _manifest_add_game(tmp_path, "breakout", 1, None, False, None)
         configs = _read_manifest(tmp_path)
-        assert first in configs and _DEFAULT_ENTRY in configs
+        assert len(configs) == 1
+        assert "alien" in configs[0]["compiled"]
+        assert "breakout" in configs[0]["compiled"]
 
-    def test_multiple_distinct_configs_coexist(self, tmp_path):
-        entries = [
-            {"n_envs": 1, "n_steps": None, "preset": False, "wrappers": None},
-            {"n_envs": 4, "n_steps": 128, "preset": True, "wrappers": None},
-            {
-                "n_envs": 8,
-                "n_steps": 256,
-                "preset": False,
-                "wrappers": ["GrayscaleObservation"],
-            },
-        ]
-        for e in entries:
-            _manifest_append(tmp_path, e)
+    def test_different_config_creates_separate_entry(self, tmp_path):
+        _manifest_add_game(tmp_path, "breakout", 1, None, False, None)
+        _manifest_add_game(tmp_path, "breakout", 4, 128, True, None)
         configs = _read_manifest(tmp_path)
-        for e in entries:
-            assert e in configs
+        assert len(configs) == 2
 
     def test_handles_corrupt_existing_file(self, tmp_path):
         (tmp_path / _MANIFEST_NAME).write_text("{{broken")
-        _manifest_append(tmp_path, _DEFAULT_ENTRY)  # must not raise
+        _manifest_add_game(tmp_path, "breakout", 1, None, False, None)
         configs = _read_manifest(tmp_path)
-        assert _DEFAULT_ENTRY in configs
+        assert configs[0]["compiled"] == ["breakout"]
 
-
-_ONE_GAME = {"breakout": 12}
+    def test_entry_has_correct_keys(self, tmp_path):
+        _manifest_add_game(tmp_path, "breakout", 4, 128, True, None)
+        entry = _read_manifest(tmp_path)[0]
+        assert entry == {
+            "n_envs": 4,
+            "n_steps": 128,
+            "preset": True,
+            "wrappers": None,
+            "compiled": ["breakout"],
+        }
 
 
 class TestPrecompileAll:
-    def test_skips_when_config_already_cached(self, tmp_path):
-        _manifest_append(tmp_path, _DEFAULT_ENTRY)
+    def test_skips_when_game_already_compiled(self, tmp_path):
+        _manifest_add_game(tmp_path, "breakout", 1, None, False, None)
 
         with (
             patch("atarax.env.make.GAME_IDS", _ONE_GAME),
@@ -201,6 +222,19 @@ class TestPrecompileAll:
 
         mock_make.assert_not_called()
 
+    def test_compiles_missing_game_when_other_is_cached(self, tmp_path):
+        # amidar is already compiled; breakout is not — only breakout should compile.
+        _manifest_add_game(tmp_path, "amidar", 1, None, False, None)
+
+        with (
+            patch("atarax.env.make.GAME_IDS", _TWO_GAMES),
+            patch("atarax.env.make.make", return_value=_mock_env()) as mock_make,
+        ):
+            precompile_all(cache_dir=tmp_path)
+
+        assert mock_make.call_count == 1
+        assert _manifest_has_game(tmp_path, "breakout", 1, False, None)
+
     def test_writes_manifest_after_compilation(self, tmp_path):
         with (
             patch("atarax.env.make.GAME_IDS", _ONE_GAME),
@@ -208,11 +242,10 @@ class TestPrecompileAll:
         ):
             precompile_all(cache_dir=tmp_path)
 
-        assert _manifest_has_config(tmp_path, _DEFAULT_ENTRY)
+        assert _manifest_has_game(tmp_path, "breakout", 1, False, None)
 
     def test_clear_cache_removes_old_entries(self, tmp_path):
-        stale = {"n_envs": 99, "n_steps": None, "preset": True, "wrappers": None}
-        _manifest_append(tmp_path, stale)
+        _manifest_add_game(tmp_path, "breakout", 99, None, True, None)
 
         with (
             patch("atarax.env.make.GAME_IDS", _ONE_GAME),
@@ -220,11 +253,10 @@ class TestPrecompileAll:
         ):
             precompile_all(cache_dir=tmp_path, clear_cache=True)
 
-        assert not _manifest_has_config(tmp_path, stale)
+        assert not _manifest_has_game(tmp_path, "breakout", 99, True, None)
 
     def test_clear_cache_writes_new_manifest(self, tmp_path):
-        stale = {"n_envs": 99, "n_steps": None, "preset": True, "wrappers": None}
-        _manifest_append(tmp_path, stale)
+        _manifest_add_game(tmp_path, "breakout", 99, None, True, None)
 
         with (
             patch("atarax.env.make.GAME_IDS", _ONE_GAME),
@@ -232,7 +264,7 @@ class TestPrecompileAll:
         ):
             precompile_all(cache_dir=tmp_path, clear_cache=True)
 
-        assert _manifest_has_config(tmp_path, _DEFAULT_ENTRY)
+        assert _manifest_has_game(tmp_path, "breakout", 1, False, None)
 
     def test_no_manifest_when_cache_dir_none(self):
         """cache_dir=None disables all manifest I/O."""
@@ -255,8 +287,7 @@ class TestPrecompileAll:
             precompile_all(n_envs=4, cache_dir=tmp_path)
 
         mock_make_vec.assert_called_once()
-        entry = _config_entry(4, None, False, None)
-        assert _manifest_has_config(tmp_path, entry)
+        assert _manifest_has_game(tmp_path, "breakout", 4, False, None)
 
     def test_second_call_with_different_config_does_not_skip(self, tmp_path):
         """Two distinct configs must both be compiled and stored."""
@@ -267,6 +298,27 @@ class TestPrecompileAll:
             precompile_all(cache_dir=tmp_path)
             precompile_all(n_envs=1, preset=True, cache_dir=tmp_path)
 
-        assert mock_make.call_count == 2  # once per unique config
-        assert _manifest_has_config(tmp_path, _DEFAULT_ENTRY)
-        assert _manifest_has_config(tmp_path, _config_entry(1, None, True, None))
+        assert mock_make.call_count == 2
+        assert _manifest_has_game(tmp_path, "breakout", 1, False, None)
+        assert _manifest_has_game(tmp_path, "breakout", 1, True, None)
+
+    def test_make_suppresses_spinner_when_precompiled(self, tmp_path):
+        """make() must not call _wrap_with_tqdm when game is in manifest."""
+        _manifest_add_game(tmp_path, "breakout", 1, None, False, None)
+
+        with (
+            patch("atarax.env.make._manifest_has_game", return_value=True),
+            patch("atarax.env.make._wrap_with_tqdm") as mock_wrap,
+            patch("atarax.env.make.AtariEnv"),
+            patch("atarax.env.make.setup_cache"),
+        ):
+            from atarax.env.make import make
+            from atarax.env.spec import EnvSpec
+
+            make(
+                EnvSpec("atari", "breakout"),
+                cache_dir=tmp_path,
+                show_compile_progress=True,
+            )
+
+        mock_wrap.assert_not_called()
