@@ -26,15 +26,7 @@ from atarax.env._compile import DEFAULT_CACHE_DIR, _wrap_with_spinner, setup_cac
 from atarax.env.atari_env import AtariEnv, EnvParams
 from atarax.env.spec import EnvSpec
 from atarax.env.vec_env import VecEnv
-from atarax.env.wrappers import (
-    Wrapper,
-    ClipReward,
-    EpisodicLife,
-    FrameStackObservation,
-    GrayscaleObservation,
-    RecordEpisodeStatistics,
-    ResizeObservation,
-)
+from atarax.env.wrappers import AtariPreprocessing, Wrapper
 from atarax.games.registry import GAME_IDS
 
 _ENV_ID_RE = re.compile(r"^([^/]+)/(.+)-v(\d+)$")
@@ -100,19 +92,9 @@ def make(
         Wrapper classes applied innermost-first around the base env.
         Mutually exclusive with `preset`.
     preset : bool (optional)
-        Apply the DQN preprocessing stack from
+        Apply the DQN preprocessing stack (`AtariPreprocessing` wrapper) from
         [Mnih et al., 2015](https://www.nature.com/articles/nature14236).
         Mutually exclusive with `wrappers`.
-
-        Wrappers applied (in order):
-
-        - `GrayscaleObservation`
-        - `ResizeObservation` (84x84)
-        - `FrameStackObservation` (4 frames)
-        - `ClipReward`
-        - `EpisodicLife`
-        - `RecordEpisodeStatistics`
-
     jit_compile : bool (optional)
         JIT-compile `reset`, `step`, and `sample` on the first call.
         Default is `True`.
@@ -146,12 +128,7 @@ def make(
     env = AtariEnv(ale_name, params or EnvParams())
 
     if preset:
-        env = GrayscaleObservation(env)
-        env = ResizeObservation(env, h=84, w=84)
-        env = FrameStackObservation(env, n_stack=4)
-        env = ClipReward(env)
-        env = EpisodicLife(env)
-        env = RecordEpisodeStatistics(env)
+        env = AtariPreprocessing(env, h=84, w=84, n_stack=4)
     elif wrappers:
         for wrapper_cls in wrappers:
             env = wrapper_cls(env)
@@ -205,7 +182,7 @@ def make_vec(
         Wrapper classes applied innermost-first around the base env.
         Mutually exclusive with `preset`.
     preset : bool (optional)
-        Apply the DQN preprocessing stack from
+        Apply the DQN preprocessing stack (`AtariPreprocessing` wrapper) from
         [Mnih et al., 2015](https://www.nature.com/articles/nature14236).
         Mutually exclusive with `wrappers`.
     jit_compile : bool (optional)

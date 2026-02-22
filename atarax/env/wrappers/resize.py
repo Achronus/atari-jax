@@ -47,8 +47,8 @@ class ResizeObservation(Wrapper):
     def __init__(self, env: "AtariEnv | Wrapper", h: int = 84, w: int = 84) -> None:
         super().__init__(env)
 
-        self._out_h = h
-        self._out_w = w
+        self._h = h
+        self._w = w
 
     def reset(self, key: chex.Array) -> Tuple[chex.Array, AtariState]:
         """
@@ -62,12 +62,12 @@ class ResizeObservation(Wrapper):
         Returns
         -------
         obs : chex.Array
-            uint8[out_h, out_w] — Resized grayscale observation.
+            uint8[h, w] — Resized grayscale observation.
         state : AtariState
             Inner machine state.
         """
         obs, state = self._env.reset(key)
-        return resize(obs, self._out_h, self._out_w), state
+        return resize(obs, self._h, self._w), state
 
     def step(
         self,
@@ -87,7 +87,7 @@ class ResizeObservation(Wrapper):
         Returns
         -------
         obs : chex.Array
-            uint8[out_h, out_w] — Resized grayscale observation.
+            uint8[h, w] — Resized grayscale observation.
         new_state : AtariState
             Updated machine state.
         reward : chex.Array
@@ -98,7 +98,7 @@ class ResizeObservation(Wrapper):
             Info dict from the inner step.
         """
         obs, new_state, reward, done, info = self._env.step(state, action)
-        return resize(obs, self._out_h, self._out_w), new_state, reward, done, info
+        return resize(obs, self._h, self._w), new_state, reward, done, info
 
     @property
     def observation_space(self) -> Box:
@@ -107,6 +107,6 @@ class ResizeObservation(Wrapper):
         return Box(
             low=inner.low,
             high=inner.high,
-            shape=(self._out_h, self._out_w),
+            shape=(self._h, self._w),
             dtype=inner.dtype,
         )

@@ -72,6 +72,11 @@ obs, state, reward, done, info = env.step(state, env.sample(key))
 env = make("atari/breakout-v0", preset=True)
 obs, state = env.reset(key)                   # obs: uint8[84, 84, 4]
 
+# AtariPreprocessing can also be used standalone
+from atarax.env import AtariEnv, AtariPreprocessing
+env = AtariPreprocessing(AtariEnv("breakout"))
+env = AtariPreprocessing(AtariEnv("breakout"), h=42, w=42, n_stack=2)
+
 # Custom wrapper list (applied innermost → outermost)
 from atarax.env import GrayscaleObservation, ResizeObservation
 env = make("atari/breakout-v0", wrappers=[GrayscaleObservation, ResizeObservation])
@@ -143,8 +148,9 @@ interface.
 
 | Wrapper | Input | Output | Description | Extra state |
 | --- | --- | --- | --- | --- |
+| `AtariPreprocessing` | `uint8[210, 160, 3]` | `uint8[84, 84, 4]` | Full DQN stack (all six wrappers below) | `EpisodeStatisticsState` |
 | `GrayscaleObservation` | `uint8[210, 160, 3]` | `uint8[210, 160]` | NTSC luminance conversion | — |
-| `ResizeObservation(out_h, out_w)` | `uint8[H, W]` | `uint8[out_h, out_w]` | Bilinear resize (default 84×84) | — |
+| `ResizeObservation(h, out_w)` | `uint8[H, W]` | `uint8[h, out_w]` | Bilinear resize (default 84×84) | — |
 | `NormalizeObservation` | `uint8[...]` | `float32[...]` in `[0, 1]` | Divide by 255 | — |
 | `FrameStackObservation(n_stack)` | `uint8[H, W]` | `uint8[H, W, n_stack]` | Rolling frame buffer (default 4) | `FrameStackState` |
 | `ClipReward` | any reward | `float32 ∈ {−1, 0, +1}` | Sign clipping | — |

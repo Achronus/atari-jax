@@ -20,6 +20,7 @@ from atarax.env.spaces import Box, Discrete
 from atarax.env.spec import EnvSpec
 from atarax.env.vec_env import VecEnv, make_rollout_fn
 from atarax.env.wrappers import (
+    AtariPreprocessing,
     ClipReward,
     EpisodicLife,
     EpisodicLifeState,
@@ -35,6 +36,7 @@ from atarax.env.wrappers import (
 
 __all__ = [
     "AtariEnv",
+    "AtariPreprocessing",
     "Box",
     "ClipReward",
     "DEFAULT_CACHE_DIR",

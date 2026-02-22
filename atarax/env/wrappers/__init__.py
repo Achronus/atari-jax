@@ -15,6 +15,7 @@
 
 """Observation and reward wrappers for AtariEnv."""
 
+from atarax.env.wrappers.atari_preprocessing import AtariPreprocessing
 from atarax.env.wrappers.base import Wrapper
 from atarax.env.wrappers.clip_reward import ClipReward
 from atarax.env.wrappers.episodic_life import EpisodicLife, EpisodicLifeState
@@ -29,6 +30,7 @@ from atarax.env.wrappers.resize import ResizeObservation
 from atarax.env.wrappers.utils import to_gray
 
 __all__ = [
+    "AtariPreprocessing",
     "ClipReward",
     "EpisodicLife",
     "EpisodicLifeState",
