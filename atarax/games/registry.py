@@ -17,6 +17,8 @@
 
 from typing import NamedTuple
 
+import jax.numpy as jnp
+
 from atarax.games.base import AtariGame
 from atarax.games.roms.alien import Alien
 from atarax.games.roms.amidar import Amidar
@@ -156,3 +158,24 @@ ENV_IDS: dict[str, int] = {f"atari/{name}-v0": idx for name, idx in GAME_IDS.ite
 # Used by jax.lax.switch in the dispatch functions.
 SCORE_FNS = [g.game.get_score for g in _GAMES]
 TERMINAL_FNS = [g.game.is_terminal for g in _GAMES]
+LIVES_FNS = [g.game.get_lives for g in _GAMES]
+
+# int32[57] — warmup frame count per game; used as a dynamic argument in jit_reset.
+WARMUP_FRAMES_ARRAY = jnp.array(
+    [g.game._WARMUP_FRAMES for g in _GAMES], dtype=jnp.int32
+)
+
+
+def _make_reward_score_branch(spec: GameSpec):
+    g = spec.game
+    if g._uses_score_tracking:
+        def _branch(ram_prev, ram_curr, prev_score):
+            new_score = g.get_score(ram_curr)
+            return (new_score - prev_score).astype(jnp.float32), new_score
+    else:
+        def _branch(ram_prev, ram_curr, prev_score):
+            return g.get_reward(ram_prev, ram_curr), prev_score
+    return _branch
+
+
+REWARD_SCORE_FNS = [_make_reward_score_branch(s) for s in _GAMES]

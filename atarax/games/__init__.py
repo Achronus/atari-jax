@@ -15,12 +15,26 @@
 
 """Per-game score and terminal extraction, dispatched via jax.lax.switch."""
 
+from typing import Tuple
+
 import chex
 import jax
 
-from atarax.games.registry import GAME_IDS, SCORE_FNS, TERMINAL_FNS
+from atarax.games.registry import (
+    GAME_IDS,
+    LIVES_FNS,
+    REWARD_SCORE_FNS,
+    SCORE_FNS,
+    TERMINAL_FNS,
+)
 
-__all__ = ["GAME_IDS", "get_score", "is_terminal"]
+__all__ = [
+    "GAME_IDS",
+    "get_score",
+    "is_terminal",
+    "get_lives",
+    "compute_reward_and_score",
+]
 
 
 def get_score(
@@ -74,3 +88,64 @@ def is_terminal(
         bool — True when the episode ended on this step.
     """
     return jax.lax.switch(game_id, TERMINAL_FNS, ram, lives_prev)
+
+
+def get_lives(
+    game_id: chex.Array,
+    ram: chex.Array,
+) -> chex.Array:
+    """
+    Dispatch lives-count extraction to the appropriate game implementation.
+
+    Uses `jax.lax.switch` so the call is fully JAX-traceable and compatible
+    with `jax.jit` and `jax.vmap`.
+
+    Parameters
+    ----------
+    game_id : chex.Array
+        int32 — Index into the game registry (see `GAME_IDS`).
+    ram : chex.Array
+        uint8[128] — RIOT RAM snapshot.
+
+    Returns
+    -------
+    lives : chex.Array
+        int32 — Lives remaining.
+    """
+    return jax.lax.switch(game_id, LIVES_FNS, ram)
+
+
+def compute_reward_and_score(
+    game_id: chex.Array,
+    ram_prev: chex.Array,
+    ram_curr: chex.Array,
+    prev_score: chex.Array,
+) -> Tuple[chex.Array, chex.Array]:
+    """
+    Dispatch reward and score computation to the appropriate game implementation.
+
+    Handles both score-tracking games (reward = score delta) and direct-reward
+    games like Tennis (reward from two RAM snapshots, score unchanged).
+
+    Uses `jax.lax.switch` so the call is fully JAX-traceable and compatible
+    with `jax.jit` and `jax.vmap`.
+
+    Parameters
+    ----------
+    game_id : chex.Array
+        int32 — Index into the game registry (see `GAME_IDS`).
+    ram_prev : chex.Array
+        uint8[128] — RIOT RAM before the step.
+    ram_curr : chex.Array
+        uint8[128] — RIOT RAM after the step.
+    prev_score : chex.Array
+        int32 — Score accumulated before this step.
+
+    Returns
+    -------
+    reward : chex.Array
+        float32 — Reward earned on this step.
+    new_score : chex.Array
+        int32 — Updated cumulative score.
+    """
+    return jax.lax.switch(game_id, REWARD_SCORE_FNS, ram_prev, ram_curr, prev_score)
