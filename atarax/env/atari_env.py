@@ -17,12 +17,12 @@ from dataclasses import dataclass
 from typing import Any, Dict, Tuple
 
 import chex
-import jax
 import jax.numpy as jnp
 
 from atarax.core.state import AtariState
+from atarax.env._kernels import _jit_sample, jit_reset, jit_rollout, jit_step
 from atarax.env.spaces import Box, Discrete
-from atarax.games.registry import _GAMES, GAME_IDS
+from atarax.games.registry import GAME_IDS, WARMUP_FRAMES_ARRAY, _GAMES
 from atarax.utils.rom_loader import load_rom
 
 _N_ACTIONS: int = 18
@@ -77,6 +77,8 @@ class AtariEnv:
         self._params = params
         self._game = _GAMES[GAME_IDS[game_id]].game
         self._rom = load_rom(game_id)
+        self._game_id_jax = jnp.int32(GAME_IDS[game_id])
+        self._warmup_frames = WARMUP_FRAMES_ARRAY[GAME_IDS[game_id]]
 
     @property
     def default_params(self) -> EnvParams:
@@ -103,22 +105,13 @@ class AtariEnv:
         state : AtariState
             Initial machine state after reset and no-ops.
         """
-        state = self._game.reset(self._rom)
-
-        noop_steps = jax.random.randint(
+        return jit_reset(
             key,
-            shape=(),
-            minval=0,
-            maxval=self._params.noop_max + 1,
+            self._rom,
+            self._game_id_jax,
+            self._warmup_frames,
+            jnp.int32(self._params.noop_max),
         )
-
-        state: AtariState = jax.lax.fori_loop(
-            0,
-            noop_steps,
-            lambda _, s: self._game.step(s, self._rom, jnp.int32(0)),
-            state,
-        )
-        return state.screen, state
 
     def step(
         self,
@@ -152,29 +145,45 @@ class AtariEnv:
         info : Dict[str, Any]
             `{"lives": int32, "episode_frame": int32, "truncated": bool}`
         """
-
-        def _skip(carry, _):
-            s, acc = carry
-            new_s = self._game.step(s, self._rom, action)
-            return (new_s, acc + new_s.reward), None
-
-        (new_state, total_reward), _ = jax.lax.scan(
-            _skip,
-            (state, jnp.float32(0.0)),
-            None,
-            length=self._params.frame_skip,
+        return jit_step(
+            state,
+            self._rom,
+            action,
+            self._game_id_jax,
+            self._params.frame_skip,
+            self._params.max_episode_steps,
         )
 
-        truncated = new_state.episode_frame >= jnp.int32(self._params.max_episode_steps)
-        done = new_state.terminal | truncated
-        new_state = new_state.__replace__(reward=total_reward, terminal=done)
+    def rollout(
+        self,
+        state: AtariState,
+        actions: chex.Array,
+    ) -> Tuple[AtariState, Tuple[chex.Array, chex.Array, chex.Array, Dict[str, Any]]]:
+        """
+        Run a compiled multi-step rollout.
 
-        info = {
-            "lives": new_state.lives,
-            "episode_frame": new_state.episode_frame,
-            "truncated": truncated,
-        }
-        return new_state.screen, new_state, total_reward, done, info
+        Parameters
+        ----------
+        state : AtariState
+            Initial machine state.
+        actions : chex.Array
+            int32[T] — Action sequence; T determines the number of RL steps.
+
+        Returns
+        -------
+        final_state : AtariState
+            State after all T steps.
+        transitions : tuple
+            `(obs, reward, done, info)` each with a leading T dimension.
+        """
+        return jit_rollout(
+            state,
+            self._rom,
+            actions,
+            self._game_id_jax,
+            self._params.frame_skip,
+            self._params.max_episode_steps,
+        )
 
     def sample(self, key: chex.Array) -> chex.Array:
         """
@@ -190,13 +199,7 @@ class AtariEnv:
         action : chex.Array
             int32 — Random action index in `[0, 18)`.
         """
-        return jax.random.randint(
-            key,
-            shape=(),
-            minval=0,
-            maxval=_N_ACTIONS,
-            dtype=jnp.int32,
-        )
+        return _jit_sample(key)
 
     @property
     def observation_space(self) -> Box:
