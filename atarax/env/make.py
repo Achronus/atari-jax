@@ -17,15 +17,16 @@
 
 import pathlib
 import re
-import sys
 from typing import List, Type
 
 import jax
+import jax.numpy as jnp
+from tqdm import tqdm
 
 from atarax.env._compile import DEFAULT_CACHE_DIR, _wrap_with_spinner, setup_cache
 from atarax.env.atari_env import AtariEnv, EnvParams
 from atarax.env.spec import EnvSpec
-from atarax.env.vec_env import VecEnv
+from atarax.env.vec_env import VecEnv, make_rollout_fn
 from atarax.env.wrappers import AtariPreprocessing, Wrapper
 from atarax.games.registry import GAME_IDS
 
@@ -228,6 +229,8 @@ def make_vec(
 
 def precompile_all(
     *,
+    n_envs: int = 1,
+    n_steps: int | None = None,
     params: EnvParams | None = None,
     preset: bool = False,
     cache_dir: pathlib.Path | str | None = DEFAULT_CACHE_DIR,
@@ -235,16 +238,26 @@ def precompile_all(
     """
     Compile and cache all 57 game environments.
 
-    Runs `reset()` and one `step()` for every game so that JAX traces and
-    compiles the full emulation graph and writes the result to the XLA
-    persistent cache.  Subsequent `make()` calls for any game will load from
-    cache rather than recompiling.
+    Runs `reset()`, `step()`, and optionally `rollout()` for every game so
+    that JAX traces and compiles the full emulation graph and writes the result
+    to the XLA persistent cache.  Subsequent `make()` / `make_vec()` calls for
+    any game will load from cache rather than recompiling.
 
-    Useful before mass training runs or large test suites where many different
-    games will be used.
+    The cache key depends on the exact input shapes, so `n_envs` and `n_steps`
+    must match how the environments will be used in your training loop for
+    cache hits to occur.
 
     Parameters
     ----------
+    n_envs : int (optional)
+        Number of parallel environments to compile for.  `1` (default) uses
+        `make()` and caches single-env `reset` / `step` shapes.  Any value
+        greater than `1` uses `make_vec()` and caches batched shapes.
+    n_steps : int (optional)
+        If provided, also compiles and caches the rollout function for a
+        fixed sequence length of `n_steps`.  This corresponds to `T` in
+        the `actions` array passed to `rollout()`.  Leave as `None` to skip
+        rollout precompilation. Default is `None`
     params : EnvParams (optional)
         Shared environment parameters. Defaults to `EnvParams()`.
     preset : bool (optional)
@@ -257,28 +270,43 @@ def precompile_all(
     setup_cache(cache_dir)
 
     game_names = list(GAME_IDS.keys())
-    total = len(game_names)
     key = jax.random.PRNGKey(0)
 
-    for i, game_name in enumerate(game_names, start=1):
-        spec = EnvSpec("atari", game_name)
-        label = f"{spec.id} [{i}/{total}]"
+    print(
+        "Hold tight! Compiling and caching all 57 Atari environments. This may take a while..."
+    )
+    with tqdm(game_names, unit="env") as bar:
+        for game_name in bar:
+            spec = EnvSpec("atari", game_name)
+            bar.set_description(f"Compiling {spec.id}")
 
-        sys.stdout.write(f"\r\u29ff Compiling {label}...")
-        sys.stdout.flush()
+            if n_envs == 1:
+                env = make(
+                    spec,
+                    params=params,
+                    preset=preset,
+                    jit_compile=True,
+                    cache_dir=None,
+                )
+                _, state = env.reset(key)
+                env.step(state, env.sample(key))
 
-        env = make(
-            spec,
-            params=params,
-            preset=preset,
-            jit_compile=True,
-            cache_dir=None,  # Configured above
-        )
+                if n_steps is not None:
+                    rollout_fn = jax.jit(make_rollout_fn(env))
+                    rollout_fn(state, jnp.zeros(n_steps, dtype=jnp.int32))
+            else:
+                vec_env = make_vec(
+                    spec,
+                    n_envs=n_envs,
+                    params=params,
+                    preset=preset,
+                    jit_compile=True,
+                    cache_dir=None,
+                )
+                _, states = vec_env.reset(key)
+                vec_env.step(states, jnp.zeros(n_envs, dtype=jnp.int32))
 
-        _, state = env.reset(key)
-        env.step(state, env.sample(key))
-
-        sys.stdout.write(f"\r\u2713 {label}          \n")
-        sys.stdout.flush()
-
-    print(f"All {total} environments compiled and cached.")
+                if n_steps is not None:
+                    vec_env.rollout(
+                        states, jnp.zeros((n_envs, n_steps), dtype=jnp.int32)
+                    )
