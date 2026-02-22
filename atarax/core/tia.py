@@ -23,51 +23,142 @@ import jax.numpy as jnp
 
 from atarax.core.state import AtariState
 
-
-def _make_ntsc_palette() -> jax.Array:
-    """
-    Compute the 128-entry Atari NTSC colour look-up table.
-
-    Returns
-    -------
-    palette : jax.Array
-        uint8[128, 3] — RGB values for each 7-bit Atari colour index
-        (bits 7:1 of a TIA colour register).
-    """
-    idx = jnp.arange(128, dtype=jnp.int32)
-    hue = (idx & 0x0F).astype(jnp.int32)
-    lum = ((idx >> 4) & 0x07).astype(jnp.int32)
-
-    # Grey ramp: luma 0-7 → 0, 34, 68, …, 238
-    grey_v = (lum * 34).astype(jnp.uint8)
-    grey_rgb = jnp.stack([grey_v, grey_v, grey_v], axis=1)  # [128, 3]
-
-    # Coloured entries: YIQ model, hue 1-15 at 26° increments
-    angle_rad = (hue - 1).astype(jnp.float32) * (26.0 * jnp.pi / 180.0)
-    saturation = jnp.float32(0.55)
-    lightness = jnp.float32(0.07) + lum.astype(jnp.float32) * jnp.float32(0.12)
-
-    y = lightness
-    i = saturation * jnp.cos(angle_rad)
-    q = saturation * jnp.sin(angle_rad)
-
-    r = y + jnp.float32(0.9563) * i + jnp.float32(0.6210) * q
-    g = y - jnp.float32(0.2721) * i - jnp.float32(0.6474) * q
-    b = y - jnp.float32(1.1070) * i + jnp.float32(1.7046) * q
-
-    color_rgb = jnp.stack(
-        [
-            jnp.clip(r * 255, 0, 255).astype(jnp.uint8),
-            jnp.clip(g * 255, 0, 255).astype(jnp.uint8),
-            jnp.clip(b * 255, 0, 255).astype(jnp.uint8),
-        ],
-        axis=1,
-    )  # [128, 3]
-
-    return jnp.where((hue == 0)[:, None], grey_rgb, color_rgb)
-
-
-_NTSC_PALETTE: jax.Array = _make_ntsc_palette()
+# Canonical Atari 2600 NTSC colour palette — 128 entries ported from ALE
+# Palettes.hpp (even-indexed entries 0, 2, 4, …, 254 from the 256-entry ALE
+# table).  Indexed via `(color_register >> 1) & 0x7F`.
+_NTSC_PALETTE: jax.Array = jnp.array(
+    [
+        [0, 0, 0],
+        [74, 74, 74],
+        [111, 111, 111],
+        [142, 142, 142],  #   0–3
+        [170, 170, 170],
+        [192, 192, 192],
+        [214, 214, 214],
+        [236, 236, 236],  #   4–7
+        [72, 72, 0],
+        [105, 105, 15],
+        [134, 134, 29],
+        [162, 162, 42],  #   8–11
+        [187, 187, 53],
+        [210, 210, 64],
+        [232, 232, 74],
+        [252, 252, 84],  #  12–15
+        [124, 44, 0],
+        [144, 72, 17],
+        [162, 98, 33],
+        [180, 122, 48],  #  16–19
+        [195, 144, 61],
+        [210, 164, 74],
+        [223, 183, 85],
+        [236, 200, 96],  #  20–23
+        [144, 28, 0],
+        [163, 57, 21],
+        [181, 83, 40],
+        [198, 108, 58],  #  24–27
+        [213, 130, 74],
+        [227, 151, 89],
+        [240, 170, 103],
+        [252, 188, 116],  #  28–31
+        [148, 0, 0],
+        [167, 26, 26],
+        [184, 50, 50],
+        [200, 72, 72],  #  32–35
+        [214, 92, 92],
+        [228, 111, 111],
+        [240, 128, 128],
+        [252, 144, 144],  #  36–39
+        [132, 0, 100],
+        [151, 25, 122],
+        [168, 48, 143],
+        [184, 70, 162],  #  40–43
+        [198, 89, 179],
+        [212, 108, 195],
+        [224, 124, 210],
+        [236, 140, 224],  #  44–47
+        [80, 0, 132],
+        [104, 25, 154],
+        [125, 48, 173],
+        [146, 70, 192],  #  48–51
+        [164, 89, 208],
+        [181, 108, 224],
+        [197, 124, 238],
+        [212, 140, 252],  #  52–55
+        [20, 0, 144],
+        [51, 26, 163],
+        [78, 50, 181],
+        [104, 72, 198],  #  56–59
+        [127, 92, 213],
+        [149, 111, 227],
+        [169, 128, 240],
+        [188, 144, 252],  #  60–63
+        [0, 0, 148],
+        [24, 26, 167],
+        [45, 50, 184],
+        [66, 72, 200],  #  64–67
+        [84, 92, 214],
+        [101, 111, 228],
+        [117, 128, 240],
+        [132, 144, 252],  #  68–71
+        [0, 28, 136],
+        [24, 59, 157],
+        [45, 87, 176],
+        [66, 114, 194],  #  72–75
+        [84, 138, 210],
+        [101, 160, 225],
+        [117, 181, 239],
+        [132, 200, 252],  #  76–79
+        [0, 48, 100],
+        [24, 80, 128],
+        [45, 109, 152],
+        [66, 136, 176],  #  80–83
+        [84, 160, 197],
+        [101, 183, 217],
+        [117, 204, 235],
+        [132, 224, 252],  #  84–87
+        [0, 64, 64],
+        [24, 98, 78],
+        [45, 129, 105],
+        [66, 158, 130],  #  88–91
+        [84, 184, 153],
+        [101, 209, 174],
+        [117, 231, 194],
+        [132, 252, 212],  #  92–95
+        [0, 68, 0],
+        [26, 102, 26],
+        [50, 132, 50],
+        [72, 160, 72],  #  96–99
+        [92, 186, 92],
+        [111, 210, 111],
+        [128, 232, 128],
+        [144, 252, 144],  # 100–103
+        [20, 60, 0],
+        [53, 95, 24],
+        [82, 126, 45],
+        [110, 156, 66],  # 104–107
+        [135, 183, 84],
+        [158, 208, 101],
+        [180, 231, 117],
+        [200, 252, 132],  # 108–111
+        [48, 56, 0],
+        [80, 89, 22],
+        [109, 118, 43],
+        [136, 146, 62],  # 112–115
+        [160, 171, 79],
+        [183, 194, 95],
+        [204, 216, 110],
+        [224, 236, 124],  # 116–119
+        [72, 44, 0],
+        [105, 77, 20],
+        [134, 106, 38],
+        [162, 134, 56],  # 120–123
+        [187, 159, 71],
+        [210, 182, 86],
+        [232, 204, 99],
+        [252, 224, 112],  # 124–127
+    ],
+    dtype=jnp.uint8,
+)  # shape [128, 3]
 
 
 # Number of sprite copies for each nusiz[2:0] value
@@ -635,6 +726,10 @@ def render_scanline(state: AtariState) -> Tuple[AtariState, chex.Array]:
     # NTSC look-up: 7-bit index from bits 7:1
     col_idx = ((colors >> jnp.uint8(1)) & jnp.uint8(0x7F)).astype(jnp.int32)
     rgb_row = _NTSC_PALETTE[col_idx]  # uint8[160, 3]
+
+    # Honour VBLANK: bit 1 of TIA register 0x01 blanks the scanline to black.
+    vblank_active = ((regs[0x01] >> jnp.uint8(1)) & jnp.uint8(1)).astype(jnp.bool_)
+    rgb_row = jnp.where(vblank_active, jnp.zeros((160, 3), dtype=jnp.uint8), rgb_row)
 
     # Update collision latches (OR-only, cleared only by CXCLR)
     new_collisions = _update_collisions(
