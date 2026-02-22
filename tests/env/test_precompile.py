@@ -64,7 +64,12 @@ _TWO_GAMES = {"amidar": 1, "breakout": 12}
 class TestConfigEntry:
     def test_defaults(self):
         entry = _config_entry(1, None, False, None)
-        assert entry == {"n_envs": 1, "n_steps": None, "preset": False, "wrappers": None}
+        assert entry == {
+            "n_envs": 1,
+            "n_steps": None,
+            "preset": False,
+            "wrappers": None,
+        }
 
     def test_with_steps_and_preset(self):
         entry = _config_entry(4, 128, True, None)
@@ -93,7 +98,10 @@ class TestConfigEntry:
         entry = _config_entry(
             1, None, False, [GrayscaleObservation, ResizeObservation(h=64, w=64)]
         )
-        assert entry["wrappers"] == ["GrayscaleObservation", "ResizeObservation(h=64, w=64)"]
+        assert entry["wrappers"] == [
+            "GrayscaleObservation",
+            "ResizeObservation(h=64, w=64)",
+        ]
 
 
 class TestWrapperStr:
@@ -303,13 +311,11 @@ class TestPrecompileAll:
         assert _manifest_has_game(tmp_path, "breakout", 1, True, None)
 
     def test_make_suppresses_spinner_when_precompiled(self, tmp_path):
-        """make() must not call _wrap_with_tqdm when game is in manifest."""
-        _manifest_add_game(tmp_path, "breakout", 1, None, False, None)
-
+        """make() must not show a tqdm bar when game is in manifest."""
         with (
             patch("atarax.env.make._manifest_has_game", return_value=True),
-            patch("atarax.env.make._wrap_with_tqdm") as mock_wrap,
-            patch("atarax.env.make.AtariEnv"),
+            patch("atarax.env.make.tqdm") as mock_tqdm,
+            patch("atarax.env.make.AtariEnv", return_value=_mock_env()),
             patch("atarax.env.make.setup_cache"),
         ):
             from atarax.env.make import make
@@ -321,4 +327,4 @@ class TestPrecompileAll:
                 show_compile_progress=True,
             )
 
-        mock_wrap.assert_not_called()
+        mock_tqdm.assert_not_called()

@@ -24,7 +24,12 @@ if TYPE_CHECKING:
     from atarax.env.wrappers.base import Wrapper
 
 from atarax.core.state import AtariState
-from atarax.env._kernels import _jit_sample, jit_vec_reset, jit_vec_rollout, jit_vec_step
+from atarax.env._kernels import (
+    _jit_sample,
+    jit_vec_reset,
+    jit_vec_rollout,
+    jit_vec_step,
+)
 from atarax.env.spaces import Box, Discrete
 
 

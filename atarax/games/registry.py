@@ -169,12 +169,15 @@ WARMUP_FRAMES_ARRAY = jnp.array(
 def _make_reward_score_branch(spec: GameSpec):
     g = spec.game
     if g._uses_score_tracking:
+
         def _branch(ram_prev, ram_curr, prev_score):
             new_score = g.get_score(ram_curr)
             return (new_score - prev_score).astype(jnp.float32), new_score
     else:
+
         def _branch(ram_prev, ram_curr, prev_score):
             return g.get_reward(ram_prev, ram_curr), prev_score
+
     return _branch
 
 

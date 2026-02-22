@@ -22,7 +22,7 @@ import jax.numpy as jnp
 from atarax.core.state import AtariState
 from atarax.env._kernels import _jit_sample, jit_reset, jit_rollout, jit_step
 from atarax.env.spaces import Box, Discrete
-from atarax.games.registry import GAME_IDS, WARMUP_FRAMES_ARRAY, _GAMES
+from atarax.games.registry import _GAMES, GAME_IDS, WARMUP_FRAMES_ARRAY
 from atarax.utils.rom_loader import load_rom
 
 _N_ACTIONS: int = 18

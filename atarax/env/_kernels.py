@@ -220,10 +220,9 @@ def jit_reset(
 
 
 _jit_sample = jax.jit(
-    lambda key: jax.random.randint(
-        key, shape=(), minval=0, maxval=18, dtype=jnp.int32
-    )
+    lambda key: jax.random.randint(key, shape=(), minval=0, maxval=18, dtype=jnp.int32)
 )
+
 
 @functools.partial(jax.jit, static_argnums=(4, 5))
 def jit_rollout(
@@ -373,9 +372,7 @@ def jit_vec_reset(
     states : AtariState
         Batched initial machine states.
     """
-    return jax.vmap(
-        lambda k: jit_reset(k, rom, game_id, warmup_frames, noop_max)
-    )(keys)
+    return jax.vmap(lambda k: jit_reset(k, rom, game_id, warmup_frames, noop_max))(keys)
 
 
 @functools.partial(jax.jit, static_argnums=(4, 5))
@@ -423,7 +420,5 @@ def jit_vec_rollout(
         )
         return new_states, (screens, rewards, done, info)
 
-    final_states, transitions = jax.lax.scan(
-        _step, states, jnp.moveaxis(actions, 1, 0)
-    )
+    final_states, transitions = jax.lax.scan(_step, states, jnp.moveaxis(actions, 1, 0))
     return final_states, transitions
