@@ -15,8 +15,10 @@
 
 """Persistent XLA compilation cache setup and JIT compile-progress wrapper."""
 
+import contextlib
 import functools
 import pathlib
+import threading
 from typing import Callable
 
 import jax
@@ -48,7 +50,40 @@ def setup_cache(cache_dir: pathlib.Path | str | None = DEFAULT_CACHE_DIR) -> Non
     path.mkdir(parents=True, exist_ok=True)
 
     jax.config.update("jax_compilation_cache_dir", str(path))
+    jax.config.update("jax_compilation_cache_min_compile_time_secs", 0)
     _cache_configured = True
+
+
+@contextlib.contextmanager
+def _live_bar(bar: tqdm, interval: float = 0.1):
+    """
+    Refresh *bar* from a background thread while the body executes.
+
+    tqdm only redraws when `update()` is called, so without this the elapsed
+    timer appears frozen during a long blocking operation such as XLA
+    compilation.
+
+    Parameters
+    ----------
+    bar : tqdm
+        The progress bar instance to refresh.
+    interval : float (optional)
+        Seconds between refreshes. Default is `0.1`.
+    """
+    stop = threading.Event()
+
+    def _spin():
+        while not stop.is_set():
+            bar.refresh()
+            stop.wait(interval)
+
+    t = threading.Thread(target=_spin, daemon=True)
+    t.start()
+    try:
+        yield
+    finally:
+        stop.set()
+        t.join()
 
 
 def _wrap_with_tqdm(
@@ -58,7 +93,8 @@ def _wrap_with_tqdm(
     Wrap a list of functions to share a single tqdm compile-progress bar.
 
     Each function advances the bar by one step on its first call.
-    Subsequent calls bypass the progress display entirely.
+    Subsequent calls bypass the progress display entirely.  The elapsed
+    timer updates live while each compilation is in progress.
 
     Parameters
     ----------
@@ -86,7 +122,8 @@ def _wrap_with_tqdm(
 
             _first_call[0] = False
             bar.set_description(_label)
-            result = _fn(*args, **kwargs)
+            with _live_bar(bar):
+                result = _fn(*args, **kwargs)
             bar.update(1)
             completed[0] += 1
 
