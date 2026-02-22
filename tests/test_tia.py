@@ -39,9 +39,9 @@ def test_ntsc_palette_shape():
 
 
 def test_ntsc_palette_grey_ramp():
-    # Hue 0 (indices 0, 16, 32, …) should be grey (R == G == B).
-    for lum in range(8):
-        idx = lum * 16
+    # Hue 0 occupies palette indices 0–7 (one entry per luminance step).
+    # TIA color registers 0x00, 0x02, … 0x0E map to palette[0..7] via >> 1.
+    for idx in range(8):
         r, g, b = (
             int(_NTSC_PALETTE[idx, 0]),
             int(_NTSC_PALETTE[idx, 1]),
