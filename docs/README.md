@@ -33,7 +33,8 @@ atarax/
     atari_env.py        AtariEnv + EnvParams
     make.py             make() / make_vec() factory functions
     spaces.py           Box + Discrete observation/action spaces
-    vec_env.py          VecEnv + make_rollout_fn
+    _kernels.py         Shared module-level JIT kernels (all games, one compile)
+    vec_env.py          VecEnv
     wrappers/           Composable RL preprocessing wrappers
   utils/
     rom_loader.py       load_rom(game_id) — lazy ale-py import

@@ -50,6 +50,9 @@ def setup_cache(cache_dir: pathlib.Path | str | None = DEFAULT_CACHE_DIR) -> Non
     path.mkdir(parents=True, exist_ok=True)
 
     jax.config.update("jax_compilation_cache_dir", str(path))
+    jax.config.update("jax_persistent_cache_min_compile_time_secs", 0.0)
+    jax.config.update("jax_persistent_cache_min_entry_size_bytes", -1)
+    jax.config.update("jax_persistent_cache_enable_xla_caches", "all")
     _cache_configured = True
 
 
