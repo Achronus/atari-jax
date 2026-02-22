@@ -37,6 +37,8 @@ class CrazyClimber(AtariGame):
     glitch that ALE also patches out.
     """
 
+    _uses_score_tracking: bool = False
+
     def _score(self, ram: chex.Array) -> chex.Array:
         """Decode the 4-digit single-byte score (× 100) from four RAM bytes."""
         d0 = ram[SCORE_D0].astype(jnp.int32)

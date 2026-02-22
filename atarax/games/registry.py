@@ -154,5 +154,5 @@ ENV_IDS: dict[str, int] = {f"atari/{name}-v0": idx for name, idx in GAME_IDS.ite
 
 # Ordered lists of bound methods, indexed by game_id.
 # Used by jax.lax.switch in the dispatch functions.
-REWARD_FNS = [g.game.get_reward for g in _GAMES]
+SCORE_FNS = [g.game.get_score for g in _GAMES]
 TERMINAL_FNS = [g.game.is_terminal for g in _GAMES]

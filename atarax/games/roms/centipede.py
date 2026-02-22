@@ -37,6 +37,8 @@ class Centipede(AtariGame):
     glitch that ALE also patches out.
     """
 
+    _uses_score_tracking: bool = False
+
     def _score(self, ram: chex.Array) -> chex.Array:
         """Decode the 6-digit packed-BCD score from three RAM bytes."""
         lo = ram[SCORE_LO].astype(jnp.int32)

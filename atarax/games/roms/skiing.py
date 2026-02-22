@@ -34,8 +34,11 @@ class Skiing(AtariGame):
 
     Score represents elapsed time (higher = worse): minutes × 6000 + centiseconds
     (BCD-encoded).  Reward is the *decrease* in elapsed time per step, i.e.
-    ``prev_score − curr_score``, so it is ≤0 (time-penalty formulation matching
+    `prev_score − curr_score`, so it is ≤0 (time-penalty formulation matching
     ALE).  Terminal when RAM[0x91] equals 0xFF (run complete).  No lives counter.
+
+    `get_score` returns the negated elapsed time so that the standard
+    `state.score` delta naturally yields `(−curr) − (−prev) = prev − curr`.
     """
 
     def _score(self, ram: chex.Array) -> chex.Array:
@@ -50,6 +53,22 @@ class Skiing(AtariGame):
         )
         minutes = ram[TIME_MIN].astype(jnp.int32)
         return minutes * jnp.int32(6000) + centiseconds
+
+    def get_score(self, ram: chex.Array) -> chex.Array:
+        """
+        Return the negated elapsed time so the reward delta is ≤0.
+
+        Parameters
+        ----------
+        ram : chex.Array
+            uint8[128] — RIOT RAM snapshot.
+
+        Returns
+        -------
+        score : chex.Array
+            int32 — Negated elapsed time (`−(minutes × 6000 + centiseconds)`).
+        """
+        return -self._score(ram)
 
     def get_lives(self, ram: chex.Array) -> chex.Array:
         """
@@ -68,26 +87,6 @@ class Skiing(AtariGame):
             int32 — Always 0 (no lives counter in this game).
         """
         return jnp.int32(0)
-
-    def get_reward(self, ram_prev: chex.Array, ram_curr: chex.Array) -> chex.Array:
-        """
-        Compute the reward earned in the last step.
-
-        Reward is ``prev_elapsed − curr_elapsed`` (≤0): a penalty for time passing.
-
-        Parameters
-        ----------
-        ram_prev : chex.Array
-            uint8[128] — RIOT RAM before the step.
-        ram_curr : chex.Array
-            uint8[128] — RIOT RAM after the step.
-
-        Returns
-        -------
-        reward : chex.Array
-            float32 — Negative time-penalty reward this step.
-        """
-        return (self._score(ram_prev) - self._score(ram_curr)).astype(jnp.float32)
 
     def is_terminal(self, ram: chex.Array, lives_prev: chex.Array) -> chex.Array:
         """

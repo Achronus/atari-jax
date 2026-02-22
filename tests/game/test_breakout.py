@@ -28,7 +28,7 @@ game = Breakout()
 
 
 def _ram(overrides=None):
-    """Return a zeroed 128-byte RAM array with optional ``{index: value}`` overrides."""
+    """Return a zeroed 128-byte RAM array with optional `{index: value}` overrides."""
     data = jnp.zeros(128, dtype=jnp.uint8)
     if overrides:
         for idx, val in overrides.items():

@@ -31,9 +31,9 @@ class RiverRaid(AtariGame):
     """River Raid game logic: reward and terminal extraction, reset, and step.
 
     Score is encoded across six RAM bytes at addresses 77, 79, 81, 83, 85, 87
-    (highest to lowest digit) using a ×8 encoding: ``digit = RAM[addr] // 8``.
+    (highest to lowest digit) using a ×8 encoding: `digit = RAM[addr] // 8`.
     Terminal on the 0x59 → 0x58 transition of RAM[0xC0] (last life exhausted),
-    detected via ``lives_prev == 1 and RAM[0xC0] == 0x58``.
+    detected via `lives_prev == 1 and RAM[0xC0] == 0x58`.
     """
 
     def _score(self, ram: chex.Array) -> chex.Array:
@@ -67,30 +67,12 @@ class RiverRaid(AtariGame):
             jnp.where(ram[LIVES_BYTE] == jnp.uint8(0x59), jnp.int32(1), normal),
         )
 
-    def get_reward(self, ram_prev: chex.Array, ram_curr: chex.Array) -> chex.Array:
-        """
-        Compute the reward earned in the last step as a score delta.
-
-        Parameters
-        ----------
-        ram_prev : chex.Array
-            uint8[128] — RIOT RAM before the step.
-        ram_curr : chex.Array
-            uint8[128] — RIOT RAM after the step.
-
-        Returns
-        -------
-        reward : chex.Array
-            float32 — Score gained this step.
-        """
-        return (self._score(ram_curr) - self._score(ram_prev)).astype(jnp.float32)
-
     def is_terminal(self, ram: chex.Array, lives_prev: chex.Array) -> chex.Array:
         """
         Determine whether the episode has ended.
 
         Terminal on the 0x59 → 0x58 transition of RAM[0xC0], detected as
-        ``RAM[0xC0] == 0x58 and lives_prev == 1``.
+        `RAM[0xC0] == 0x58 and lives_prev == 1`.
 
         Parameters
         ----------

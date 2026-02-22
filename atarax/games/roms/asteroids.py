@@ -32,6 +32,8 @@ LIVES_ADDR = 0xBC  # upper nibble holds lives remaining
 class Asteroids(AtariGame):
     """Asteroids game logic: reward and terminal extraction, reset, and step."""
 
+    _uses_score_tracking: bool = False
+
     _WRAP_SCORE = 100_000
 
     def _score(self, ram: chex.Array) -> chex.Array:

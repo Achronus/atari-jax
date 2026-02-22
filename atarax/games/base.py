@@ -32,11 +32,41 @@ class AtariGame(ABC):
     Subclasses implement reward extraction, terminal detection, and lives
     counting for one ROM.  The shared `reset` and `step` entry points are
     provided by this base class.  All methods operate on JAX arrays and are
-    fully compatible with `jax.jit` and `jax.vmap` — ``self`` is a
+    fully compatible with `jax.jit` and `jax.vmap` — `self` is a
     Python-level constant that JAX never traces.
+
+    The default reward strategy mirrors ALE's `m_score` baseline: after
+    warmup, `reset` captures the current raw score into `state.score`; each
+    `step` computes `reward = get_score(ram_curr) - state.score` and writes
+    the new score back.  Games that cannot use this strategy (e.g. Tennis,
+    which needs two RAM snapshots for priority-based reward) should set
+    `_uses_score_tracking = False` and override `get_reward` instead.
     """
 
     _WARMUP_FRAMES: int = 60
+    _uses_score_tracking: bool = True
+
+    @abstractmethod
+    def _score(self, ram: chex.Array) -> chex.Array:
+        """
+        Decode the raw game score from RAM.
+
+        Every standard game subclass implements this helper.  The base
+        `get_score` default calls it; `step` uses `get_score` rather than
+        `_score` directly so subclasses can transform the value (e.g.
+        Skiing negates, Tennis stubs to 0).
+
+        Parameters
+        ----------
+        ram : chex.Array
+            uint8[128] — RIOT RAM snapshot.
+
+        Returns
+        -------
+        score : chex.Array
+            int32 — Raw decoded score.
+        """
+        raise NotImplementedError()
 
     @abstractmethod
     def get_lives(self, ram: chex.Array) -> chex.Array:
@@ -55,10 +85,33 @@ class AtariGame(ABC):
         """
         raise NotImplementedError()
 
-    @abstractmethod
+    def get_score(self, ram: chex.Array) -> chex.Array:
+        """
+        Read the raw game score from RAM.
+
+        Default implementation calls `self._score(ram)`, which every
+        standard game subclass defines.  Override when the score sign or
+        encoding differs (e.g. Skiing negates, Tennis stubs to 0).
+
+        Parameters
+        ----------
+        ram : chex.Array
+            uint8[128] — RIOT RAM snapshot.
+
+        Returns
+        -------
+        score : chex.Array
+            int32 — Raw game score.
+        """
+        return self._score(ram)
+
     def get_reward(self, ram_prev: chex.Array, ram_curr: chex.Array) -> chex.Array:
         """
-        Compute the reward earned between two RAM snapshots.
+        Compute reward directly from two consecutive RAM snapshots.
+
+        Override this when `_uses_score_tracking = False` (e.g. Tennis).
+        The default raises `NotImplementedError`; it is never called when
+        `_uses_score_tracking = True`.
 
         Parameters
         ----------
@@ -72,7 +125,10 @@ class AtariGame(ABC):
         reward : chex.Array
             float32 — Score gained this step.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            f"{type(self).__name__} sets _uses_score_tracking=False but "
+            "does not override get_reward."
+        )
 
     @abstractmethod
     def is_terminal(self, ram: chex.Array, lives_prev: chex.Array) -> chex.Array:
@@ -97,9 +153,11 @@ class AtariGame(ABC):
         """
         Initialise the machine and run warm-up frames.
 
-        Loads the CPU reset vector from the ROM, runs `_WARMUP_FRAMES` NOOP
-        frames, then captures the initial lives count and zeroes the episode
-        counters.
+        Loads the CPU reset vector from the ROM, runs 10 NOOP frames, fires
+        one FIRE action (action 1) to start the game and trigger the ROM's
+        score-initialisation path, then runs `_WARMUP_FRAMES - 11` more NOOP
+        frames before capturing the initial lives count and zeroing the
+        episode counters.
 
         Parameters
         ----------
@@ -109,18 +167,30 @@ class AtariGame(ABC):
         Returns
         -------
         state : AtariState
-            Ready-to-play machine state with `lives`, `reward`, `terminal`,
-            and `episode_frame` initialised.
+            Ready-to-play machine state with `lives`, `score`, `reward`,
+            `terminal`, and `episode_frame` initialised.
         """
         state = new_atari_state()
         state = cpu_reset(state, rom)
         state = jax.lax.fori_loop(
             0,
-            self._WARMUP_FRAMES,
+            10,
             lambda _, s: emulate_frame(s, rom, jnp.int32(0)),
             state,
         )
+        state = emulate_frame(state, rom, jnp.int32(1))
+        state = jax.lax.fori_loop(
+            0,
+            self._WARMUP_FRAMES - 11,
+            lambda _, s: emulate_frame(s, rom, jnp.int32(0)),
+            state,
+        )
+        if self._uses_score_tracking:
+            init_score = self.get_score(state.riot.ram)
+        else:
+            init_score = jnp.int32(0)
         return state.__replace__(
+            score=init_score,
             lives=self.get_lives(state.riot.ram),
             episode_frame=jnp.int32(0),
             terminal=jnp.bool_(False),
@@ -134,8 +204,8 @@ class AtariGame(ABC):
         Apply one action and emulate one ALE frame.
 
         Captures the pre-step RAM, runs `emulate_frame`, then updates
-        `reward`, `lives`, `terminal`, and `episode_frame` using this
-        game's RAM-extraction logic.
+        `reward`, `score`, `lives`, `terminal`, and `episode_frame` using
+        this game's RAM-extraction logic.
 
         Parameters
         ----------
@@ -155,8 +225,16 @@ class AtariGame(ABC):
         lives_prev = state.lives
         state = emulate_frame(state, rom, action)
         ram_curr = state.riot.ram
+        if self._uses_score_tracking:
+            curr_score = self.get_score(ram_curr)
+            reward = (curr_score - state.score).astype(jnp.float32)
+            new_score = curr_score
+        else:
+            reward = self.get_reward(ram_prev, ram_curr)
+            new_score = state.score
         return state.__replace__(
-            reward=self.get_reward(ram_prev, ram_curr),
+            score=new_score,
+            reward=reward,
             lives=self.get_lives(ram_curr),
             terminal=self.is_terminal(ram_curr, lives_prev),
             episode_frame=(state.episode_frame + jnp.int32(1)).astype(jnp.int32),

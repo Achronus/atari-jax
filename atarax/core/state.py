@@ -163,6 +163,10 @@ class AtariState:
         bool — True when the episode ended on this step.
     reward : jax.Array
         float32 — Reward earned during the last step.
+    score : jax.Array
+        int32 — Raw game score after the last reset (ALE `m_score` baseline).
+        Step reward is computed as `get_score(ram_curr) - score`; updated
+        each step.  Zeroed at power-on; initialised from RAM after warmup.
     cycles : jax.Array
         int32 — Cumulative CPU cycles since power-on; used by the RIOT timer.
     """
@@ -177,6 +181,7 @@ class AtariState:
     lives: jax.Array
     terminal: jax.Array
     reward: jax.Array
+    score: jax.Array
     cycles: jax.Array
 
 
@@ -269,5 +274,6 @@ def new_atari_state() -> AtariState:
         lives=jnp.int32(0),
         terminal=jnp.bool_(False),
         reward=jnp.float32(0.0),
+        score=jnp.int32(0),
         cycles=jnp.int32(0),
     )

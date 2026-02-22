@@ -40,6 +40,8 @@ class IceHockey(AtariGame):
     counter.
     """
 
+    _uses_score_tracking: bool = False
+
     def _score_single(self, byte: chex.Array) -> chex.Array:
         """Decode a single 1-byte BCD score and clamp to ≥0."""
         b = byte.astype(jnp.int32)

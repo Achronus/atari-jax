@@ -28,7 +28,7 @@ def load_rom(game_id: str) -> chex.Array:
     Parameters
     ----------
     game_id : str
-        ALE game identifier (e.g. ``"breakout"``, ``"pong"``).
+        ALE game identifier (e.g. `"breakout"`, `"pong"`).
 
     Returns
     -------

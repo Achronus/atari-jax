@@ -35,6 +35,8 @@ class Freeway(AtariGame):
     so each successful crossing contributes exactly +1.
     """
 
+    _uses_score_tracking: bool = False
+
     def _score(self, ram: chex.Array) -> chex.Array:
         """Decode the 1-byte packed-BCD crossing count."""
         b = ram[SCORE_ADDR].astype(jnp.int32)

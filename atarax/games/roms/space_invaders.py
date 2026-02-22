@@ -34,9 +34,11 @@ class SpaceInvaders(AtariGame):
 
     Score is 2-byte packed BCD (non-sequential addresses 0xE8 and 0xE6); maximum
     is 10,000.  When the computed delta is negative the score has wrapped, and
-    the reward is corrected to ``(10000 − prev) + curr``, matching ALE behaviour.
+    the reward is corrected to `(10000 − prev) + curr`, matching ALE behaviour.
     Terminal when RAM[0x98] bit 0x80 is set *or* lives reach 0.
     """
+
+    _uses_score_tracking: bool = False
 
     def _score(self, ram: chex.Array) -> chex.Array:
         """Decode the 4-digit packed-BCD score from two non-sequential RAM bytes."""

@@ -36,7 +36,16 @@ class Tennis(AtariGame):
     (matching ALE behaviour).  Terminal when either player wins the set: player
     must have ≥6 games with a 2+ game lead, or 7 games (tiebreak).  No lives
     counter.
+
+    Tennis uses two RAM snapshots for priority-based reward so it sets
+    `_uses_score_tracking = False` and overrides `get_reward` instead.
     """
+
+    _uses_score_tracking: bool = False
+
+    def _score(self, ram: chex.Array) -> chex.Array:
+        """Stub — Tennis has no single-snapshot score; always returns 0."""
+        return jnp.int32(0)
 
     def get_lives(self, ram: chex.Array) -> chex.Array:
         """

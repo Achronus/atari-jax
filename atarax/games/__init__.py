@@ -13,23 +13,22 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Per-game reward and terminal extraction, dispatched via jax.lax.switch."""
+"""Per-game score and terminal extraction, dispatched via jax.lax.switch."""
 
 import chex
 import jax
 
-from atarax.games.registry import GAME_IDS, REWARD_FNS, TERMINAL_FNS
+from atarax.games.registry import GAME_IDS, SCORE_FNS, TERMINAL_FNS
 
-__all__ = ["GAME_IDS", "get_reward", "is_terminal"]
+__all__ = ["GAME_IDS", "get_score", "is_terminal"]
 
 
-def get_reward(
+def get_score(
     game_id: chex.Array,
-    ram_prev: chex.Array,
-    ram_curr: chex.Array,
+    ram: chex.Array,
 ) -> chex.Array:
     """
-    Dispatch reward computation to the appropriate game implementation.
+    Dispatch raw score extraction to the appropriate game implementation.
 
     Uses `jax.lax.switch` so the call is fully JAX-traceable and compatible
     with `jax.jit` and `jax.vmap`.
@@ -38,17 +37,15 @@ def get_reward(
     ----------
     game_id : chex.Array
         int32 — Index into the game registry (see `GAME_IDS`).
-    ram_prev : chex.Array
-        uint8[128] — RIOT RAM before the step.
-    ram_curr : chex.Array
-        uint8[128] — RIOT RAM after the step.
+    ram : chex.Array
+        uint8[128] — RIOT RAM snapshot.
 
     Returns
     -------
-    reward : chex.Array
-        float32 — Score gained this step.
+    score : chex.Array
+        int32 — Raw game score (use `state.score` delta for reward).
     """
-    return jax.lax.switch(game_id, REWARD_FNS, ram_prev, ram_curr)
+    return jax.lax.switch(game_id, SCORE_FNS, ram)
 
 
 def is_terminal(

@@ -71,24 +71,6 @@ class VideoPinball(AtariGame):
         extra_ball = (ram[EXTRA_BALL] & jnp.uint8(0x01)).astype(jnp.int32)
         return jnp.int32(4) + extra_ball - ball_no
 
-    def get_reward(self, ram_prev: chex.Array, ram_curr: chex.Array) -> chex.Array:
-        """
-        Compute the reward earned in the last step as a score delta.
-
-        Parameters
-        ----------
-        ram_prev : chex.Array
-            uint8[128] — RIOT RAM before the step.
-        ram_curr : chex.Array
-            uint8[128] — RIOT RAM after the step.
-
-        Returns
-        -------
-        reward : chex.Array
-            float32 — Score gained this step.
-        """
-        return (self._score(ram_curr) - self._score(ram_prev)).astype(jnp.float32)
-
     def is_terminal(self, ram: chex.Array, lives_prev: chex.Array) -> chex.Array:
         """
         Determine whether the episode has ended.

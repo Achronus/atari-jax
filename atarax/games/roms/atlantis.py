@@ -33,6 +33,8 @@ LIVES_ADDR = 0xF1  # lives remaining; 0xFF is the game-over sentinel
 class Atlantis(AtariGame):
     """Atlantis game logic: reward and terminal extraction, reset, and step."""
 
+    _uses_score_tracking: bool = False
+
     def _score(self, ram: chex.Array) -> chex.Array:
         """Decode the 6-digit packed-BCD score (× 100) from three RAM bytes."""
         lo = ram[SCORE_LO].astype(jnp.int32)

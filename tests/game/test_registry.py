@@ -23,8 +23,8 @@ import chex
 import jax
 import jax.numpy as jnp
 
-from atarax.games import GAME_IDS, get_reward, is_terminal
-from atarax.games.registry import _GAMES, REWARD_FNS, TERMINAL_FNS
+from atarax.games import GAME_IDS, get_score, is_terminal
+from atarax.games.registry import _GAMES, SCORE_FNS, TERMINAL_FNS
 
 
 def test_game_ids_contains_breakout():
@@ -41,8 +41,8 @@ def test_registry_has_57_games():
     assert len(_GAMES) == 57
 
 
-def test_reward_fns_has_57_entries():
-    assert len(REWARD_FNS) == 57
+def test_score_fns_has_57_entries():
+    assert len(SCORE_FNS) == 57
 
 
 def test_terminal_fns_has_57_entries():
@@ -58,8 +58,8 @@ def test_all_ale_names_unique():
     assert len(names) == len(set(names))
 
 
-def test_reward_fns_are_callable():
-    assert all(callable(fn) for fn in REWARD_FNS)
+def test_score_fns_are_callable():
+    assert all(callable(fn) for fn in SCORE_FNS)
 
 
 def test_terminal_fns_are_callable():
@@ -70,14 +70,14 @@ def _zeros_ram() -> chex.Array:
     return jnp.zeros(128, dtype=jnp.uint8)
 
 
-def test_dispatch_get_reward_compiles():
-    """get_reward dispatch via jax.lax.switch should JIT-compile."""
+def test_dispatch_get_score_compiles():
+    """get_score dispatch via jax.lax.switch should JIT-compile."""
     ram = _zeros_ram()
     game_id = jnp.int32(GAME_IDS["breakout"])
-    result = jax.jit(get_reward)(game_id, ram, ram)
+    result = jax.jit(get_score)(game_id, ram)
     chex.assert_rank(result, 0)
-    chex.assert_type(result, jnp.float32)
-    assert float(result) == 0.0
+    chex.assert_type(result, jnp.int32)
+    assert int(result) == 0
 
 
 def test_dispatch_is_terminal_compiles():
@@ -91,12 +91,12 @@ def test_dispatch_is_terminal_compiles():
     assert not bool(result)
 
 
-def test_dispatch_get_reward_vmap():
-    """get_reward should be vmappable over a batch of game_ids."""
+def test_dispatch_get_score_vmap():
+    """get_score should be vmappable over a batch of game_ids."""
     n = 4
     ram = _zeros_ram()
     game_ids = jnp.zeros(n, dtype=jnp.int32)
     rams = jnp.stack([ram] * n)
-    results = jax.vmap(lambda gid, r: get_reward(gid, r, r))(game_ids, rams)
+    results = jax.vmap(lambda gid, r: get_score(gid, r))(game_ids, rams)
     chex.assert_shape(results, (n,))
-    chex.assert_type(results, jnp.float32)
+    chex.assert_type(results, jnp.int32)
