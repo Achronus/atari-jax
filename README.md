@@ -81,9 +81,9 @@ env = AtariPreprocessing(AtariEnv("breakout"), h=42, w=42, n_stack=2)
 from atarax.env import GrayscaleObservation, ResizeObservation
 env = make("atari/breakout-v0", wrappers=[GrayscaleObservation, ResizeObservation])
 
-# Spinner shown on first (compilation) call of each method
+# Progress bar shown on first (compilation) call of each method
 env = make("atari/breakout-v0", preset=True, show_compile_progress=True)
-obs, state = env.reset(key)                   # ⠹ Compiling reset... → ✓ Compiling reset...
+obs, state = env.reset(key)                   # Compiling reset: ████████ 1/3 [00:05]
 ```
 
 ### `make_vec()`
@@ -108,7 +108,7 @@ actions = jnp.zeros((32, 128), dtype=jnp.int32)
 final_states, (obs, reward, done, info) = vec_env.rollout(states, actions)
 # obs: uint8[32, 128, 84, 84, 4]
 
-# JIT-compiled with spinner feedback
+# JIT-compiled with progress bar feedback
 vec_env = make_vec("atari/breakout-v0", n_envs=32, preset=True, show_compile_progress=True)
 ```
 

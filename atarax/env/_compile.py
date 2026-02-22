@@ -13,21 +13,18 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Persistent XLA compilation cache setup and JIT progress spinner."""
+"""Persistent XLA compilation cache setup and JIT compile-progress wrapper."""
 
 import functools
 import pathlib
-import sys
-import threading
 from typing import Callable
 
 import jax
+from tqdm import tqdm
 
 DEFAULT_CACHE_DIR = pathlib.Path.home() / ".cache" / "atari-jax" / "xla_cache"
 
 _cache_configured = False
-_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
-_DONE = "✓"
 
 
 def setup_cache(cache_dir: pathlib.Path | str | None = DEFAULT_CACHE_DIR) -> None:
@@ -54,55 +51,50 @@ def setup_cache(cache_dir: pathlib.Path | str | None = DEFAULT_CACHE_DIR) -> Non
     _cache_configured = True
 
 
-def _wrap_with_spinner(fn: Callable, message: str) -> Callable:
+def _wrap_with_tqdm(
+    fns_and_labels: list[tuple[Callable, str]],
+) -> list[Callable]:
     """
-    Wrap `fn` to display a progress spinner on the first (compilation) call.
+    Wrap a list of functions to share a single tqdm compile-progress bar.
 
-    Subsequent calls bypass the spinner entirely.  Uses only stdlib
-    (`threading`, `sys`) — no extra dependencies required.
+    Each function advances the bar by one step on its first call.
+    Subsequent calls bypass the progress display entirely.
 
     Parameters
     ----------
-    fn : Callable
-        Function to wrap (typically a `jax.jit`-compiled function).
-    message : str
-        Text displayed beside the spinner frame, e.g. `"Compiling reset..."`.
+    fns_and_labels : list[tuple[Callable, str]]
+        Pairs of `(function, description)` to wrap.  The bar total equals
+        `len(fns_and_labels)`.
 
     Returns
     -------
-    wrapper : Callable
-        Wrapped function with identical signature.
+    wrapped : list[Callable]
+        Wrapped functions in the same order, with identical signatures.
     """
-    first_call = [True]
+    total = len(fns_and_labels)
+    bar = tqdm(total=total, desc="Compiling...", leave=True)
+    completed = [0]
 
-    @functools.wraps(fn)
-    def wrapper(*args, **kwargs):
-        if not first_call[0]:
-            return fn(*args, **kwargs)
+    wrapped = []
+    for fn, label in fns_and_labels:
+        first_call = [True]
 
-        first_call[0] = False
-        stop = threading.Event()
+        @functools.wraps(fn)
+        def wrapper(*args, _fn=fn, _label=label, _first_call=first_call, **kwargs):
+            if not _first_call[0]:
+                return _fn(*args, **kwargs)
 
-        def _spin():
-            i = 0
-            while not stop.is_set():
-                sys.stdout.write(f"\r{_FRAMES[i % len(_FRAMES)]} {message}")
-                sys.stdout.flush()
-                i += 1
-                stop.wait(0.1)
+            _first_call[0] = False
+            bar.set_description(_label)
+            result = _fn(*args, **kwargs)
+            bar.update(1)
+            completed[0] += 1
 
-            sys.stdout.write(f"\r{_DONE} {message}\n")
-            sys.stdout.flush()
+            if completed[0] == total:
+                bar.close()
 
-        t = threading.Thread(target=_spin, daemon=True)
-        t.start()
+            return result
 
-        try:
-            result = fn(*args, **kwargs)
-        finally:
-            stop.set()
-            t.join()
+        wrapped.append(wrapper)
 
-        return result
-
-    return wrapper
+    return wrapped

@@ -23,7 +23,7 @@ import jax
 import jax.numpy as jnp
 from tqdm import tqdm
 
-from atarax.env._compile import DEFAULT_CACHE_DIR, _wrap_with_spinner, setup_cache
+from atarax.env._compile import DEFAULT_CACHE_DIR, _wrap_with_tqdm, setup_cache
 from atarax.env.atari_env import AtariEnv, EnvParams
 from atarax.env.spec import EnvSpec
 from atarax.env.vec_env import VecEnv, make_rollout_fn
@@ -140,9 +140,11 @@ def make(
         sample_fn = jax.jit(env.sample)
 
         if show_compile_progress:
-            reset_fn = _wrap_with_spinner(reset_fn, "Compiling reset...")
-            step_fn = _wrap_with_spinner(step_fn, "Compiling step...")
-            sample_fn = _wrap_with_spinner(sample_fn, "Compiling sample...")
+            reset_fn, step_fn, sample_fn = _wrap_with_tqdm([
+                (reset_fn, "Compiling reset"),
+                (step_fn, "Compiling step"),
+                (sample_fn, "Compiling sample"),
+            ])
 
         env.reset = reset_fn
         env.step = step_fn

@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from atarax.env.wrappers.base import Wrapper
 
 from atarax.core.state import AtariState
-from atarax.env._compile import _wrap_with_spinner
+from atarax.env._compile import _wrap_with_tqdm
 from atarax.env.spaces import Box, Discrete
 
 
@@ -69,11 +69,11 @@ class VecEnv:
             rollout_fn = jax.jit(rollout_fn)
 
         if show_compile_progress:
-            reset_fn = _wrap_with_spinner(reset_fn, "Compiling vectorized reset...")
-            step_fn = _wrap_with_spinner(step_fn, "Compiling vectorized step...")
-            rollout_fn = _wrap_with_spinner(
-                rollout_fn, "Compiling vectorized rollout..."
-            )
+            reset_fn, step_fn, rollout_fn = _wrap_with_tqdm([
+                (reset_fn, "Compiling vectorized reset"),
+                (step_fn, "Compiling vectorized step"),
+                (rollout_fn, "Compiling vectorized rollout"),
+            ])
 
         self._reset_fn = reset_fn
         self._step_fn = step_fn
