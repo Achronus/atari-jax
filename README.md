@@ -112,6 +112,34 @@ final_states, (obs, reward, done, info) = vec_env.rollout(states, actions)
 vec_env = make_vec("atari/breakout-v0", n_envs=32, preset=True, show_compile_progress=True)
 ```
 
+### `precompile_all()`
+
+Compile and cache all 57 environments up-front so every subsequent
+`make()` / `make_vec()` call loads from the XLA disk cache instead of
+recompiling from scratch.
+
+```python
+from atarax.env import precompile_all
+
+# Bare environments — single env, no wrappers (the default)
+precompile_all()
+
+# Full DQN stack, batched with rollouts — match your training loop exactly
+precompile_all(n_envs=32, n_steps=128, preset=True)
+
+# Custom wrapper stack
+from atarax.env import ClipReward, EpisodeDiscount
+precompile_all(n_envs=8, n_steps=64, wrappers=[ClipReward, EpisodeDiscount])
+```
+
+Progress is shown with a progress bar (one step per game, 57 total).
+
+> **Cache key:** the XLA cache key encodes the full computation graph and
+> all input shapes.  `n_envs`, `n_steps`, `wrappers`, and `preset` must
+> **exactly** match how environments are used in training — mixing a
+> `preset=True` precompile with a bare `make()` call at train time gets
+> no cache hit.
+
 ### Rendering and Interactive Play
 
 ```python

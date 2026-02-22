@@ -23,7 +23,7 @@ import jax
 import jax.numpy as jnp
 from tqdm import tqdm
 
-from atarax.env._compile import DEFAULT_CACHE_DIR, _wrap_with_tqdm, setup_cache
+from atarax.env._compile import DEFAULT_CACHE_DIR, _live_bar, _wrap_with_tqdm, setup_cache
 from atarax.env.atari_env import AtariEnv, EnvParams
 from atarax.env.spec import EnvSpec
 from atarax.env.vec_env import VecEnv, make_rollout_fn
@@ -91,11 +91,11 @@ def make(
         Environment parameters; defaults to `EnvParams()`.
     wrappers : List[Type] (optional)
         Wrapper classes applied innermost-first around the base env.
-        Mutually exclusive with `preset`.
+        Mutually exclusive with `preset`. Default is `None`
     preset : bool (optional)
         Apply the DQN preprocessing stack (`AtariPreprocessing` wrapper) from
         [Mnih et al., 2015](https://www.nature.com/articles/nature14236).
-        Mutually exclusive with `wrappers`.
+        Mutually exclusive with `wrappers`. Default is `False`
     jit_compile : bool (optional)
         JIT-compile `reset`, `step`, and `sample` on the first call.
         Default is `True`.
@@ -140,11 +140,13 @@ def make(
         sample_fn = jax.jit(env.sample)
 
         if show_compile_progress:
-            reset_fn, step_fn, sample_fn = _wrap_with_tqdm([
-                (reset_fn, "Compiling reset"),
-                (step_fn, "Compiling step"),
-                (sample_fn, "Compiling sample"),
-            ])
+            reset_fn, step_fn, sample_fn = _wrap_with_tqdm(
+                [
+                    (reset_fn, "Compiling reset"),
+                    (step_fn, "Compiling step"),
+                    (sample_fn, "Compiling sample"),
+                ]
+            )
 
         env.reset = reset_fn
         env.step = step_fn
@@ -183,11 +185,11 @@ def make_vec(
         Environment parameters; defaults to `EnvParams()`.
     wrappers : List[Type] (optional)
         Wrapper classes applied innermost-first around the base env.
-        Mutually exclusive with `preset`.
+        Mutually exclusive with `preset`. Default is `None`
     preset : bool (optional)
         Apply the DQN preprocessing stack (`AtariPreprocessing` wrapper) from
         [Mnih et al., 2015](https://www.nature.com/articles/nature14236).
-        Mutually exclusive with `wrappers`.
+        Mutually exclusive with `wrappers`. Default is `False`
     jit_compile : bool (optional)
         JIT-compile all vmapped functions on the first call.
         Default is `True`.
@@ -234,6 +236,7 @@ def precompile_all(
     n_envs: int = 1,
     n_steps: int | None = None,
     params: EnvParams | None = None,
+    wrappers: List[Type] | None = None,
     preset: bool = False,
     cache_dir: pathlib.Path | str | None = DEFAULT_CACHE_DIR,
 ) -> None:
@@ -245,9 +248,9 @@ def precompile_all(
     to the XLA persistent cache.  Subsequent `make()` / `make_vec()` calls for
     any game will load from cache rather than recompiling.
 
-    The cache key depends on the exact input shapes, so `n_envs` and `n_steps`
-    must match how the environments will be used in your training loop for
-    cache hits to occur.
+    The cache key depends on the exact input shapes and computation graph, so
+    `n_envs`, `n_steps`, `wrappers`, and `preset` must all match how the
+    environments will be used in your training loop for cache hits to occur.
 
     Parameters
     ----------
@@ -262,8 +265,12 @@ def precompile_all(
         rollout precompilation. Default is `None`
     params : EnvParams (optional)
         Shared environment parameters. Defaults to `EnvParams()`.
+    wrappers : List[Type] (optional)
+        Wrapper classes applied innermost-first around the base env.
+        Mutually exclusive with `preset`. Default is `None`
     preset : bool (optional)
         Apply the DQN preprocessing stack to every environment.
+        Mutually exclusive with `wrappers`. Default is `False`
     cache_dir : Path | str | None (optional)
         Cache directory.  Defaults to `~/.cache/atari-jax/xla_cache`.
         Pass `None` to disable caching (compilation still occurs but is not
@@ -282,33 +289,36 @@ def precompile_all(
             spec = EnvSpec("atari", game_name)
             bar.set_description(f"Compiling {spec.id}")
 
-            if n_envs == 1:
-                env = make(
-                    spec,
-                    params=params,
-                    preset=preset,
-                    jit_compile=True,
-                    cache_dir=None,
-                )
-                _, state = env.reset(key)
-                env.step(state, env.sample(key))
-
-                if n_steps is not None:
-                    rollout_fn = jax.jit(make_rollout_fn(env))
-                    rollout_fn(state, jnp.zeros(n_steps, dtype=jnp.int32))
-            else:
-                vec_env = make_vec(
-                    spec,
-                    n_envs=n_envs,
-                    params=params,
-                    preset=preset,
-                    jit_compile=True,
-                    cache_dir=None,
-                )
-                _, states = vec_env.reset(key)
-                vec_env.step(states, jnp.zeros(n_envs, dtype=jnp.int32))
-
-                if n_steps is not None:
-                    vec_env.rollout(
-                        states, jnp.zeros((n_envs, n_steps), dtype=jnp.int32)
+            with _live_bar(bar):
+                if n_envs == 1:
+                    env = make(
+                        spec,
+                        params=params,
+                        wrappers=wrappers,
+                        preset=preset,
+                        jit_compile=True,
+                        cache_dir=None,
                     )
+                    _, state = env.reset(key)
+                    env.step(state, env.sample(key))
+
+                    if n_steps is not None:
+                        rollout_fn = jax.jit(make_rollout_fn(env))
+                        rollout_fn(state, jnp.zeros(n_steps, dtype=jnp.int32))
+                else:
+                    vec_env = make_vec(
+                        spec,
+                        n_envs=n_envs,
+                        params=params,
+                        wrappers=wrappers,
+                        preset=preset,
+                        jit_compile=True,
+                        cache_dir=None,
+                    )
+                    _, states = vec_env.reset(key)
+                    vec_env.step(states, jnp.zeros(n_envs, dtype=jnp.int32))
+
+                    if n_steps is not None:
+                        vec_env.rollout(
+                            states, jnp.zeros((n_envs, n_steps), dtype=jnp.int32)
+                        )
