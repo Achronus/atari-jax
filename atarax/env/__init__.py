@@ -18,7 +18,7 @@ from atarax.env.atari_env import AtariEnv, EnvParams
 from atarax.env.make import make, make_vec, precompile_all
 from atarax.env.spaces import Box, Discrete
 from atarax.env.spec import EnvSpec
-from atarax.env.vec_env import VecEnv, make_rollout_fn
+from atarax.env.vec_env import VecEnv
 from atarax.env.wrappers import (
     AtariPreprocessing,
     ClipReward,
@@ -52,7 +52,6 @@ __all__ = [
     "FrameStackState",
     "GrayscaleObservation",
     "make",
-    "make_rollout_fn",
     "make_vec",
     "NormalizeObservation",
     "precompile_all",

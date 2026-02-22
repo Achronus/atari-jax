@@ -154,10 +154,10 @@ class AtariGame(ABC):
         Initialise the machine and run warm-up frames.
 
         Loads the CPU reset vector from the ROM, runs 10 NOOP frames, fires
-        one FIRE action (action 1) to start the game and trigger the ROM's
-        score-initialisation path, then runs `_WARMUP_FRAMES - 11` more NOOP
-        frames before capturing the initial lives count and zeroing the
-        episode counters.
+        one FIRE action (action 1) to start the game, then runs
+        `_WARMUP_FRAMES - 11` more NOOP frames before capturing the initial
+        lives count.  `score` is always zeroed to match ALE's `m_score`
+        baseline, regardless of any transient values in RAM during warmup.
 
         Parameters
         ----------
@@ -185,12 +185,8 @@ class AtariGame(ABC):
             lambda _, s: emulate_frame(s, rom, jnp.int32(0)),
             state,
         )
-        if self._uses_score_tracking:
-            init_score = self.get_score(state.riot.ram)
-        else:
-            init_score = jnp.int32(0)
         return state.__replace__(
-            score=init_score,
+            score=jnp.int32(0),
             lives=self.get_lives(state.riot.ram),
             episode_frame=jnp.int32(0),
             terminal=jnp.bool_(False),
