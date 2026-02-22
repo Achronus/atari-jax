@@ -16,12 +16,12 @@
 """Parametrized smoke tests covering all 57 supported game ROMs.
 
 Verifies that every game class satisfies the `AtariGame` contract:
-  - `get_lives`    returns a rank-0 `int32` array
-  - `get_reward`   returns a rank-0 `float32` array
-  - `is_terminal`  returns a rank-0 `bool` array
+  - `get_lives`   returns a rank-0 `int32` array
+  - `get_score`   returns a rank-0 `int32` array
+  - `is_terminal` returns a rank-0 `bool` array
 
-Also verifies the base class structure: `get_lives`, `get_reward`, and
-`is_terminal` are abstract; `reset` and `step` are concrete.
+Also verifies the base class structure: `_score`, `get_lives`, and
+`is_terminal` are abstract; `get_score`, `reset`, and `step` are concrete.
 
 Run with:
     pytest tests/game/test_all_games.py -v
@@ -43,14 +43,15 @@ def _zeros_ram() -> chex.Array:
 
 
 def test_abstract_methods():
-    """get_lives, get_reward, is_terminal must be abstract."""
+    """_score, get_lives, and is_terminal must be abstract."""
+    assert getattr(AtariGame._score, "__isabstractmethod__", False)
     assert getattr(AtariGame.get_lives, "__isabstractmethod__", False)
-    assert getattr(AtariGame.get_reward, "__isabstractmethod__", False)
     assert getattr(AtariGame.is_terminal, "__isabstractmethod__", False)
 
 
 def test_concrete_methods():
-    """reset and step must be concrete (not abstract)."""
+    """get_score, reset, and step must be concrete (not abstract)."""
+    assert not getattr(AtariGame.get_score, "__isabstractmethod__", False)
     assert not getattr(AtariGame.reset, "__isabstractmethod__", False)
     assert not getattr(AtariGame.step, "__isabstractmethod__", False)
 
@@ -70,12 +71,12 @@ def test_get_lives_dtype(ale_name: str, game: AtariGame):
 
 
 @pytest.mark.parametrize("ale_name,game", _GAME_PARAMS, ids=_GAME_IDS)
-def test_get_reward_dtype(ale_name: str, game: AtariGame):
-    """get_reward must return a rank-0 float32 scalar."""
+def test_get_score_dtype(ale_name: str, game: AtariGame):
+    """get_score must return a rank-0 int32 scalar."""
     ram = _zeros_ram()
-    reward = game.get_reward(ram, ram)
-    chex.assert_rank(reward, 0)
-    chex.assert_type(reward, jnp.float32)
+    score = game.get_score(ram)
+    chex.assert_rank(score, 0)
+    chex.assert_type(score, jnp.int32)
 
 
 @pytest.mark.parametrize("ale_name,game", _GAME_PARAMS, ids=_GAME_IDS)

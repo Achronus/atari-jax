@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Unit tests for atarax.games.roms.breakout — reward and terminal logic.
+"""Unit tests for atarax.games.roms.breakout — score and terminal logic.
 
 Run with:
     pytest tests/game/test_breakout.py -v
@@ -36,43 +36,39 @@ def _ram(overrides=None):
     return data
 
 
-def test_get_reward_zero():
+def test_get_score_zero():
     ram = _ram()
-    reward = game.get_reward(ram, ram)
-    chex.assert_rank(reward, 0)
-    chex.assert_type(reward, jnp.float32)
-    assert float(reward) == 0.0
+    score = game.get_score(ram)
+    chex.assert_rank(score, 0)
+    chex.assert_type(score, jnp.int32)
+    assert int(score) == 0
 
 
-def test_get_reward_ones():
+def test_get_score_ones():
     # SCORE_X ones nibble: 0x01 → 1 point
-    ram_prev = _ram()
-    ram_curr = _ram({SCORE_X: 0x01})
-    reward = game.get_reward(ram_prev, ram_curr)
-    chex.assert_rank(reward, 0)
-    chex.assert_type(reward, jnp.float32)
-    assert float(reward) == 1.0
+    ram = _ram({SCORE_X: 0x01})
+    score = game.get_score(ram)
+    chex.assert_rank(score, 0)
+    chex.assert_type(score, jnp.int32)
+    assert int(score) == 1
 
 
-def test_get_reward_ones_tens():
+def test_get_score_ones_tens():
     # SCORE_X = 0x10 → tens=1, ones=0 → 10 points
-    ram_prev = _ram()
-    ram_curr = _ram({SCORE_X: 0x10})
-    assert float(game.get_reward(ram_prev, ram_curr)) == 10.0
+    ram = _ram({SCORE_X: 0x10})
+    assert int(game.get_score(ram)) == 10
 
 
-def test_get_reward_hundreds():
+def test_get_score_hundreds():
     # SCORE_Y = 0x01 → hundreds=1 → 100 points
-    ram_prev = _ram()
-    ram_curr = _ram({SCORE_Y: 0x01})
-    assert float(game.get_reward(ram_prev, ram_curr)) == 100.0
+    ram = _ram({SCORE_Y: 0x01})
+    assert int(game.get_score(ram)) == 100
 
 
-def test_get_reward_combined():
+def test_get_score_combined():
     # SCORE_Y=0x01, SCORE_X=0x23 → 100 + 20 + 3 = 123 points
-    ram_prev = _ram()
-    ram_curr = _ram({SCORE_Y: 0x01, SCORE_X: 0x23})
-    assert float(game.get_reward(ram_prev, ram_curr)) == 123.0
+    ram = _ram({SCORE_Y: 0x01, SCORE_X: 0x23})
+    assert int(game.get_score(ram)) == 123
 
 
 def test_is_terminal_false_before_start():
