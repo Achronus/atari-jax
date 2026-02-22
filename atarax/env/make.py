@@ -25,15 +25,10 @@ import jax
 import jax.numpy as jnp
 from tqdm import tqdm
 
-from atarax.env._compile import (
-    DEFAULT_CACHE_DIR,
-    _live_bar,
-    _wrap_with_tqdm,
-    setup_cache,
-)
+from atarax.env._compile import DEFAULT_CACHE_DIR, _live_bar, setup_cache
 from atarax.env.atari_env import AtariEnv, EnvParams
 from atarax.env.spec import EnvSpec
-from atarax.env.vec_env import VecEnv, make_rollout_fn
+from atarax.env.vec_env import VecEnv
 from atarax.env.wrappers import AtariPreprocessing, Wrapper
 from atarax.env.wrappers.base import _WrapperFactory
 from atarax.games.registry import GAME_IDS
@@ -119,7 +114,11 @@ def make(
         [Mnih et al., 2015](https://www.nature.com/articles/nature14236).
         Mutually exclusive with `wrappers`. Default is `False`
     jit_compile : bool (optional)
-        JIT-compile `reset`, `step`, and `sample` on the first call.
+        Eagerly trigger kernel compilation now rather than lazily on the
+        first call.  `reset`, `step`, and `rollout` are always JIT-compiled
+        via module-level kernels regardless of this flag.  Set to `False`
+        only to defer compilation to first use.  To disable JIT for
+        debugging, use `jax.disable_jit()` or set `JAX_DISABLE_JIT=1`.
         Default is `True`.
     cache_dir : Path | str | None (optional)
         Directory for the persistent XLA compilation cache.  Defaults to
@@ -158,10 +157,7 @@ def make(
             env = w(env)
 
     if jit_compile:
-        reset_fn = jax.jit(env.reset)
-        step_fn = jax.jit(env.step)
-        sample_fn = jax.jit(env.sample)
-
+        _key = jax.random.PRNGKey(0)
         _show = show_compile_progress and not (
             cache_dir is not None
             and _manifest_has_game(
@@ -169,17 +165,14 @@ def make(
             )
         )
         if _show:
-            reset_fn, step_fn, sample_fn = _wrap_with_tqdm(
-                [
-                    (reset_fn, "Compiling reset"),
-                    (step_fn, "Compiling step"),
-                    (sample_fn, "Compiling sample"),
-                ]
-            )
-
-        env.reset = reset_fn
-        env.step = step_fn
-        env.sample = sample_fn
+            with tqdm(total=1, desc="Compiling...", leave=True) as _bar:
+                with _live_bar(_bar):
+                    _, _state = env.reset(_key)
+                    env.step(_state, env.sample(_key))
+                _bar.update(1)
+        else:
+            _, _state = env.reset(_key)
+            env.step(_state, env.sample(_key))
 
     return env
 
@@ -220,7 +213,11 @@ def make_vec(
         [Mnih et al., 2015](https://www.nature.com/articles/nature14236).
         Mutually exclusive with `wrappers`. Default is `False`
     jit_compile : bool (optional)
-        JIT-compile all vmapped functions on the first call.
+        Eagerly trigger kernel compilation now rather than lazily on the
+        first call.  All kernels are always JIT-compiled via module-level
+        functions regardless of this flag.  Set to `False` only to defer
+        compilation to first use.  To disable JIT for debugging, use
+        `jax.disable_jit()` or set `JAX_DISABLE_JIT=1`.
         Default is `True`.
     cache_dir : Path or str or None (optional)
         Directory for the persistent XLA compilation cache.  Defaults to
@@ -251,23 +248,31 @@ def make_vec(
         params=params,
         wrappers=wrappers,
         preset=preset,
-        jit_compile=False,  # Handled by VecEnv
+        jit_compile=False,
         cache_dir=cache_dir,
     )
 
-    _show = show_compile_progress and not (
-        cache_dir is not None
-        and _manifest_has_game(
-            pathlib.Path(cache_dir), ale_name, n_envs, preset, wrappers
-        )
-    )
+    vec_env = VecEnv(env, n_envs)
 
-    return VecEnv(
-        env,
-        n_envs,
-        jit_compile=jit_compile,
-        show_compile_progress=_show,
-    )
+    if jit_compile:
+        _key = jax.random.PRNGKey(0)
+        _show = show_compile_progress and not (
+            cache_dir is not None
+            and _manifest_has_game(
+                pathlib.Path(cache_dir), ale_name, n_envs, preset, wrappers
+            )
+        )
+        if _show:
+            with tqdm(total=1, desc="Compiling...", leave=True) as _bar:
+                with _live_bar(_bar):
+                    _, _states = vec_env.reset(_key)
+                    vec_env.step(_states, vec_env.sample(_key))
+                _bar.update(1)
+        else:
+            _, _states = vec_env.reset(_key)
+            vec_env.step(_states, vec_env.sample(_key))
+
+    return vec_env
 
 
 _MANIFEST_NAME = "precompile_manifest.json"
@@ -499,8 +504,7 @@ def precompile_all(
                     env.step(state, env.sample(key))
 
                     if n_steps is not None:
-                        rollout_fn = jax.jit(make_rollout_fn(env))
-                        rollout_fn(state, jnp.zeros(n_steps, dtype=jnp.int32))
+                        env.rollout(state, jnp.zeros(n_steps, dtype=jnp.int32))
                 else:
                     vec_env = make_vec(
                         spec,
