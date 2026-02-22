@@ -50,7 +50,13 @@ def run(game: str, n_envs: int, n_steps: int, n_warmup: int) -> None:
     n_warmup : int
         Number of full rollouts to run before timing starts.
     """
-    vec_env = make_vec(f"atari/{game}-v0", n_envs=n_envs, preset=True, jit_compile=True)
+    vec_env = make_vec(
+        f"atari/{game}-v0",
+        n_envs=n_envs,
+        preset=True,
+        jit_compile=True,
+        show_compile_progress=True,
+    )
     key = jax.random.PRNGKey(0)
 
     _, states = vec_env.reset(key)
@@ -80,7 +86,7 @@ def run(game: str, n_envs: int, n_steps: int, n_warmup: int) -> None:
     print(f"total frames: {total_frames:,}")
     print(f"elapsed     : {elapsed:.3f} s")
     print(f"FPS         : {fps:,.0f} fps  ({fps_m:.2f} M)")
-    print(f"target      : > 5,000,000 fps (512 envs, GPU)")
+    print("target      : > 5,000,000 fps (512 envs, GPU)")
 
 
 if __name__ == "__main__":

@@ -36,13 +36,10 @@ import jax.numpy as jnp
 import numpy as np
 from ale_py import ALEInterface
 from ale_py.roms import get_rom_path
+from tqdm import tqdm
 
-from atarax.env._compile import setup_cache
+from atarax.env._compile import _live_bar, setup_cache
 from atarax.env.atari_env import AtariEnv, EnvParams
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 
 def _run_jax(ale_name: str, actions: list[int], seed: int) -> dict:
@@ -50,22 +47,23 @@ def _run_jax(ale_name: str, actions: list[int], seed: int) -> dict:
     setup_cache()
     params = EnvParams(noop_max=0)
     env = AtariEnv(ale_name, params)
-
-    reset_fn = jax.jit(env.reset)
-    step_fn = jax.jit(env.step)
-
     key = jax.random.PRNGKey(seed)
-    _, state = reset_fn(key)
+
+    # First reset triggers XLA kernel compilation — show live progress.
+    with tqdm(total=1, desc="Compiling JAX kernel", leave=True) as bar:
+        with _live_bar(bar):
+            _, state = env.reset(key)
+        bar.update(1)
 
     rewards, dones, screens = [], [], []
 
     for a in actions:
-        _, state, reward, done, _ = step_fn(state, jnp.int32(a))
+        _, state, reward, done, _ = env.step(state, jnp.int32(a))
         rewards.append(float(reward))
         dones.append(bool(done))
         screens.append(np.asarray(state.screen))
         if done:
-            _, state = reset_fn(key)
+            _, state = env.reset(key)
 
     return {"rewards": rewards, "dones": dones, "screens": screens}
 
@@ -167,11 +165,6 @@ def _compare(jax_data: dict, ale_data: dict, n_steps: int) -> None:
     print()
 
 
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="JAX vs ALE parity check")
     parser.add_argument("--game", default="breakout", help="ALE game name")
@@ -188,7 +181,7 @@ def main() -> None:
     print(f"Seed    : {args.seed}")
     print(f"Actions : pattern {pattern!r} repeated")
 
-    print("\n[JAX] Compiling and running...")
+    print("\n[JAX] Running...")
     jax_data = _run_jax(args.game, actions, args.seed)
     print("[JAX] Done.")
 

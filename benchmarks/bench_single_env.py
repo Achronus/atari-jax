@@ -29,7 +29,6 @@ import argparse
 import time
 
 import jax
-import jax.numpy as jnp
 
 from atarax.env import make
 
@@ -47,7 +46,9 @@ def run(game: str, n_steps: int, n_warmup: int) -> None:
     n_warmup : int
         Number of warmup steps to run before timing starts.
     """
-    env = make(f"atari/{game}-v0", preset=True, jit_compile=True)
+    env = make(
+        f"atari/{game}-v0", preset=True, jit_compile=True, show_compile_progress=True
+    )
     key = jax.random.PRNGKey(0)
 
     obs, state = env.reset(key)
@@ -74,7 +75,7 @@ def run(game: str, n_steps: int, n_warmup: int) -> None:
     print("\u2500" * 34)
     print(f"elapsed     : {elapsed:.3f} s")
     print(f"FPS         : {fps:,.0f} fps")
-    print(f"target      : > 50,000 fps (GPU)")
+    print("target      : > 50,000 fps (GPU)")
 
 
 if __name__ == "__main__":
