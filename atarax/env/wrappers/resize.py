@@ -44,7 +44,7 @@ class ResizeObservation(Wrapper):
         Output width in pixels. Default is `84`.
     """
 
-    def __init__(self, env: "AtariEnv | Wrapper", h: int = 84, w: int = 84) -> None:
+    def __init__(self, env: "AtariEnv | Wrapper", *, h: int = 84, w: int = 84) -> None:
         super().__init__(env)
 
         self._h = h

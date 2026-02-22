@@ -25,14 +25,33 @@ import jax
 import jax.numpy as jnp
 from tqdm import tqdm
 
-from atarax.env._compile import DEFAULT_CACHE_DIR, _live_bar, _wrap_with_tqdm, setup_cache
+from atarax.env._compile import (
+    DEFAULT_CACHE_DIR,
+    _live_bar,
+    _wrap_with_tqdm,
+    setup_cache,
+)
 from atarax.env.atari_env import AtariEnv, EnvParams
 from atarax.env.spec import EnvSpec
 from atarax.env.vec_env import VecEnv, make_rollout_fn
 from atarax.env.wrappers import AtariPreprocessing, Wrapper
+from atarax.env.wrappers.base import _WrapperFactory
 from atarax.games.registry import GAME_IDS
 
 _ENV_ID_RE = re.compile(r"^([^/]+)/(.+)-v(\d+)$")
+
+
+def _wrapper_str(w: "Type | _WrapperFactory") -> str:
+    """Return a manifest-friendly string for a wrapper class or factory."""
+    if isinstance(w, type):
+        return w.__name__
+
+    name = w._cls.__name__
+    if w._kwargs:
+        parts = ", ".join(f"{k}={v!r}" for k, v in sorted(w._kwargs.items()))
+        return f"{name}({parts})"
+
+    return name
 
 
 def _resolve_spec(game_id: str | EnvSpec) -> str:
@@ -74,7 +93,7 @@ def make(
     game_id: str | EnvSpec,
     *,
     params: EnvParams | None = None,
-    wrappers: List[Type] | None = None,
+    wrappers: List[Type | _WrapperFactory] | None = None,
     preset: bool = False,
     jit_compile: bool = True,
     cache_dir: pathlib.Path | str | None = DEFAULT_CACHE_DIR,
@@ -133,8 +152,8 @@ def make(
     if preset:
         env = AtariPreprocessing(env, h=84, w=84, n_stack=4)
     elif wrappers:
-        for wrapper_cls in wrappers:
-            env = wrapper_cls(env)
+        for w in wrappers:
+            env = w(env)
 
     if jit_compile:
         reset_fn = jax.jit(env.reset)
@@ -162,7 +181,7 @@ def make_vec(
     n_envs: int,
     *,
     params: EnvParams | None = None,
-    wrappers: List[Type] | None = None,
+    wrappers: List[Type | _WrapperFactory] | None = None,
     preset: bool = False,
     jit_compile: bool = True,
     cache_dir: pathlib.Path | str | None = DEFAULT_CACHE_DIR,
@@ -246,7 +265,7 @@ def _config_entry(
         "n_envs": n_envs,
         "n_steps": n_steps,
         "preset": preset,
-        "wrappers": [w.__name__ for w in wrappers] if wrappers else None,
+        "wrappers": [_wrapper_str(w) for w in wrappers] if wrappers else None,
     }
 
 
@@ -284,7 +303,7 @@ def precompile_all(
     n_envs: int = 1,
     n_steps: int | None = None,
     params: EnvParams | None = None,
-    wrappers: List[Type] | None = None,
+    wrappers: List[Type | _WrapperFactory] | None = None,
     preset: bool = False,
     cache_dir: pathlib.Path | str | None = DEFAULT_CACHE_DIR,
     clear_cache: bool = False,
@@ -343,8 +362,7 @@ def precompile_all(
             cache_path.mkdir(parents=True, exist_ok=True)
         elif _manifest_has_config(cache_path, entry):
             print(
-                f"Configuration already cached at '{cache_path}'. "
-                "Using existing cache."
+                f"Configuration already cached at '{cache_path}'. Using existing cache."
             )
             return
 

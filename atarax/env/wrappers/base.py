@@ -25,6 +25,44 @@ from atarax.core.state import AtariState
 from atarax.env.spaces import Box, Discrete
 
 
+class _WrapperFactory:
+    """
+    Deferred wrapper returned by `Wrapper.__new__` when called without an `env`.
+
+    Calling the factory with an `env` creates the intended wrapper with the
+    pre-bound keyword arguments.
+
+    Parameters
+    ----------
+    cls : type
+        Concrete `Wrapper` subclass to instantiate.
+    **kwargs
+        Keyword arguments forwarded to `cls.__init__` when the factory is called.
+    """
+
+    __slots__ = ("_cls", "_kwargs")
+
+    def __init__(self, cls: type, **kwargs) -> None:
+        self._cls = cls
+        self._kwargs = kwargs
+
+    def __call__(self, env: "AtariEnv | Wrapper") -> "Wrapper":
+        """
+        Wrap `env` using the stored class and keyword arguments.
+
+        Parameters
+        ----------
+        env : AtariEnv | Wrapper
+            Environment to wrap.
+
+        Returns
+        -------
+        wrapper : Wrapper
+            Configured wrapper instance.
+        """
+        return self._cls(env, **self._kwargs)
+
+
 class Wrapper(ABC):
     """
     Abstract base class for AtariEnv wrappers.
@@ -34,11 +72,32 @@ class Wrapper(ABC):
     inner environment by default and may be overridden when the wrapper
     changes the observation shape or action set.
 
+    Parameterised wrappers support a **factory mode**: calling the class
+    without an `env` (using only keyword arguments) returns a
+    `_WrapperFactory` rather than a live wrapper.  The factory can later
+    be called with an `env` to create the proper instance, making it
+    usable inside the `wrappers=[...]` list passed to `make()`:
+
+    .. code-block:: python
+
+        make("atari/breakout-v0", wrappers=[
+            GrayscaleObservation,          # bare class
+            ResizeObservation(h=64, w=64), # pre-configured factory
+        ])
+
     Parameters
     ----------
     env : AtariEnv | Wrapper
         Inner environment to wrap
     """
+
+    def __new__(cls, env=None, **kwargs):
+        if env is None:
+            factory = object.__new__(_WrapperFactory)
+            _WrapperFactory.__init__(factory, cls, **kwargs)
+            return factory
+
+        return super().__new__(cls)
 
     def __init__(self, env: "AtariEnv | Wrapper") -> None:
         self._env = env

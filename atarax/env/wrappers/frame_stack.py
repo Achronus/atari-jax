@@ -63,7 +63,7 @@ class FrameStackObservation(Wrapper):
         Number of frames to stack. Default is `4`.
     """
 
-    def __init__(self, env: "AtariEnv | Wrapper", n_stack: int = 4) -> None:
+    def __init__(self, env: "AtariEnv | Wrapper", *, n_stack: int = 4) -> None:
         super().__init__(env)
 
         self._n_stack = n_stack
