@@ -39,6 +39,7 @@ from atarax.env.wrappers.base import _WrapperFactory
 from atarax.games.registry import GAME_IDS
 
 _ENV_ID_RE = re.compile(r"^([^/]+)/(.+)-v(\d+)$")
+_MISSING = object()
 
 
 def _wrapper_str(w: "Type | _WrapperFactory") -> str:
@@ -125,7 +126,8 @@ def make(
         `~/.cache/atari-jax/xla_cache`. Pass `None` to disable.
     show_compile_progress : bool (optional)
         Display a spinner on the first (compilation) call of each method.
-        Default is `False`.
+        Automatically suppressed when the game is already in the precompile
+        manifest for this configuration.  Default is `False`.
 
     Returns
     -------
@@ -160,7 +162,13 @@ def make(
         step_fn = jax.jit(env.step)
         sample_fn = jax.jit(env.sample)
 
-        if show_compile_progress:
+        _show = show_compile_progress and not (
+            cache_dir is not None
+            and _manifest_has_game(
+                pathlib.Path(cache_dir), ale_name, 1, preset, wrappers
+            )
+        )
+        if _show:
             reset_fn, step_fn, sample_fn = _wrap_with_tqdm(
                 [
                     (reset_fn, "Compiling reset"),
@@ -219,7 +227,8 @@ def make_vec(
         `~/.cache/atari-jax/xla_cache`.  Pass `None` to disable.
     show_compile_progress : bool (optional)
         Display a spinner on the first (compilation) call of each vmapped
-        method.  Default is `False`.
+        method.  Automatically suppressed when the game is already in the
+        precompile manifest for this configuration.  Default is `False`.
 
     Returns
     -------
@@ -235,6 +244,8 @@ def make_vec(
         If `game_id` is a string that does not match the
         `"[engine]/[name]-v[N]"` format.
     """
+    ale_name = _resolve_spec(game_id)
+
     env = make(
         game_id,
         params=params,
@@ -244,11 +255,18 @@ def make_vec(
         cache_dir=cache_dir,
     )
 
+    _show = show_compile_progress and not (
+        cache_dir is not None
+        and _manifest_has_game(
+            pathlib.Path(cache_dir), ale_name, n_envs, preset, wrappers
+        )
+    )
+
     return VecEnv(
         env,
         n_envs,
         jit_compile=jit_compile,
-        show_compile_progress=show_compile_progress,
+        show_compile_progress=_show,
     )
 
 
@@ -269,11 +287,41 @@ def _config_entry(
     }
 
 
-def _manifest_has_config(
+def _manifest_has_game(
     cache_dir: pathlib.Path,
-    entry: dict,
+    ale_name: str,
+    n_envs: int,
+    preset: bool,
+    wrappers,
+    *,
+    n_steps=_MISSING,
 ) -> bool:
-    """Return `True` if `entry` already exists in the on-disk manifest."""
+    """
+    Return `True` if `ale_name` appears in the compiled list for a matching config.
+
+    Parameters
+    ----------
+    cache_dir : pathlib.Path
+        Directory containing the manifest file.
+    ale_name : str
+        ALE game name to look up (e.g. `"breakout"`).
+    n_envs : int
+        Must match the entry's `n_envs` field.
+    preset : bool
+        Must match the entry's `preset` field.
+    wrappers : list or None
+        Wrapper list (classes / factories); serialised for comparison.
+    n_steps : int | None (optional)
+        When provided (including `None`), the entry's `n_steps` must also
+        match.  Omit to ignore `n_steps` (used by `make()` / `make_vec()`
+        where rollout length does not affect reset/step compilation).
+
+    Returns
+    -------
+    found : bool
+        `True` if a matching entry contains `ale_name` in its
+        `"compiled"` list.
+    """
     p = cache_dir / _MANIFEST_NAME
     if not p.exists():
         return False
@@ -281,20 +329,78 @@ def _manifest_has_config(
         configs = json.loads(p.read_text())
     except (OSError, json.JSONDecodeError):
         return False
-    return entry in configs
+    wrappers_str = [_wrapper_str(w) for w in wrappers] if wrappers else None
+    for entry in configs:
+        n_steps_ok = n_steps is _MISSING or entry.get("n_steps") == n_steps
+        if (
+            entry.get("n_envs") == n_envs
+            and n_steps_ok
+            and entry.get("preset") == preset
+            and entry.get("wrappers") == wrappers_str
+            and ale_name in entry.get("compiled", [])
+        ):
+            return True
+    return False
 
 
-def _manifest_append(cache_dir: pathlib.Path, entry: dict) -> None:
-    """Add `entry` to the manifest, creating it if necessary."""
+def _manifest_add_game(
+    cache_dir: pathlib.Path,
+    ale_name: str,
+    n_envs: int,
+    n_steps: int | None,
+    preset: bool,
+    wrappers,
+) -> None:
+    """
+    Append `ale_name` to the `"compiled"` list for the matching config entry.
+
+    Creates the entry if it does not exist.  Writes to disk immediately so
+    that an interrupted `precompile_all()` run can be resumed.
+
+    Parameters
+    ----------
+    cache_dir : pathlib.Path
+        Directory containing the manifest file.
+    ale_name : str
+        ALE game name to record (e.g. `"breakout"`).
+    n_envs : int
+        Entry key field.
+    n_steps : int | None
+        Entry key field.
+    preset : bool
+        Entry key field.
+    wrappers : list or None
+        Entry key field; serialised via `_wrapper_str`.
+    """
     p = cache_dir / _MANIFEST_NAME
+    wrappers_str = [_wrapper_str(w) for w in wrappers] if wrappers else None
     configs: list = []
     if p.exists():
         try:
             configs = json.loads(p.read_text())
         except (OSError, json.JSONDecodeError):
             pass
-    if entry not in configs:
-        configs.append(entry)
+    for entry in configs:
+        if (
+            entry.get("n_envs") == n_envs
+            and entry.get("n_steps") == n_steps
+            and entry.get("preset") == preset
+            and entry.get("wrappers") == wrappers_str
+        ):
+            compiled = entry.setdefault("compiled", [])
+            if ale_name not in compiled:
+                compiled.append(ale_name)
+            break
+    else:
+        configs.append(
+            {
+                "n_envs": n_envs,
+                "n_steps": n_steps,
+                "preset": preset,
+                "wrappers": wrappers_str,
+                "compiled": [ale_name],
+            }
+        )
     p.write_text(json.dumps(configs, indent=2))
 
 
@@ -316,10 +422,10 @@ def precompile_all(
     to the XLA persistent cache.  Subsequent `make()` / `make_vec()` calls for
     any game will load from cache rather than recompiling.
 
-    Multiple configurations can be cached side-by-side.  Each call records its
-    parameters in a `precompile_manifest.json` file inside `cache_dir`.  If a
-    matching entry already exists in that manifest the function returns
-    immediately — no recompilation occurs.
+    Multiple configurations can be cached side-by-side.  Each successfully
+    compiled game is appended to the `"compiled"` list in
+    `precompile_manifest.json` immediately, so an interrupted run can be
+    resumed — already-compiled games are skipped automatically.
 
     The cache key depends on the exact input shapes and computation graph, so
     `n_envs`, `n_steps`, `wrappers`, and `preset` must all match how the
@@ -353,18 +459,11 @@ def precompile_all(
         recompile of all 57 games and clearing all previously stored
         configurations.  Default is `False`.
     """
-    entry = _config_entry(n_envs, n_steps, preset, wrappers)
-
     if cache_dir is not None:
         cache_path = pathlib.Path(cache_dir)
         if clear_cache and cache_path.exists():
             shutil.rmtree(cache_path)
             cache_path.mkdir(parents=True, exist_ok=True)
-        elif _manifest_has_config(cache_path, entry):
-            print(
-                f"Configuration already cached at '{cache_path}'. Using existing cache."
-            )
-            return
 
     setup_cache(cache_dir)
 
@@ -377,6 +476,13 @@ def precompile_all(
     with tqdm(game_names, unit="env") as bar:
         for game_name in bar:
             spec = EnvSpec("atari", game_name)
+
+            if cache_dir is not None and _manifest_has_game(
+                cache_path, game_name, n_envs, preset, wrappers, n_steps=n_steps
+            ):
+                bar.set_description(f"Skipping {spec.id} (cached)")
+                continue
+
             bar.set_description(f"Compiling {spec.id}")
 
             with _live_bar(bar):
@@ -413,5 +519,7 @@ def precompile_all(
                             states, jnp.zeros((n_envs, n_steps), dtype=jnp.int32)
                         )
 
-    if cache_dir is not None:
-        _manifest_append(pathlib.Path(cache_dir), entry)
+            if cache_dir is not None:
+                _manifest_add_game(
+                    cache_path, game_name, n_envs, n_steps, preset, wrappers
+                )
