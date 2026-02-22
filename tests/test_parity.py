@@ -113,3 +113,16 @@ def test_step_terminal_is_bool(reset_state):
     chex.assert_rank(state2.terminal, 0)
     chex.assert_type(state2.terminal, bool)
     chex.assert_type(state2.terminal, bool)
+
+
+def test_reset_score_is_zero(reset_state):
+    """state.score is always 0 after reset, matching ALE's m_score=0 baseline.
+
+    Regression test: previously, score was read from RAM after warmup, which
+    caused the first step reward to be negative when the ROM had written a
+    non-zero score to RAM during initialisation.
+    """
+    state, _ = reset_state
+    chex.assert_rank(state.score, 0)
+    chex.assert_type(state.score, jnp.int32)
+    assert int(state.score) == 0

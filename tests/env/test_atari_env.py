@@ -15,8 +15,7 @@
 
 """Unit tests for AtariEnv and EnvParams.
 
-ROM-free: uses new_atari_state() + FakeEnv from conftest to avoid the
-ale-py dependency.
+ROM-free: uses FakeEnv from conftest to avoid the ale-py dependency.
 
 Run with:
     pytest tests/env/test_atari_env.py -v
@@ -104,3 +103,5 @@ def test_sample_dtype(fake_env):
     chex.assert_rank(action, 0)
     chex.assert_type(action, jnp.int32)
     assert 0 <= int(action) < 18
+
+

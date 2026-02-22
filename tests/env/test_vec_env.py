@@ -13,9 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Unit tests for make_rollout_fn.
+"""Unit tests for VecEnv.
 
-ROM-free: uses FakeEnv from conftest.
+ROM-backed: requires ale-py to load game ROMs.
 
 Run with:
     pytest tests/env/test_vec_env.py -v
@@ -25,53 +25,47 @@ import chex
 import jax
 import jax.numpy as jnp
 
-from atarax.core.state import new_atari_state
-from atarax.env.vec_env import make_rollout_fn
+from atarax.env import VecEnv, make_vec
 
-_N_STEPS = 8
-
-
-def test_rollout_fn_obs_shape(fake_env):
-    rollout = make_rollout_fn(fake_env)
-    state = new_atari_state()
-    actions = jnp.zeros(_N_STEPS, dtype=jnp.int32)
-    _, (obs, reward, done, info) = rollout(state, actions)
-    chex.assert_shape(obs, (_N_STEPS, 210, 160, 3))
+_key = jax.random.PRNGKey(0)
+_BREAKOUT = "atari/breakout-v0"
+_N_ENVS = 2
+_N_STEPS = 4
 
 
-def test_rollout_fn_reward_shape(fake_env):
-    rollout = make_rollout_fn(fake_env)
-    state = new_atari_state()
-    actions = jnp.zeros(_N_STEPS, dtype=jnp.int32)
-    _, (obs, reward, done, info) = rollout(state, actions)
-    chex.assert_shape(reward, (_N_STEPS,))
+def test_vec_env_rollout_obs_shape():
+    vec_env = make_vec(_BREAKOUT, n_envs=_N_ENVS)
+    _, states = vec_env.reset(_key)
+    actions = jnp.zeros((_N_ENVS, _N_STEPS), dtype=jnp.int32)
+    _, (obs, reward, done, _info) = vec_env.rollout(states, actions)
+    chex.assert_shape(obs, (_N_STEPS, _N_ENVS, 210, 160, 3))
+
+
+def test_vec_env_rollout_reward_shape():
+    vec_env = make_vec(_BREAKOUT, n_envs=_N_ENVS)
+    _, states = vec_env.reset(_key)
+    actions = jnp.zeros((_N_ENVS, _N_STEPS), dtype=jnp.int32)
+    _, (obs, reward, done, _info) = vec_env.rollout(states, actions)
+    chex.assert_shape(reward, (_N_STEPS, _N_ENVS))
     chex.assert_type(reward, jnp.float32)
 
 
-def test_rollout_fn_done_shape(fake_env):
-    rollout = make_rollout_fn(fake_env)
-    state = new_atari_state()
-    actions = jnp.zeros(_N_STEPS, dtype=jnp.int32)
-    _, (obs, reward, done, info) = rollout(state, actions)
-    chex.assert_shape(done, (_N_STEPS,))
+def test_vec_env_rollout_done_shape():
+    vec_env = make_vec(_BREAKOUT, n_envs=_N_ENVS)
+    _, states = vec_env.reset(_key)
+    actions = jnp.zeros((_N_ENVS, _N_STEPS), dtype=jnp.int32)
+    _, (obs, reward, done, _info) = vec_env.rollout(states, actions)
+    chex.assert_shape(done, (_N_STEPS, _N_ENVS))
 
 
-def test_rollout_fn_jit_compiles(fake_env):
-    rollout = jax.jit(make_rollout_fn(fake_env))
-    state = new_atari_state()
-    actions = jnp.zeros(_N_STEPS, dtype=jnp.int32)
-    final_state, transitions = rollout(state, actions)
-    chex.assert_rank(final_state.episode_frame, 0)
-    assert int(final_state.episode_frame) == _N_STEPS
+def test_vec_env_sample_shape():
+    vec_env = make_vec(_BREAKOUT, n_envs=_N_ENVS)
+    actions = vec_env.sample(_key)
+    chex.assert_shape(actions, (_N_ENVS,))
+    chex.assert_type(actions, jnp.int32)
 
 
-def test_rollout_fn_vmap_two_envs(fake_env):
-    n_envs = 2
-    rollout = make_rollout_fn(fake_env)
-    batched = jax.vmap(rollout)
-    state = new_atari_state()
-    states = jax.tree_util.tree_map(lambda x: jnp.stack([x] * n_envs), state)
-    actions = jnp.zeros((n_envs, _N_STEPS), dtype=jnp.int32)
-    _, (obs, reward, done, info) = batched(states, actions)
-    chex.assert_shape(obs, (n_envs, _N_STEPS, 210, 160, 3))
-    chex.assert_shape(reward, (n_envs, _N_STEPS))
+def test_vec_env_is_instance():
+    vec_env = make_vec(_BREAKOUT, n_envs=_N_ENVS)
+    assert isinstance(vec_env, VecEnv)
+    assert vec_env.n_envs == _N_ENVS
