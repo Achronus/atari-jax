@@ -28,7 +28,7 @@ import pytest
 from atarax.env import (
     AtariEnv,
     EnvSpec,
-    EpisodicLifeState,
+    EpisodeStatisticsState,
     GrayscaleObservation,
     VecEnv,
     make,
@@ -63,7 +63,7 @@ def test_make_preset_dqn_obs_shape():
     env = make(_BREAKOUT, preset=True)
     obs, state = env.reset(_key)
     assert obs.shape == (84, 84, 4)
-    assert isinstance(state, EpisodicLifeState)
+    assert isinstance(state, EpisodeStatisticsState)
 
 
 def test_make_preset_and_wrappers_raises():
@@ -82,7 +82,7 @@ def test_make_vec_reset_shape():
     vec_env = make_vec(_BREAKOUT, n_envs=n_envs, preset=True)
     obs, states = vec_env.reset(_key)
     assert obs.shape == (n_envs, 84, 84, 4)
-    assert isinstance(states, EpisodicLifeState)
+    assert isinstance(states, EpisodeStatisticsState)
 
 
 def test_make_vec_step_shape():
@@ -112,7 +112,7 @@ def test_make_jit_compile_true_reset():
     env = make(_BREAKOUT, preset=True, jit_compile=True)
     obs, state = env.reset(_key)
     assert obs.shape == (84, 84, 4)
-    assert isinstance(state, EpisodicLifeState)
+    assert isinstance(state, EpisodeStatisticsState)
 
 
 def test_make_jit_compile_true_step():
@@ -128,7 +128,7 @@ def test_make_jit_compile_false_reset():
     env = make(_BREAKOUT, preset=True, jit_compile=False)
     obs, state = env.reset(_key)
     assert obs.shape == (84, 84, 4)
-    assert isinstance(state, EpisodicLifeState)
+    assert isinstance(state, EpisodeStatisticsState)
 
 
 def test_make_vec_jit_compile_true_reset():
@@ -136,7 +136,7 @@ def test_make_vec_jit_compile_true_reset():
     vec_env = make_vec(_BREAKOUT, n_envs=n_envs, preset=True, jit_compile=True)
     obs, states = vec_env.reset(_key)
     assert obs.shape == (n_envs, 84, 84, 4)
-    assert isinstance(states, EpisodicLifeState)
+    assert isinstance(states, EpisodeStatisticsState)
 
 
 def test_make_vec_jit_compile_true_step():
@@ -167,4 +167,4 @@ def test_make_vec_jit_compile_false_reset():
     vec_env = make_vec(_BREAKOUT, n_envs=n_envs, preset=True, jit_compile=False)
     obs, states = vec_env.reset(_key)
     assert obs.shape == (n_envs, 84, 84, 4)
-    assert isinstance(states, EpisodicLifeState)
+    assert isinstance(states, EpisodeStatisticsState)
