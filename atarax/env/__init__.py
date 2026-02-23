@@ -15,7 +15,8 @@
 
 from atarax.env._compile import DEFAULT_CACHE_DIR, setup_cache
 from atarax.env.atari_env import AtariEnv, EnvParams
-from atarax.env.make import make, make_vec, precompile_all
+from atarax.env.env import Env
+from atarax.env.make import make, make_multi, make_vec, make_vec_multi, precompile_all
 from atarax.env.spaces import Box, Discrete
 from atarax.env.spec import EnvSpec
 from atarax.env.vec_env import VecEnv
@@ -42,6 +43,7 @@ __all__ = [
     "ClipReward",
     "DEFAULT_CACHE_DIR",
     "Discrete",
+    "Env",
     "EnvParams",
     "EnvSpec",
     "EpisodeDiscount",

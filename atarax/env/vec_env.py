@@ -13,15 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-from typing import TYPE_CHECKING, Any, Dict, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Tuple, cast
 
 import chex
 import jax
 import jax.numpy as jnp
-
-if TYPE_CHECKING:
-    from atarax.env.atari_env import AtariEnv
-    from atarax.env.wrappers.base import Wrapper
 
 from atarax.core.state import AtariState
 from atarax.env._kernels import (
@@ -33,7 +29,11 @@ from atarax.env._kernels import (
     jit_vec_step,
     jit_vec_step_single,
 )
+from atarax.env.env import Env
 from atarax.env.spaces import Box, Discrete
+
+if TYPE_CHECKING:
+    from atarax.env.atari_env import AtariEnv
 
 
 class VecEnv:
@@ -48,7 +48,7 @@ class VecEnv:
 
     Parameters
     ----------
-    env : AtariEnv | Wrapper
+    env : Env
         Single-instance environment to vectorize.
     n_envs : int
         Number of parallel environments.  Used to split the PRNG key in
@@ -57,18 +57,13 @@ class VecEnv:
 
     def __init__(
         self,
-        env: "AtariEnv | Wrapper",
+        env: Env,
         n_envs: int,
     ) -> None:
         self._env = env
         self._n_envs = n_envs
 
-        # Traverse wrapper chain to reach the base AtariEnv.
-        base = env
-
-        while hasattr(base, "_env"):
-            base = base._env
-
+        base: "AtariEnv" = cast("AtariEnv", env.unwrapped)
         self._rom = base._rom
         self._game_id_jax = base._game_id_jax
         self._game_id_int = base._game_id_int

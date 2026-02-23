@@ -30,6 +30,7 @@ from atarax.env._kernels import (
     jit_step,
     jit_step_single,
 )
+from atarax.env.env import Env
 from atarax.env.spaces import Box, Discrete
 from atarax.games.registry import _GAMES, GAME_GROUPS, GAME_IDS, WARMUP_FRAMES_ARRAY
 from atarax.utils.rom_loader import load_rom
@@ -114,7 +115,7 @@ class EnvParams:
     max_episode_steps: int = 27000
 
 
-class AtariEnv:
+class AtariEnv(Env):
     """
     Gymnax-style Atari 2600 environment.
 
@@ -153,15 +154,18 @@ class AtariEnv:
             raise ValueError(
                 f"Unknown game_id {game_id!r}. Available games: {sorted(GAME_IDS)}"
             )
+
         if compile_mode not in _VALID_MODES:
             raise ValueError(
                 f"Invalid compile_mode {compile_mode!r}. Choose from {_VALID_MODES}."
             )
+
         if compile_mode == "group" and group is None:
             raise ValueError(
                 "compile_mode='group' requires a 'group' argument "
                 "(e.g. group='atari5' or group=['breakout', 'pong'])."
             )
+
         if compile_mode != "group" and group is not None:
             raise ValueError(
                 f"'group' argument is only valid with compile_mode='group', "
@@ -182,6 +186,9 @@ class AtariEnv:
             self._group_kernels = _make_group_kernels(group_game_ids)
         else:
             self._group_kernels = None
+
+    def __repr__(self) -> str:
+        return f"AtariEnv<{self._game_id}>"
 
     @property
     def default_params(self) -> EnvParams:
@@ -214,10 +221,12 @@ class AtariEnv:
             return jit_reset_single(
                 key, self._rom, self._game_id_int, self._warmup_frames, noop_max
             )
+
         if self._compile_mode == "group":
             return self._group_kernels.reset(
                 key, self._rom, self._game_id_jax, self._warmup_frames, noop_max
             )
+
         return jit_reset(
             key, self._rom, self._game_id_jax, self._warmup_frames, noop_max
         )

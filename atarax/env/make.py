@@ -27,6 +27,7 @@ from tqdm import tqdm
 
 from atarax.env._compile import DEFAULT_CACHE_DIR, _live_bar, setup_cache
 from atarax.env.atari_env import AtariEnv, EnvParams
+from atarax.env.env import Env
 from atarax.env.spec import EnvSpec
 from atarax.env.vec_env import VecEnv
 from atarax.env.wrappers import AtariPreprocessing, Wrapper
@@ -37,7 +38,7 @@ _ENV_ID_RE = re.compile(r"^([^/]+)/(.+)-v(\d+)$")
 _MISSING = object()
 
 
-def _wrapper_str(w: "Type | _WrapperFactory") -> str:
+def _wrapper_str(w: Type[Wrapper] | _WrapperFactory) -> str:
     """Return a manifest-friendly string for a wrapper class or factory."""
     if isinstance(w, type):
         return w.__name__
@@ -89,16 +90,19 @@ def make(
     game_id: str | EnvSpec,
     *,
     params: EnvParams | None = None,
-    wrappers: List[Type | _WrapperFactory] | None = None,
+    wrappers: List[Type[Wrapper] | _WrapperFactory] | None = None,
     preset: bool = False,
     jit_compile: bool = True,
     cache_dir: pathlib.Path | str | None = DEFAULT_CACHE_DIR,
     show_compile_progress: bool = False,
-    compile_mode: str = "all",
-    group: str | List[str] | None = None,
-) -> AtariEnv | Wrapper:
+) -> Env:
     """
-    Create an `AtariEnv`, optionally with wrappers applied.
+    Create a single `AtariEnv`, optionally with wrappers applied.
+
+    The returned environment is compiled with a single-game XLA program
+    (``compile_mode="single"``), which traces only the selected game's
+    dispatch branches and produces a smaller, faster-to-compile program
+    than the full 57-game switch.
 
     Parameters
     ----------
@@ -108,13 +112,14 @@ def make(
         `"atari/breakout-v0"`.
     params : EnvParams (optional)
         Environment parameters; defaults to `EnvParams()`.
-    wrappers : List[Type] (optional)
-        Wrapper classes applied innermost-first around the base env.
-        Mutually exclusive with `preset`. Default is `None`
+    wrappers : List[Type[Wrapper] | _WrapperFactory] (optional)
+        Wrapper classes or pre-configured factories applied innermost-first
+        around the base env. Mutually exclusive with `preset`.
+        Default is `None`.
     preset : bool (optional)
         Apply the DQN preprocessing stack (`AtariPreprocessing` wrapper) from
         [Mnih et al., 2015](https://www.nature.com/articles/nature14236).
-        Mutually exclusive with `wrappers`. Default is `False`
+        Mutually exclusive with `wrappers`. Default is `False`.
     jit_compile : bool (optional)
         Eagerly trigger kernel compilation now rather than lazily on the
         first call.  `reset`, `step`, and `rollout` are always JIT-compiled
@@ -129,24 +134,11 @@ def make(
         Display a spinner on the first (compilation) call of each method.
         Automatically suppressed when the game is already in the precompile
         manifest for this configuration.  Default is `False`.
-    compile_mode : str (optional)
-        Kernel compilation strategy.
-        - `"all"` (default): compiles all 57 game branches into one XLA program
-          via `jax.lax.switch`.
-        - `"single"`: makes `game_id` a static JIT argument, constant-folding
-          the dispatch to only the selected game branch.
-        - `"group"`: compiles only the N games in `group` via an N-way
-          `jax.lax.switch`.  Requires `group` to be provided.
-        See `AtariEnv` for full details.
-    group : str | List[str] (optional)
-        Required when `compile_mode="group"`.  Predefined group name
-        (`"atari5"`, `"atari10"`, `"atari26"`) or a custom list of ALE
-        game names. Default is `None`
 
     Returns
     -------
-    env : AtariEnv | Wrapper
-        Configured environment.
+    env : Env
+        Configured environment (bare `AtariEnv` or wrapped `Wrapper`).
 
     Raises
     ------
@@ -163,9 +155,7 @@ def make(
 
     setup_cache(cache_dir)
 
-    env = AtariEnv(
-        ale_name, params or EnvParams(), compile_mode=compile_mode, group=group
-    )
+    env: Env = AtariEnv(ale_name, params or EnvParams(), compile_mode="single")
 
     if preset:
         env = AtariPreprocessing(env, h=84, w=84, n_stack=4)
@@ -199,13 +189,11 @@ def make_vec(
     n_envs: int,
     *,
     params: EnvParams | None = None,
-    wrappers: List[Type | _WrapperFactory] | None = None,
+    wrappers: List[Type[Wrapper] | _WrapperFactory] | None = None,
     preset: bool = False,
     jit_compile: bool = True,
     cache_dir: pathlib.Path | str | None = DEFAULT_CACHE_DIR,
     show_compile_progress: bool = False,
-    compile_mode: str = "all",
-    group: str | List[str] | None = None,
 ) -> VecEnv:
     """
     Create a `VecEnv` with `n_envs` parallel environments.
@@ -224,13 +212,13 @@ def make_vec(
         Number of parallel environments.
     params : EnvParams (optional)
         Environment parameters; defaults to `EnvParams()`.
-    wrappers : List[Type] (optional)
+    wrappers : List[Type[Wrapper] | _WrapperFactory] (optional)
         Wrapper classes applied innermost-first around the base env.
-        Mutually exclusive with `preset`. Default is `None`
+        Mutually exclusive with `preset`. Default is `None`.
     preset : bool (optional)
         Apply the DQN preprocessing stack (`AtariPreprocessing` wrapper) from
         [Mnih et al., 2015](https://www.nature.com/articles/nature14236).
-        Mutually exclusive with `wrappers`. Default is `False`
+        Mutually exclusive with `wrappers`. Default is `False`.
     jit_compile : bool (optional)
         Eagerly trigger kernel compilation now rather than lazily on the
         first call.  All kernels are always JIT-compiled via module-level
@@ -245,19 +233,6 @@ def make_vec(
         Display a spinner on the first (compilation) call of each vmapped
         method.  Automatically suppressed when the game is already in the
         precompile manifest for this configuration.  Default is `False`.
-    compile_mode : str (optional)
-        Kernel compilation strategy.
-        - `"all"` (default): compiles all 57 game branches into one XLA program
-          via `jax.lax.switch`.
-        - `"single"`: makes `game_id` a static JIT argument, constant-folding
-          the dispatch to only the selected game branch.
-        - `"group"`: compiles only the N games in `group` via an N-way
-          `jax.lax.switch`.  Requires `group` to be provided.
-        See `AtariEnv` for full details.
-    group : str | List[str] (optional)
-        Required when `compile_mode="group"`.  Predefined group name
-        (`"atari5"`, `"atari10"`, `"atari26"`) or a custom list of ALE
-        game names. Default is `None`
 
     Returns
     -------
@@ -282,8 +257,6 @@ def make_vec(
         preset=preset,
         jit_compile=False,
         cache_dir=cache_dir,
-        compile_mode=compile_mode,
-        group=group,
     )
 
     vec_env = VecEnv(env, n_envs)
@@ -448,7 +421,7 @@ def precompile_all(
     n_envs: int = 1,
     n_steps: int | None = None,
     params: EnvParams | None = None,
-    wrappers: List[Type | _WrapperFactory] | None = None,
+    wrappers: List[Type[Wrapper] | _WrapperFactory] | None = None,
     preset: bool = False,
     cache_dir: pathlib.Path | str | None = DEFAULT_CACHE_DIR,
     clear_cache: bool = False,
@@ -480,15 +453,15 @@ def precompile_all(
         If provided, also compiles and caches the rollout function for a
         fixed sequence length of `n_steps`.  This corresponds to `T` in
         the `actions` array passed to `rollout()`.  Leave as `None` to skip
-        rollout precompilation. Default is `None`
+        rollout precompilation. Default is `None`.
     params : EnvParams (optional)
         Shared environment parameters. Defaults to `EnvParams()`.
-    wrappers : List[Type] (optional)
+    wrappers : List[Type[Wrapper] | _WrapperFactory] (optional)
         Wrapper classes applied innermost-first around the base env.
-        Mutually exclusive with `preset`. Default is `None`
+        Mutually exclusive with `preset`. Default is `None`.
     preset : bool (optional)
         Apply the DQN preprocessing stack to every environment.
-        Mutually exclusive with `wrappers`. Default is `False`
+        Mutually exclusive with `wrappers`. Default is `False`.
     cache_dir : Path | str | None (optional)
         Cache directory.  Defaults to `~/.cache/atari-jax/xla_cache`.
         Pass `None` to disable caching (compilation still occurs but is not
