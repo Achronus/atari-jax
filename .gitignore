@@ -164,3 +164,4 @@ __marimo__/
 
 # Atari-jax
 tests/.jax-cache/
+.xla-cache/

@@ -3,6 +3,15 @@ services:
     build: .
     volumes:
       - .:/workspace
+    environment:
+      - ATARAX_CACHE_DIR=/workspace/.xla-cache/xla_cache
     stdin_open: true
     tty: true
     command: bash
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

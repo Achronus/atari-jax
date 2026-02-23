@@ -29,3 +29,7 @@ exclude-dependencies = ["uvloop"]
 testpaths = ["tests"]
 norecursedirs = [".venv"]
 addopts = "-n auto"
+filterwarnings = [
+    "ignore::UserWarning:jax",
+    "ignore::UserWarning:jaxlib",
+]
