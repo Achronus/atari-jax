@@ -20,7 +20,15 @@ import chex
 import jax.numpy as jnp
 
 from atarax.core.state import AtariState
-from atarax.env._kernels import _jit_sample, jit_reset, jit_rollout, jit_step
+from atarax.env._kernels import (
+    _jit_sample,
+    jit_reset,
+    jit_reset_single,
+    jit_rollout,
+    jit_rollout_single,
+    jit_step,
+    jit_step_single,
+)
 from atarax.env.spaces import Box, Discrete
 from atarax.games.registry import _GAMES, GAME_IDS, WARMUP_FRAMES_ARRAY
 from atarax.utils.rom_loader import load_rom
@@ -65,19 +73,38 @@ class AtariEnv:
         ALE game identifier (e.g. `"breakout"`, `"pong"`)
     params : EnvParams
         Environment hyper-parameters. Defaults to `EnvParams()`
+    compile_mode : str (optional)
+        Compilation strategy for the JIT kernels.
+        - `"all"` (default): compiles all 57 game branches into a single XLA program via
+        `jax.lax.switch`, so every game with the same ROM size shares one compilation.
+        - `"single"`: makes `game_id` a static JIT argument, constant-folding the
+        dispatch to only the selected game's branch — smaller programs and
+        faster cold-start compilation at the cost of one XLA program per game.
     """
 
-    def __init__(self, game_id: str, params: EnvParams = EnvParams()) -> None:
+    def __init__(
+        self,
+        game_id: str,
+        params: EnvParams = EnvParams(),
+        compile_mode: str = "all",
+    ) -> None:
         if game_id not in GAME_IDS:
             raise ValueError(
                 f"Unknown game_id {game_id!r}. Available games: {sorted(GAME_IDS)}"
             )
 
+        if compile_mode not in ("all", "single"):
+            raise ValueError(
+                f"Invalid compile_mode {compile_mode!r}. Choose 'all' or 'single'."
+            )
+
         self._game_id = game_id
         self._params = params
+        self._compile_mode = compile_mode
         self._game = _GAMES[GAME_IDS[game_id]].game
         self._rom = load_rom(game_id)
         self._game_id_jax = jnp.int32(GAME_IDS[game_id])
+        self._game_id_int = int(GAME_IDS[game_id])
         self._warmup_frames = WARMUP_FRAMES_ARRAY[GAME_IDS[game_id]]
 
     @property
@@ -105,6 +132,15 @@ class AtariEnv:
         state : AtariState
             Initial machine state after reset and no-ops.
         """
+        if self._compile_mode == "single":
+            return jit_reset_single(
+                key,
+                self._rom,
+                self._game_id_int,
+                self._warmup_frames,
+                jnp.int32(self._params.noop_max),
+            )
+
         return jit_reset(
             key,
             self._rom,
@@ -145,6 +181,16 @@ class AtariEnv:
         info : Dict[str, Any]
             `{"lives": int32, "episode_frame": int32, "truncated": bool}`
         """
+        if self._compile_mode == "single":
+            return jit_step_single(
+                state,
+                self._rom,
+                action,
+                self._game_id_int,
+                self._params.frame_skip,
+                self._params.max_episode_steps,
+            )
+
         return jit_step(
             state,
             self._rom,
@@ -176,6 +222,16 @@ class AtariEnv:
         transitions : tuple
             `(obs, reward, done, info)` each with a leading T dimension.
         """
+        if self._compile_mode == "single":
+            return jit_rollout_single(
+                state,
+                self._rom,
+                actions,
+                self._game_id_int,
+                self._params.frame_skip,
+                self._params.max_episode_steps,
+            )
+
         return jit_rollout(
             state,
             self._rom,

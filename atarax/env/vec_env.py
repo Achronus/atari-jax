@@ -27,8 +27,11 @@ from atarax.core.state import AtariState
 from atarax.env._kernels import (
     _jit_sample,
     jit_vec_reset,
+    jit_vec_reset_single,
     jit_vec_rollout,
+    jit_vec_rollout_single,
     jit_vec_step,
+    jit_vec_step_single,
 )
 from atarax.env.spaces import Box, Discrete
 
@@ -62,10 +65,14 @@ class VecEnv:
 
         # Traverse wrapper chain to reach the base AtariEnv.
         base = env
+
         while hasattr(base, "_env"):
             base = base._env
+
         self._rom = base._rom
         self._game_id_jax = base._game_id_jax
+        self._game_id_int = base._game_id_int
+        self._compile_mode = base._compile_mode
         self._warmup_frames = base._warmup_frames
         self._params = base._params
 
@@ -89,6 +96,15 @@ class VecEnv:
             Batched environment states (leading dim = `n_envs`).
         """
         keys = jax.random.split(key, self._n_envs)
+        if self._compile_mode == "single":
+            return jit_vec_reset_single(
+                keys,
+                self._rom,
+                self._game_id_int,
+                self._warmup_frames,
+                jnp.int32(self._params.noop_max),
+            )
+
         return jit_vec_reset(
             keys,
             self._rom,
@@ -125,6 +141,16 @@ class VecEnv:
         info : dict
             Batched info dict; each value has a leading `n_envs` dimension.
         """
+        if self._compile_mode == "single":
+            return jit_vec_step_single(
+                states,
+                self._rom,
+                actions,
+                self._game_id_int,
+                self._params.frame_skip,
+                self._params.max_episode_steps,
+            )
+
         return jit_vec_step(
             states,
             self._rom,
@@ -177,6 +203,16 @@ class VecEnv:
         transitions : tuple
             `(obs, reward, done, info)` each with shape `[T, n_envs, ...]`.
         """
+        if self._compile_mode == "single":
+            return jit_vec_rollout_single(
+                states,
+                self._rom,
+                actions,
+                self._game_id_int,
+                self._params.frame_skip,
+                self._params.max_episode_steps,
+            )
+
         return jit_vec_rollout(
             states,
             self._rom,

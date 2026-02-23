@@ -94,6 +94,7 @@ def make(
     jit_compile: bool = True,
     cache_dir: pathlib.Path | str | None = DEFAULT_CACHE_DIR,
     show_compile_progress: bool = False,
+    compile_mode: str = "all",
 ) -> AtariEnv | Wrapper:
     """
     Create an `AtariEnv`, optionally with wrappers applied.
@@ -127,6 +128,13 @@ def make(
         Display a spinner on the first (compilation) call of each method.
         Automatically suppressed when the game is already in the precompile
         manifest for this configuration.  Default is `False`.
+    compile_mode : str (optional)
+        Kernel compilation strategy.
+        - `"all"` (default): compiles all 57 game branches into one XLA program
+           via `jax.lax.switch`.
+        - `"single"`: makes `game_id` a static JIT argument, constant-folding the dispatch
+        to only the selected game branch for a smaller, faster-to-compile
+        program. See `AtariEnv` for full details.
 
     Returns
     -------
@@ -148,7 +156,7 @@ def make(
 
     setup_cache(cache_dir)
 
-    env = AtariEnv(ale_name, params or EnvParams())
+    env = AtariEnv(ale_name, params or EnvParams(), compile_mode=compile_mode)
 
     if preset:
         env = AtariPreprocessing(env, h=84, w=84, n_stack=4)
@@ -187,6 +195,7 @@ def make_vec(
     jit_compile: bool = True,
     cache_dir: pathlib.Path | str | None = DEFAULT_CACHE_DIR,
     show_compile_progress: bool = False,
+    compile_mode: str = "all",
 ) -> VecEnv:
     """
     Create a `VecEnv` with `n_envs` parallel environments.
@@ -226,6 +235,13 @@ def make_vec(
         Display a spinner on the first (compilation) call of each vmapped
         method.  Automatically suppressed when the game is already in the
         precompile manifest for this configuration.  Default is `False`.
+    compile_mode : str (optional)
+        Kernel compilation strategy.
+        - `"all"` (default): compiles all 57 game branches into one XLA program
+           via `jax.lax.switch`.
+        - `"single"`: makes `game_id` a static JIT argument, constant-folding the dispatch
+        to only the selected game branch for a smaller, faster-to-compile
+        program. See `AtariEnv` for full details.
 
     Returns
     -------
@@ -250,6 +266,7 @@ def make_vec(
         preset=preset,
         jit_compile=False,
         cache_dir=cache_dir,
+        compile_mode=compile_mode,
     )
 
     vec_env = VecEnv(env, n_envs)
