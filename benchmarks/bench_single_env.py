@@ -31,6 +31,7 @@ import time
 import jax
 
 from atarax.env import make
+from atarax.env._compile import DEFAULT_CACHE_DIR
 
 
 def run(game: str, n_steps: int, n_warmup: int) -> None:
@@ -46,6 +47,11 @@ def run(game: str, n_steps: int, n_warmup: int) -> None:
     n_warmup : int
         Number of warmup steps to run before timing starts.
     """
+    _backend = jax.default_backend()
+    _cache = DEFAULT_CACHE_DIR / _backend
+    print(f"device : {_backend}")
+    print(f"cache  : {'warm' if _cache.is_dir() and any(_cache.iterdir()) else 'cold'}")
+
     env = make(
         f"atari/{game}-v0", preset=True, jit_compile=True, show_compile_progress=True
     )

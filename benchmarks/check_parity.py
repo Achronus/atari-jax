@@ -38,12 +38,17 @@ from ale_py import ALEInterface
 from ale_py.roms import get_rom_path
 from tqdm import tqdm
 
-from atarax.env._compile import _live_bar, setup_cache
+from atarax.env._compile import DEFAULT_CACHE_DIR, _live_bar, setup_cache
 from atarax.env.atari_env import AtariEnv, EnvParams
 
 
 def _run_jax(ale_name: str, actions: list[int], seed: int) -> dict:
     """Run the JAX environment for the given action sequence."""
+    _backend = jax.default_backend()
+    _cache = DEFAULT_CACHE_DIR / _backend
+    print(f"device : {_backend}")
+    print(f"cache  : {'warm' if _cache.is_dir() and any(_cache.iterdir()) else 'cold'}")
+
     setup_cache()
     params = EnvParams(noop_max=0)
     env = AtariEnv(ale_name, params)
