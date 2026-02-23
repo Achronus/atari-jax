@@ -15,21 +15,27 @@
 
 """Shared module-level JIT kernels for all Atari games.
 
-Two compile modes are supported, selectable via `AtariEnv(compile_mode=...)`:
+Three compile modes are supported, selectable via `AtariEnv(compile_mode=...)`:
 
-``"all"`` (default)
+`"all"` (default)
     `game_id` is a dynamic JAX argument at the JIT boundary.  Every game with
     the same ROM size and the same `frame_skip` / `max_episode_steps` values
     shares a **single XLA compilation** (3 programs total).  All 57 game
     branches are compiled into each program via `jax.lax.switch`.
 
-``"single"``
+`"single"`
     `game_id` is a **static** Python-level constant at the JIT boundary.
     JAX constant-folds the `jax.lax.switch` dispatch calls, tracing only the
     one selected game branch.  Each game produces its own XLA program (3
     programs per game), which is smaller and faster to compile.
 
-Public API — ``"all"`` mode
+`"group"`
+    A compact N-way `jax.lax.switch` is built over only the N games in the
+    specified group.  `game_id` remains dynamic but only N branches are
+    compiled (3 programs per group, shared by all envs with the same group
+    via `_GROUP_KERNELS_CACHE`).
+
+Public API — `"all"` mode
 ---------------------------
 jit_step        -- Single-env frame-skip step.
 jit_reset       -- Single-env reset with warmup + stochastic start.
@@ -39,7 +45,7 @@ jit_vec_reset   -- Vectorised reset.
 jit_vec_rollout -- Vectorised multi-step rollout via `lax.scan`.
 _jit_sample     -- Shared action sampler (identical for all games).
 
-Public API — ``"single"`` mode
+Public API — `"single"` mode
 -------------------------------
 jit_step_single        -- Single-env step (game_id static).
 jit_reset_single       -- Single-env reset (game_id static).
@@ -47,10 +53,15 @@ jit_rollout_single     -- Single-env rollout (game_id static).
 jit_vec_step_single    -- Vectorised step (game_id static).
 jit_vec_reset_single   -- Vectorised reset (game_id static).
 jit_vec_rollout_single -- Vectorised rollout (game_id static).
+
+Public API — `"group"` mode
+------------------------------
+_make_group_kernels -- Build (or retrieve cached) `_GroupKernels` for a group.
+_GroupKernels       -- NamedTuple holding 6 group-scoped JIT kernels.
 """
 
 import functools
-from typing import Any, Dict, Tuple
+from typing import Any, Callable, Dict, NamedTuple, Tuple
 
 import chex
 import jax
@@ -304,8 +315,8 @@ def jit_step(
         float32 — Total reward accumulated over skipped frames.
     done : chex.Array
         bool — True when the episode has ended.
-    info : dict
-        ``{"lives": int32, "episode_frame": int32, "truncated": bool}``
+    info : Dict[str, Any]
+        `{"lives": int32, "episode_frame": int32, "truncated": bool}`
     """
     return _step_fn(state, rom, action, game_id, frame_skip, max_episode_steps)
 
@@ -379,8 +390,8 @@ def jit_rollout(
     -------
     final_state : AtariState
         State after all T steps.
-    transitions : tuple
-        ``(obs, reward, done, info)`` each with a leading T dimension.
+    transitions : Tuple[chex.Array, ...]
+        `(obs, reward, done, info)` each with a leading T dimension.
     """
     return _rollout_fn(state, rom, actions, game_id, frame_skip, max_episode_steps)
 
@@ -461,7 +472,7 @@ def jit_vec_step(
         float32[n_envs] — Per-environment rewards.
     done : chex.Array
         bool[n_envs] — Per-environment terminal flags.
-    info : dict
+    info : Dict[str, Any]
         Batched info dict; each value has a leading n_envs dimension.
     """
     return _vec_step_fn(states, rom, actions, game_id, frame_skip, max_episode_steps)
@@ -502,8 +513,8 @@ def jit_vec_rollout(
     -------
     final_states : AtariState
         Batched states after all T steps.
-    transitions : tuple
-        ``(obs, reward, done, info)`` each with shape ``[T, n_envs, ...]``.
+    transitions : Tuple[chex.Array, ...]
+        `(obs, reward, done, info)` each with shape `[T, n_envs, ...]`.
     """
     return _vec_rollout_fn(states, rom, actions, game_id, frame_skip, max_episode_steps)
 
@@ -558,8 +569,8 @@ def jit_step_single(
         float32 — Total reward accumulated over skipped frames.
     done : chex.Array
         bool — True when the episode has ended.
-    info : dict
-        ``{"lives": int32, "episode_frame": int32, "truncated": bool}``
+    info : Dict[str, Any]
+        `{"lives": int32, "episode_frame": int32, "truncated": bool}`
     """
     return _step_fn(state, rom, action, game_id, frame_skip, max_episode_steps)
 
@@ -635,8 +646,8 @@ def jit_rollout_single(
     -------
     final_state : AtariState
         State after all T steps.
-    transitions : tuple
-        ``(obs, reward, done, info)`` each with a leading T dimension.
+    transitions : Tuple[chex.Array, ...]
+        `(obs, reward, done, info)` each with a leading T dimension.
     """
     return _rollout_fn(state, rom, actions, game_id, frame_skip, max_episode_steps)
 
@@ -718,7 +729,7 @@ def jit_vec_step_single(
         float32[n_envs] — Per-environment rewards.
     done : chex.Array
         bool[n_envs] — Per-environment terminal flags.
-    info : dict
+    info : Dict[str, Any]
         Batched info dict; each value has a leading n_envs dimension.
     """
     return _vec_step_fn(states, rom, actions, game_id, frame_skip, max_episode_steps)
@@ -758,7 +769,207 @@ def jit_vec_rollout_single(
     -------
     final_states : AtariState
         Batched states after all T steps.
-    transitions : tuple
-        ``(obs, reward, done, info)`` each with shape ``[T, n_envs, ...]``.
+    transitions : Tuple[chex.Array, ...]
+        `(obs, reward, done, info)` each with shape `[T, n_envs, ...]`.
     """
     return _vec_rollout_fn(states, rom, actions, game_id, frame_skip, max_episode_steps)
+
+
+# ---------------------------------------------------------------------------
+# "group" mode — N-way switch over a user-defined subset of games.
+# ---------------------------------------------------------------------------
+
+
+class _GroupKernels(NamedTuple):
+    """JIT-compiled kernel functions for a specific game group."""
+
+    reset: Callable
+    step: Callable
+    rollout: Callable
+    vec_reset: Callable
+    vec_step: Callable
+    vec_rollout: Callable
+
+
+_GROUP_KERNELS_CACHE: Dict[Tuple[int, ...], _GroupKernels] = {}
+
+
+def _make_group_kernels(group_game_ids: Tuple[int, ...]) -> _GroupKernels:
+    """
+    Build and cache JIT kernels for a specific group of games.
+
+    Two `AtariEnv` instances with the same `group_game_ids` tuple will
+    receive the same `_GroupKernels` object, ensuring they share a single
+    XLA compilation.
+
+    Parameters
+    ----------
+    group_game_ids : Tuple[int]
+        Sorted tuple of absolute game IDs forming the group.
+
+    Returns
+    -------
+    kernels : _GroupKernels
+        Named tuple of JIT-compiled functions for the group.
+    """
+    if group_game_ids in _GROUP_KERNELS_CACHE:
+        return _GROUP_KERNELS_CACHE[group_game_ids]
+
+    from atarax.games import build_group_dispatch
+
+    compute_rs_g, get_lives_g, is_terminal_g = build_group_dispatch(group_game_ids)
+
+    def _base_step_g(state, rom, action, game_id):
+        ram_prev = state.riot.ram
+        lives_prev = state.lives
+        state = emulate_frame(state, rom, action)
+        ram_curr = state.riot.ram
+        reward, new_score = compute_rs_g(game_id, ram_prev, ram_curr, state.score)
+        return state.__replace__(
+            score=new_score,
+            reward=reward,
+            lives=get_lives_g(game_id, ram_curr),
+            terminal=is_terminal_g(game_id, ram_curr, lives_prev),
+            episode_frame=(state.episode_frame + jnp.int32(1)).astype(jnp.int32),
+        )
+
+    _vmapped_base_step_g = jax.vmap(_base_step_g, in_axes=(0, None, 0, None))
+
+    def _reset_fn_g(key, rom, game_id, warmup_frames, noop_max):
+        state = new_atari_state()
+        state = cpu_reset(state, rom)
+        state = jax.lax.fori_loop(
+            0, 10, lambda _, s: emulate_frame(s, rom, jnp.int32(0)), state
+        )
+        state = emulate_frame(state, rom, jnp.int32(1))
+        remaining = jnp.maximum(warmup_frames - jnp.int32(11), jnp.int32(0))
+        state = jax.lax.fori_loop(
+            0, remaining, lambda _, s: emulate_frame(s, rom, jnp.int32(0)), state
+        )
+        state = state.__replace__(
+            score=jnp.int32(0),
+            lives=get_lives_g(game_id, state.riot.ram),
+            episode_frame=jnp.int32(0),
+            terminal=jnp.bool_(False),
+            reward=jnp.float32(0.0),
+        )
+        noop_steps = jax.random.randint(key, shape=(), minval=0, maxval=noop_max + 1)
+        state = jax.lax.fori_loop(
+            0,
+            noop_steps,
+            lambda _, s: _base_step_g(s, rom, jnp.int32(0), game_id),
+            state,
+        )
+        return state.screen, state
+
+    def _step_fn_g(state, rom, action, game_id, frame_skip, max_episode_steps):
+        lives_before = state.lives
+
+        def _skip(carry, _):
+            s, acc = carry
+            new_s = _base_step_g(s, rom, action, game_id)
+            return (new_s, acc + new_s.reward), None
+
+        (new_state, total_reward), _ = jax.lax.scan(
+            _skip, (state, jnp.float32(0.0)), None, length=frame_skip
+        )
+        terminal = is_terminal_g(game_id, new_state.riot.ram, lives_before)
+        truncated = new_state.episode_frame >= jnp.int32(max_episode_steps)
+        done = terminal | truncated
+        new_state = new_state.__replace__(reward=total_reward, terminal=done)
+        info = {
+            "lives": new_state.lives,
+            "episode_frame": new_state.episode_frame,
+            "truncated": truncated,
+        }
+        return new_state.screen, new_state, total_reward, done, info
+
+    def _rollout_fn_g(state, rom, actions, game_id, frame_skip, max_episode_steps):
+        def _step(carry_state, action):
+            obs, new_state, reward, done, info = _step_fn_g(
+                carry_state, rom, action, game_id, frame_skip, max_episode_steps
+            )
+            return new_state, (obs, reward, done, info)
+
+        return jax.lax.scan(_step, state, actions)
+
+    def _vec_reset_fn_g(keys, rom, game_id, warmup_frames, noop_max):
+        return jax.vmap(
+            lambda k: _reset_fn_g(k, rom, game_id, warmup_frames, noop_max)
+        )(keys)
+
+    def _vec_step_fn_g(states, rom, actions, game_id, frame_skip, max_episode_steps):
+        lives_before = states.lives
+
+        def _skip(carry, _):
+            ss, acc = carry
+            new_ss = _vmapped_base_step_g(ss, rom, actions, game_id)
+            return (new_ss, acc + new_ss.reward), None
+
+        (new_states, total_rewards), _ = jax.lax.scan(
+            _skip, (states, jnp.zeros_like(states.reward)), None, length=frame_skip
+        )
+        terminals = jax.vmap(is_terminal_g, in_axes=(None, 0, 0))(
+            game_id, new_states.riot.ram, lives_before
+        )
+        truncated = new_states.episode_frame >= jnp.int32(max_episode_steps)
+        done = terminals | truncated
+        new_states = new_states.__replace__(reward=total_rewards, terminal=done)
+        info = {
+            "lives": new_states.lives,
+            "episode_frame": new_states.episode_frame,
+            "truncated": truncated,
+        }
+        return new_states.screen, new_states, total_rewards, done, info
+
+    def _vec_rollout_fn_g(states, rom, actions, game_id, frame_skip, max_episode_steps):
+        def _step(carry_states, t_actions):
+            screens, new_states, rewards, done, info = _vec_step_fn_g(
+                carry_states, rom, t_actions, game_id, frame_skip, max_episode_steps
+            )
+            return new_states, (screens, rewards, done, info)
+
+        return jax.lax.scan(_step, states, jnp.moveaxis(actions, 1, 0))
+
+    @jax.jit
+    def _jit_reset_g(key, rom, game_id, warmup_frames, noop_max):
+        return _reset_fn_g(key, rom, game_id, warmup_frames, noop_max)
+
+    @functools.partial(jax.jit, static_argnums=(4, 5))
+    def _jit_step_g(state, rom, action, game_id, frame_skip, max_episode_steps):
+        return _step_fn_g(state, rom, action, game_id, frame_skip, max_episode_steps)
+
+    @functools.partial(jax.jit, static_argnums=(4, 5))
+    def _jit_rollout_g(state, rom, actions, game_id, frame_skip, max_episode_steps):
+        return _rollout_fn_g(
+            state, rom, actions, game_id, frame_skip, max_episode_steps
+        )
+
+    @jax.jit
+    def _jit_vec_reset_g(keys, rom, game_id, warmup_frames, noop_max):
+        return _vec_reset_fn_g(keys, rom, game_id, warmup_frames, noop_max)
+
+    @functools.partial(jax.jit, static_argnums=(4, 5))
+    def _jit_vec_step_g(states, rom, actions, game_id, frame_skip, max_episode_steps):
+        return _vec_step_fn_g(
+            states, rom, actions, game_id, frame_skip, max_episode_steps
+        )
+
+    @functools.partial(jax.jit, static_argnums=(4, 5))
+    def _jit_vec_rollout_g(
+        states, rom, actions, game_id, frame_skip, max_episode_steps
+    ):
+        return _vec_rollout_fn_g(
+            states, rom, actions, game_id, frame_skip, max_episode_steps
+        )
+
+    kernels = _GroupKernels(
+        reset=_jit_reset_g,
+        step=_jit_step_g,
+        rollout=_jit_rollout_g,
+        vec_reset=_jit_vec_reset_g,
+        vec_step=_jit_vec_step_g,
+        vec_rollout=_jit_vec_rollout_g,
+    )
+    _GROUP_KERNELS_CACHE[group_game_ids] = kernels
+    return kernels

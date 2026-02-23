@@ -95,6 +95,7 @@ def make(
     cache_dir: pathlib.Path | str | None = DEFAULT_CACHE_DIR,
     show_compile_progress: bool = False,
     compile_mode: str = "all",
+    group: str | List[str] | None = None,
 ) -> AtariEnv | Wrapper:
     """
     Create an `AtariEnv`, optionally with wrappers applied.
@@ -131,10 +132,16 @@ def make(
     compile_mode : str (optional)
         Kernel compilation strategy.
         - `"all"` (default): compiles all 57 game branches into one XLA program
-           via `jax.lax.switch`.
-        - `"single"`: makes `game_id` a static JIT argument, constant-folding the dispatch
-        to only the selected game branch for a smaller, faster-to-compile
-        program. See `AtariEnv` for full details.
+          via `jax.lax.switch`.
+        - `"single"`: makes `game_id` a static JIT argument, constant-folding
+          the dispatch to only the selected game branch.
+        - `"group"`: compiles only the N games in `group` via an N-way
+          `jax.lax.switch`.  Requires `group` to be provided.
+        See `AtariEnv` for full details.
+    group : str | List[str] (optional)
+        Required when `compile_mode="group"`.  Predefined group name
+        (`"atari5"`, `"atari10"`, `"atari26"`) or a custom list of ALE
+        game names. Default is `None`
 
     Returns
     -------
@@ -156,7 +163,9 @@ def make(
 
     setup_cache(cache_dir)
 
-    env = AtariEnv(ale_name, params or EnvParams(), compile_mode=compile_mode)
+    env = AtariEnv(
+        ale_name, params or EnvParams(), compile_mode=compile_mode, group=group
+    )
 
     if preset:
         env = AtariPreprocessing(env, h=84, w=84, n_stack=4)
@@ -196,6 +205,7 @@ def make_vec(
     cache_dir: pathlib.Path | str | None = DEFAULT_CACHE_DIR,
     show_compile_progress: bool = False,
     compile_mode: str = "all",
+    group: str | List[str] | None = None,
 ) -> VecEnv:
     """
     Create a `VecEnv` with `n_envs` parallel environments.
@@ -228,7 +238,7 @@ def make_vec(
         compilation to first use.  To disable JIT for debugging, use
         `jax.disable_jit()` or set `JAX_DISABLE_JIT=1`.
         Default is `True`.
-    cache_dir : Path or str or None (optional)
+    cache_dir : Path | str | None (optional)
         Directory for the persistent XLA compilation cache.  Defaults to
         `~/.cache/atari-jax/xla_cache`.  Pass `None` to disable.
     show_compile_progress : bool (optional)
@@ -238,10 +248,16 @@ def make_vec(
     compile_mode : str (optional)
         Kernel compilation strategy.
         - `"all"` (default): compiles all 57 game branches into one XLA program
-           via `jax.lax.switch`.
-        - `"single"`: makes `game_id` a static JIT argument, constant-folding the dispatch
-        to only the selected game branch for a smaller, faster-to-compile
-        program. See `AtariEnv` for full details.
+          via `jax.lax.switch`.
+        - `"single"`: makes `game_id` a static JIT argument, constant-folding
+          the dispatch to only the selected game branch.
+        - `"group"`: compiles only the N games in `group` via an N-way
+          `jax.lax.switch`.  Requires `group` to be provided.
+        See `AtariEnv` for full details.
+    group : str | List[str] (optional)
+        Required when `compile_mode="group"`.  Predefined group name
+        (`"atari5"`, `"atari10"`, `"atari26"`) or a custom list of ALE
+        game names. Default is `None`
 
     Returns
     -------
@@ -267,6 +283,7 @@ def make_vec(
         jit_compile=False,
         cache_dir=cache_dir,
         compile_mode=compile_mode,
+        group=group,
     )
 
     vec_env = VecEnv(env, n_envs)
@@ -391,7 +408,7 @@ def _manifest_add_game(
         Entry key field.
     preset : bool
         Entry key field.
-    wrappers : list or None
+    wrappers : list | None
         Entry key field; serialised via `_wrapper_str`.
     """
     p = cache_dir / _MANIFEST_NAME

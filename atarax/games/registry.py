@@ -15,7 +15,7 @@
 
 """Game registry — IDs and dispatch tables for reward and terminal functions."""
 
-from typing import NamedTuple
+from typing import Dict, List, NamedTuple
 
 import jax.numpy as jnp
 
@@ -182,3 +182,56 @@ def _make_reward_score_branch(spec: GameSpec):
 
 
 REWARD_SCORE_FNS = [_make_reward_score_branch(s) for s in _GAMES]
+
+# Predefined game subsets for use with compile_mode="group".
+# Each value is a list of ALE game names; order within the list is not
+# significant — games are sorted by absolute game_id at env creation time.
+GAME_GROUPS: Dict[str, List[str]] = {
+    "atari5": [
+        "breakout",
+        "ms_pacman",
+        "pong",
+        "qbert",
+        "space_invaders",
+    ],
+    "atari10": [
+        "alien",
+        "beam_rider",
+        "breakout",
+        "enduro",
+        "montezuma_revenge",
+        "ms_pacman",
+        "pitfall",
+        "pong",
+        "qbert",
+        "space_invaders",
+    ],
+    "atari26": [
+        "alien",
+        "amidar",
+        "assault",
+        "asterix",
+        "asteroids",
+        "atlantis",
+        "bank_heist",
+        "battle_zone",
+        "beam_rider",
+        "bowling",
+        "boxing",
+        "breakout",
+        "centipede",
+        "chopper_command",
+        "crazy_climber",
+        "demon_attack",
+        "enduro",
+        "fishing_derby",
+        "freeway",
+        "gopher",
+        "gravitar",
+        "ice_hockey",
+        "jamesbond",
+        "kangaroo",
+        "krull",
+        "kung_fu_master",
+    ],
+}

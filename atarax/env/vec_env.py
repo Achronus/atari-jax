@@ -73,6 +73,7 @@ class VecEnv:
         self._game_id_jax = base._game_id_jax
         self._game_id_int = base._game_id_int
         self._compile_mode = base._compile_mode
+        self._group_kernels = base._group_kernels
         self._warmup_frames = base._warmup_frames
         self._params = base._params
 
@@ -96,21 +97,20 @@ class VecEnv:
             Batched environment states (leading dim = `n_envs`).
         """
         keys = jax.random.split(key, self._n_envs)
+        noop_max = jnp.int32(self._params.noop_max)
+
         if self._compile_mode == "single":
             return jit_vec_reset_single(
-                keys,
-                self._rom,
-                self._game_id_int,
-                self._warmup_frames,
-                jnp.int32(self._params.noop_max),
+                keys, self._rom, self._game_id_int, self._warmup_frames, noop_max
+            )
+
+        if self._compile_mode == "group":
+            return self._group_kernels.vec_reset(
+                keys, self._rom, self._game_id_jax, self._warmup_frames, noop_max
             )
 
         return jit_vec_reset(
-            keys,
-            self._rom,
-            self._game_id_jax,
-            self._warmup_frames,
-            jnp.int32(self._params.noop_max),
+            keys, self._rom, self._game_id_jax, self._warmup_frames, noop_max
         )
 
     def step(
@@ -138,27 +138,23 @@ class VecEnv:
             float32[n_envs] — Per-environment rewards.
         done : chex.Array
             bool[n_envs] — Per-environment terminal flags.
-        info : dict
+        info : Dict[str, chex.Array]
             Batched info dict; each value has a leading `n_envs` dimension.
         """
+        fs = self._params.frame_skip
+        me = self._params.max_episode_steps
+
         if self._compile_mode == "single":
             return jit_vec_step_single(
-                states,
-                self._rom,
-                actions,
-                self._game_id_int,
-                self._params.frame_skip,
-                self._params.max_episode_steps,
+                states, self._rom, actions, self._game_id_int, fs, me
             )
 
-        return jit_vec_step(
-            states,
-            self._rom,
-            actions,
-            self._game_id_jax,
-            self._params.frame_skip,
-            self._params.max_episode_steps,
-        )
+        if self._compile_mode == "group":
+            return self._group_kernels.vec_step(
+                states, self._rom, actions, self._game_id_jax, fs, me
+            )
+
+        return jit_vec_step(states, self._rom, actions, self._game_id_jax, fs, me)
 
     def sample(self, key: chex.Array) -> chex.Array:
         """
@@ -200,27 +196,23 @@ class VecEnv:
         -------
         final_states : AtariState
             Batched states after all steps.
-        transitions : tuple
+        transitions : Tuple[chex.Array, ...]
             `(obs, reward, done, info)` each with shape `[T, n_envs, ...]`.
         """
+        fs = self._params.frame_skip
+        me = self._params.max_episode_steps
+
         if self._compile_mode == "single":
             return jit_vec_rollout_single(
-                states,
-                self._rom,
-                actions,
-                self._game_id_int,
-                self._params.frame_skip,
-                self._params.max_episode_steps,
+                states, self._rom, actions, self._game_id_int, fs, me
             )
 
-        return jit_vec_rollout(
-            states,
-            self._rom,
-            actions,
-            self._game_id_jax,
-            self._params.frame_skip,
-            self._params.max_episode_steps,
-        )
+        if self._compile_mode == "group":
+            return self._group_kernels.vec_rollout(
+                states, self._rom, actions, self._game_id_jax, fs, me
+            )
+
+        return jit_vec_rollout(states, self._rom, actions, self._game_id_jax, fs, me)
 
     @property
     def observation_space(self) -> Box:
