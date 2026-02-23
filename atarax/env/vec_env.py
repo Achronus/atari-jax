@@ -62,6 +62,7 @@ class VecEnv:
     ) -> None:
         self._env = env
         self._n_envs = n_envs
+        self._is_wrapped = env.unwrapped is not env
 
         base: "AtariEnv" = cast("AtariEnv", env.unwrapped)
         self._rom = base._rom
@@ -92,6 +93,10 @@ class VecEnv:
             Batched environment states (leading dim = `n_envs`).
         """
         keys = jax.random.split(key, self._n_envs)
+
+        if self._is_wrapped:
+            return jax.vmap(self._env.reset)(keys)
+
         noop_max = jnp.int32(self._params.noop_max)
 
         if self._compile_mode == "single":
@@ -136,6 +141,9 @@ class VecEnv:
         info : Dict[str, chex.Array]
             Batched info dict; each value has a leading `n_envs` dimension.
         """
+        if self._is_wrapped:
+            return jax.vmap(self._env.step)(states, actions)
+
         fs = self._params.frame_skip
         me = self._params.max_episode_steps
 
@@ -192,8 +200,18 @@ class VecEnv:
         final_states : AtariState
             Batched states after all steps.
         transitions : Tuple[chex.Array, ...]
-            `(obs, reward, done, info)` each with shape `[T, n_envs, ...]`.
+            `(obs, reward, done, info)` each with shape `[n_envs, T, ...]`.
         """
+        if self._is_wrapped:
+            def _single_rollout(state, acts):
+                def _step(carry, action):
+                    obs, new_state, reward, done, info = self._env.step(carry, action)
+                    return new_state, (obs, reward, done, info)
+
+                return jax.lax.scan(_step, state, acts)
+
+            return jax.vmap(_single_rollout)(states, actions)
+
         fs = self._params.frame_skip
         me = self._params.max_episode_steps
 
