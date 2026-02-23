@@ -13,15 +13,13 @@
 # limitations under the License.
 # ==============================================================================
 
-from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, Tuple
+from abc import abstractmethod
+from typing import Any, Dict, Self, Tuple, overload
 
 import chex
 
-if TYPE_CHECKING:
-    from atarax.env.atari_env import AtariEnv
-
 from atarax.core.state import AtariState
+from atarax.env.env import Env
 from atarax.env.spaces import Box, Discrete
 
 
@@ -46,13 +44,13 @@ class _WrapperFactory:
         self._cls = cls
         self._kwargs = kwargs
 
-    def __call__(self, env: "AtariEnv | Wrapper") -> "Wrapper":
+    def __call__(self, env: Env) -> "Wrapper":
         """
         Wrap `env` using the stored class and keyword arguments.
 
         Parameters
         ----------
-        env : AtariEnv | Wrapper
+        env : Env
             Environment to wrap.
 
         Returns
@@ -63,7 +61,7 @@ class _WrapperFactory:
         return self._cls(env, **self._kwargs)
 
 
-class Wrapper(ABC):
+class Wrapper(Env):
     """
     Abstract base class for AtariEnv wrappers.
 
@@ -71,6 +69,9 @@ class Wrapper(ABC):
     `observation_space`, and `action_space` members delegate to the
     inner environment by default and may be overridden when the wrapper
     changes the observation shape or action set.
+
+    `rollout` is inherited from `Env` and uses `jax.lax.scan(self.step, ...)`,
+    so all observation and reward transforms are applied at every step.
 
     Parameterised wrappers support a **factory mode**: calling the class
     without an `env` (using only keyword arguments) returns a
@@ -87,9 +88,15 @@ class Wrapper(ABC):
 
     Parameters
     ----------
-    env : AtariEnv | Wrapper
-        Inner environment to wrap
+    env : Env
+        Inner environment to wrap.
     """
+
+    @overload
+    def __new__(cls, env: None = ..., **kwargs) -> "_WrapperFactory": ...
+
+    @overload
+    def __new__(cls, env: Env, **kwargs) -> Self: ...
 
     def __new__(cls, env=None, **kwargs):
         if env is None:
@@ -99,8 +106,11 @@ class Wrapper(ABC):
 
         return super().__new__(cls)
 
-    def __init__(self, env: "AtariEnv | Wrapper") -> None:
+    def __init__(self, env: Env) -> None:
         self._env = env
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}<{self._env!r}>"
 
     @abstractmethod
     def reset(self, key: chex.Array) -> Tuple[chex.Array, AtariState]:
@@ -149,6 +159,11 @@ class Wrapper(ABC):
             `{"lives": int32, "episode_frame": int32, "truncated": bool}`
         """
         raise NotImplementedError()
+
+    @property
+    def unwrapped(self) -> "Env":
+        """Return the innermost `AtariEnv` by delegating through the wrapper chain."""
+        return self._env.unwrapped
 
     def sample(self, key: chex.Array) -> chex.Array:
         """

@@ -170,18 +170,18 @@ Keyboard controls for `play()`:
 
 ## Wrappers
 
-Eight composable RL preprocessing wrappers, each accepting an `AtariEnv` or
-another wrapper and exposing the same `reset(key)` / `step(state, action)`
-interface.
+Nine composable RL preprocessing wrappers, each accepting any `Env` and
+exposing the same `reset(key)` / `step(state, action)` interface.
 
 | Wrapper | Input | Output | Description | Extra state |
 | --- | --- | --- | --- | --- |
-| `AtariPreprocessing` | `uint8[210, 160, 3]` | `uint8[84, 84, 4]` | Full DQN stack (Seven wrappers applied) | `EpisodeStatisticsState` |
+| `AtariPreprocessing` | `uint8[210, 160, 3]` | `uint8[84, 84, 4]` | Full DQN stack (six wrappers applied) | `EpisodeStatisticsState` |
 | `GrayscaleObservation` | `uint8[210, 160, 3]` | `uint8[210, 160]` | NTSC luminance conversion | — |
 | `ResizeObservation(h, w)` | `uint8[H, W]` | `uint8[h, w]` | Bilinear resize (default 84×84) | — |
 | `NormalizeObservation` | `uint8[...]` | `float32[...]` in `[0, 1]` | Divide by 255 | — |
 | `FrameStackObservation(n_stack)` | `uint8[H, W]` | `uint8[H, W, n_stack]` | Rolling frame buffer (default 4) | `FrameStackState` |
 | `ClipReward` | any reward | `float32 ∈ {−1, 0, +1}` | Sign clipping | — |
+| `ExpandDims` | any env | same obs | Adds a trailing `1` dim to `reward` and `done` (e.g. `float32` → `float32[1]`) | — |
 | `EpisodeDiscount` | any env | same obs | Converts `done` bool to float32 discount (`1.0` continues, `0.0` terminated) | — |
 | `EpisodicLife` | any env | same obs | Terminal on every life loss | `EpisodicLifeState` |
 | `RecordEpisodeStatistics` | any env | same obs | Tracks episode return + length in `info["episode"]` | `EpisodeStatisticsState` |
