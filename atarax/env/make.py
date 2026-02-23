@@ -282,21 +282,181 @@ def make_vec(
     return vec_env
 
 
-_MANIFEST_NAME = "precompile_manifest.json"
+def make_multi(
+    game_ids: List[str | EnvSpec],
+    *,
+    params: EnvParams | None = None,
+    wrappers: List[Type[Wrapper] | _WrapperFactory] | None = None,
+    preset: bool = False,
+    jit_compile: bool = True,
+    cache_dir: pathlib.Path | str | None = DEFAULT_CACHE_DIR,
+    show_compile_progress: bool = False,
+) -> List[Env]:
+    """
+    Create one env per game in `game_ids` with shared group compilation.
+
+    All environments share a single N-way `jax.lax.switch` XLA program
+    compiled over exactly the listed games.  The kernels are cached by
+    game set so repeated calls with the same games reuse existing
+    compilations.
+
+    Parameters
+    ----------
+    game_ids : List[str | EnvSpec]
+        Environment identifiers.  Each entry may be an `EnvSpec` or a
+        canonical `"atari/<name>-v0"` string.
+    params : EnvParams (optional)
+        Shared environment parameters; defaults to `EnvParams()`.
+    wrappers : List[Type[Wrapper] | _WrapperFactory] (optional)
+        Wrapper classes applied innermost-first. Mutually exclusive with
+        `preset`. Default is `None`.
+    preset : bool (optional)
+        Apply the DQN preprocessing stack to every environment.
+        Mutually exclusive with `wrappers`. Default is `False`.
+    jit_compile : bool (optional)
+        Eagerly trigger one compilation call shared by all envs.
+        Default is `True`.
+    cache_dir : Path | str | None (optional)
+        XLA compilation cache directory. Pass `None` to disable.
+    show_compile_progress : bool (optional)
+        Display a spinner during compilation. Default is `False`.
+
+    Returns
+    -------
+    envs : List[Env]
+        One configured environment per entry in `game_ids`.
+
+    Raises
+    ------
+    wrapper_error : ValueError
+        If both `wrappers` and `preset` are provided.
+    value_error : ValueError
+        If `game_ids` is empty.
+    id_error : ValueError
+        If any entry does not match the `"[engine]/[name]-v[N]"` format.
+    """
+    if wrappers is not None and preset:
+        raise ValueError("Provide either `wrappers` or `preset`, not both.")
+    if not game_ids:
+        raise ValueError("`game_ids` must contain at least one game.")
+
+    ale_names = [_resolve_spec(gid) for gid in game_ids]
+    setup_cache(cache_dir)
+
+    envs: List[Env] = []
+    for name in ale_names:
+        env: Env = AtariEnv(name, params or EnvParams(), compile_mode="group", group=ale_names)
+        if preset:
+            env = AtariPreprocessing(env, h=84, w=84, n_stack=4)
+        elif wrappers:
+            for w in wrappers:
+                env = w(env)
+        envs.append(env)
+
+    if jit_compile:
+        _key = jax.random.PRNGKey(0)
+        if show_compile_progress:
+            with tqdm(total=1, desc="Compiling...", leave=True) as _bar:
+                with _live_bar(_bar):
+                    _, _state = envs[0].reset(_key)
+                    envs[0].step(_state, envs[0].sample(_key))
+                _bar.update(1)
+        else:
+            _, _state = envs[0].reset(_key)
+            envs[0].step(_state, envs[0].sample(_key))
+
+    return envs
 
 
-def _config_entry(
+def make_vec_multi(
+    game_ids: List[str | EnvSpec],
     n_envs: int,
-    n_steps: int | None,
-    preset: bool,
-    wrappers: List[Type] | None,
-) -> dict:
-    return {
-        "n_envs": n_envs,
-        "n_steps": n_steps,
-        "preset": preset,
-        "wrappers": [_wrapper_str(w) for w in wrappers] if wrappers else None,
-    }
+    *,
+    params: EnvParams | None = None,
+    wrappers: List[Type[Wrapper] | _WrapperFactory] | None = None,
+    preset: bool = False,
+    jit_compile: bool = True,
+    cache_dir: pathlib.Path | str | None = DEFAULT_CACHE_DIR,
+    show_compile_progress: bool = False,
+) -> List[VecEnv]:
+    """
+    Create one `VecEnv` per game in `game_ids` with shared group compilation.
+
+    All vec-environments share a single N-way `jax.lax.switch` XLA program
+    compiled over exactly the listed games, so every game's JIT kernels are
+    compiled once and cached together.
+
+    Parameters
+    ----------
+    game_ids : List[str | EnvSpec]
+        Environment identifiers.  Each entry may be an `EnvSpec` or a
+        canonical `"atari/<name>-v0"` string.
+    n_envs : int
+        Number of parallel environments per game.
+    params : EnvParams (optional)
+        Shared environment parameters; defaults to `EnvParams()`.
+    wrappers : List[Type[Wrapper] | _WrapperFactory] (optional)
+        Wrapper classes applied innermost-first. Mutually exclusive with
+        `preset`. Default is `None`.
+    preset : bool (optional)
+        Apply the DQN preprocessing stack to every environment.
+        Mutually exclusive with `wrappers`. Default is `False`.
+    jit_compile : bool (optional)
+        Eagerly trigger one compilation call shared by all envs.
+        Default is `True`.
+    cache_dir : Path | str | None (optional)
+        XLA compilation cache directory. Pass `None` to disable.
+    show_compile_progress : bool (optional)
+        Display a spinner during compilation. Default is `False`.
+
+    Returns
+    -------
+    vec_envs : List[VecEnv]
+        One configured `VecEnv` per entry in `game_ids`.
+
+    Raises
+    ------
+    wrapper_error : ValueError
+        If both `wrappers` and `preset` are provided.
+    value_error : ValueError
+        If `game_ids` is empty.
+    id_error : ValueError
+        If any entry does not match the `"[engine]/[name]-v[N]"` format.
+    """
+    if wrappers is not None and preset:
+        raise ValueError("Provide either `wrappers` or `preset`, not both.")
+    if not game_ids:
+        raise ValueError("`game_ids` must contain at least one game.")
+
+    ale_names = [_resolve_spec(gid) for gid in game_ids]
+    setup_cache(cache_dir)
+
+    vec_envs: List[VecEnv] = []
+    for name in ale_names:
+        env: Env = AtariEnv(name, params or EnvParams(), compile_mode="group", group=ale_names)
+        if preset:
+            env = AtariPreprocessing(env, h=84, w=84, n_stack=4)
+        elif wrappers:
+            for w in wrappers:
+                env = w(env)
+        vec_envs.append(VecEnv(env, n_envs))
+
+    if jit_compile:
+        _key = jax.random.PRNGKey(0)
+        if show_compile_progress:
+            with tqdm(total=1, desc="Compiling...", leave=True) as _bar:
+                with _live_bar(_bar):
+                    _, _states = vec_envs[0].reset(_key)
+                    vec_envs[0].step(_states, vec_envs[0].sample(_key))
+                _bar.update(1)
+        else:
+            _, _states = vec_envs[0].reset(_key)
+            vec_envs[0].step(_states, vec_envs[0].sample(_key))
+
+    return vec_envs
+
+
+_MANIFEST_NAME = "precompile_manifest.json"
 
 
 def _manifest_has_game(

@@ -20,9 +20,15 @@ control flow.
   box with `jax.tree_util`, `optax`, and `flax`.
 - **gymnax-style env API** — `AtariEnv` exposes `reset(key)` / `step(state, action)`
   with external state, fully compatible with `jit`, `vmap`, and `lax.scan`.
-- **`make()` / `make_vec()`** — Gymnasium-familiar factory functions with optional
-  wrapper presets (including the standard DQN stack) and `jit_compile` support.
-- **Composable wrappers** — eight preprocessing wrappers, fully compatible with
+- **`make()` / `make_vec()`** — Gymnasium-familiar factory functions returning `Env`
+  and `VecEnv`; optional wrapper presets (including the standard DQN stack) and
+  `jit_compile` support.
+- **`make_multi()` / `make_vec_multi()`** — group-compilation variants: compile one
+  shared XLA program for a set of games and receive one `Env` / `VecEnv` per game.
+- **Compile-mode selection** — three XLA strategies: `"all"` (default, shared 57-game
+  program), `"single"` (one-game constant-folded program), and `"group"` (compact
+  N-way program over a named or custom game subset).
+- **Composable wrappers** — nine preprocessing wrappers, fully compatible with
   `jax.jit`, batching, and `lax.scan`. See the [Wrappers](#wrappers) table below.
 
 ## Requirements
@@ -112,6 +118,45 @@ final_states, (obs, reward, done, info) = vec_env.rollout(states, actions)
 vec_env = make_vec("atari/breakout-v0", n_envs=32, preset=True, show_compile_progress=True)
 ```
 
+### `make_multi()` / `make_vec_multi()`
+
+Group-compile a set of games into one shared XLA program.  Each game gets its
+own `Env` or `VecEnv`, but they all share the same compiled kernel — so the
+combined compile cost is paid once.
+
+```python
+import jax
+import jax.numpy as jnp
+from atarax.env import make_multi, make_vec_multi
+
+key = jax.random.PRNGKey(0)
+
+# Returns List[Env] — one per game, all sharing one compiled kernel
+envs = make_multi(["atari/breakout-v0", "atari/pong-v0"])
+obs, state = envs[0].reset(key)         # obs: uint8[210, 160, 3]
+
+# Use a predefined group ("atari5", "atari10", or "atari26")
+from atarax.games.registry import GAME_GROUPS
+group_ids = [f"atari/{n}-v0" for n in GAME_GROUPS["atari5"]]
+envs = make_multi(group_ids)            # 5 envs, one compiled program
+
+# Vectorized variant — Returns List[VecEnv]
+vec_envs = make_vec_multi(["atari/breakout-v0", "atari/pong-v0"], n_envs=16)
+obs, states = vec_envs[0].reset(key)   # obs: uint8[16, 210, 160, 3]
+```
+
+Predefined groups:
+
+| Group | Games |
+| --- | --- |
+| `"atari5"` | `breakout`, `ms_pacman`, `pong`, `qbert`, `space_invaders` |
+| `"atari10"` | `alien`, `beam_rider`, `breakout`, `enduro`, `montezuma_revenge`, `ms_pacman`, `pitfall`, `pong`, `qbert`, `space_invaders` |
+| `"atari26"` | `alien`, `amidar`, `assault`, `asterix`, `asteroids`, `atlantis`, `bank_heist`, `battle_zone`, `beam_rider`, `bowling`, `boxing`, `breakout`, `centipede`, `chopper_command`, `crazy_climber`, `demon_attack`, `enduro`, `fishing_derby`, `freeway`, `gopher`, `gravitar`, `ice_hockey`, `jamesbond`, `kangaroo`, `krull`, `kung_fu_master` |
+
+Use `make_multi()` when you need to switch between games frequently — the shared
+kernel amortizes compilation cost across the group.  Pass a custom list of any
+games to define your own group.
+
 ### `precompile_all()`
 
 Compile and cache all 57 environments up-front so every subsequent
@@ -139,6 +184,21 @@ Progress is shown with a progress bar (one step per game, 57 total).
 > **exactly** match how environments are used in training — mixing a
 > `preset=True` precompile with a bare `make()` call at train time gets
 > no cache hit.
+
+### Compile modes
+
+The factory function you choose determines the XLA compilation strategy.
+All strategies produce identical outputs — the difference is compile-time cost
+and XLA graph size.
+
+| Factory | Strategy | Branches compiled | Best for |
+| --- | --- | --- | --- |
+| `make()` / `make_vec()` | single-game | 1 per game | Single-game training / fast cold start |
+| `make_multi()` / `make_vec_multi()` | group | N (group size) | Benchmarking subsets; amortizes compilation cost |
+
+`make()` traces only the selected game's dispatch branches, producing a small,
+fast-to-compile program.  `make_multi()` compiles all listed games into one shared
+N-way `jax.lax.switch` program — the upfront cost is paid once for the whole group.
 
 ### Rendering and Interactive Play
 

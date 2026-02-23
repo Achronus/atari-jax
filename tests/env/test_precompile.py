@@ -29,12 +29,22 @@ from unittest.mock import MagicMock, patch
 
 from atarax.env.make import (
     _MANIFEST_NAME,
-    _config_entry,
     _manifest_add_game,
     _manifest_has_game,
     _wrapper_str,
     precompile_all,
 )
+
+
+def _config_entry(n_envs, n_steps, preset, wrappers):
+    return {
+        "n_envs": n_envs,
+        "n_steps": n_steps,
+        "preset": preset,
+        "wrappers": [_wrapper_str(w) for w in wrappers] if wrappers else None,
+    }
+
+
 from atarax.env.wrappers import GrayscaleObservation, ResizeObservation
 from atarax.env.wrappers.base import _WrapperFactory
 
