@@ -9,3 +9,7 @@ dist/
 build/
 .venv/
 .env
+# XLA compilation caches — large, rebuilt inside the container
+.xla-cache/
+tests/.jax-cache/
+
