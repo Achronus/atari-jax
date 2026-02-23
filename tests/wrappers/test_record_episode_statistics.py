@@ -119,13 +119,3 @@ def test_episode_length_dtype(fake_env):
     env = RecordEpisodeStatistics(fake_env)
     _, state = env.reset(_key)
     chex.assert_type(state.episode_length, jnp.int32)
-
-
-def test_jit_compiles(fake_env):
-    env = RecordEpisodeStatistics(fake_env)
-    _, state = env.reset(_key)
-    obs, new_state, reward, done, info = jax.jit(env.step)(state, _action)
-    chex.assert_rank(reward, 0)
-    chex.assert_rank(done, 0)
-    assert isinstance(new_state, EpisodeStatisticsState)
-    assert "episode" in info

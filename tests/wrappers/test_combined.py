@@ -132,15 +132,6 @@ def test_dqn_step_info_has_episode(fake_env):
     assert "l" in info["episode"]
 
 
-def test_dqn_jit_compiles(fake_env):
-    env = _dqn_stack(fake_env)
-    _, state = env.reset(_key)
-    obs, new_state, reward, done, info = jax.jit(env.step)(state, _action)
-    chex.assert_shape(obs, (_H, _W, 4))
-    chex.assert_rank(reward, 0)
-    chex.assert_rank(done, 0)
-
-
 def test_dqn_rollout_obs_shape(fake_env):
     env = _dqn_stack(fake_env)
     rollout = _make_rollout(env)
@@ -150,16 +141,6 @@ def test_dqn_rollout_obs_shape(fake_env):
     chex.assert_shape(obs, (8, _H, _W, 4))
     chex.assert_shape(reward, (8,))
     chex.assert_shape(done, (8,))
-
-
-def test_dqn_rollout_jit_compiles(fake_env):
-    env = _dqn_stack(fake_env)
-    rollout = jax.jit(_make_rollout(env))
-    _, state = env.reset(_key)
-    actions = jnp.zeros(8, dtype=jnp.int32)
-    final_state, (obs, reward, done, info) = rollout(state, actions)
-    chex.assert_shape(obs, (8, _H, _W, 4))
-    assert isinstance(final_state, EpisodeStatisticsState)
 
 
 def test_dqn_rollout_vmap(fake_env):

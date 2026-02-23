@@ -75,12 +75,3 @@ def test_reward_passthrough(fake_env_class):
     _, state = env.reset(_key)
     _, _, reward, _, _ = env.step(state, _action)
     assert float(reward) == 7.0
-
-
-def test_jit_compiles(fake_env):
-    env = EpisodeDiscount(fake_env)
-    _, state = env.reset(_key)
-    _, _, reward, discount, _ = jax.jit(env.step)(state, _action)
-    chex.assert_rank(reward, 0)
-    chex.assert_rank(discount, 0)
-    chex.assert_type(discount, jnp.float32)

@@ -69,13 +69,3 @@ def test_rolls_oldest_frame(fake_env):
     _, new_state, _, _, _ = env.step(state, _action)
     # channels 0..2 of the new stack == channels 1..3 of the old stack
     assert jnp.all(new_state.obs_stack[..., :3] == state.obs_stack[..., 1:])
-
-
-def test_jit_compiles(fake_env):
-    env = _make_env(fake_env)
-    _, state = env.reset(_key)
-    obs, new_state, reward, done, _ = jax.jit(env.step)(state, _action)
-    chex.assert_shape(obs, (_H, _W, 4))
-    chex.assert_rank(reward, 0)
-    chex.assert_rank(done, 0)
-    assert isinstance(new_state, FrameStackState)

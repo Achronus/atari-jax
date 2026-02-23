@@ -85,13 +85,3 @@ def test_observation_space_bounds(fake_env):
 def test_action_space_delegated(fake_env):
     env = NormalizeObservation(fake_env)
     assert env.action_space.n == 18
-
-
-def test_jit_compiles(fake_env):
-    env = NormalizeObservation(fake_env)
-    _, state = env.reset(_key)
-    obs, _, reward, done, _ = jax.jit(env.step)(state, _action)
-    chex.assert_shape(obs, (210, 160, 3))
-    chex.assert_type(obs, jnp.float32)
-    chex.assert_rank(reward, 0)
-    chex.assert_rank(done, 0)

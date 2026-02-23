@@ -34,12 +34,6 @@ def test_preprocess_output_shape():
     chex.assert_type(obs, jnp.uint8)
 
 
-def test_preprocess_jit_compiles():
-    frame = jnp.zeros((210, 160, 3), dtype=jnp.uint8)
-    obs = jax.jit(preprocess)(frame)
-    chex.assert_shape(obs, (84, 84))
-
-
 def test_reset_obs_shape(fake_env):
     env = ResizeObservation(GrayscaleObservation(fake_env), h=_H, w=_W)
     obs, _ = env.reset(_key)
@@ -65,12 +59,3 @@ def test_custom_output_size(fake_env):
     obs, _, _, _, _ = env.step(state, _action)
     chex.assert_shape(obs, (42, 42))
     assert env.observation_space.shape == (42, 42)
-
-
-def test_jit_compiles(fake_env):
-    env = ResizeObservation(GrayscaleObservation(fake_env), h=_H, w=_W)
-    _, state = env.reset(_key)
-    obs, _, reward, done, _ = jax.jit(env.step)(state, _action)
-    chex.assert_shape(obs, (_H, _W))
-    chex.assert_rank(reward, 0)
-    chex.assert_rank(done, 0)

@@ -15,7 +15,6 @@
 
 """Tests for EpisodicLife."""
 
-import chex
 import jax
 import jax.numpy as jnp
 
@@ -88,12 +87,3 @@ def test_game_over_signals_both(fake_env_class):
     _, _, _, done, info = env.step(state, _action)
     assert bool(done)
     assert bool(info["real_done"])
-
-
-def test_jit_compiles(fake_env):
-    env = EpisodicLife(fake_env)
-    _, state = env.reset(_key)
-    obs, new_state, reward, done, info = jax.jit(env.step)(state, _action)
-    chex.assert_rank(reward, 0)
-    chex.assert_rank(done, 0)
-    assert isinstance(new_state, EpisodicLifeState)

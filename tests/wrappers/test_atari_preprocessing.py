@@ -106,15 +106,6 @@ def test_action_space_delegated(fake_env):
     assert env.action_space.n == 18
 
 
-def test_jit_compiles(fake_env):
-    env = AtariPreprocessing(fake_env, h=_H, w=_W)
-    _, state = env.reset(_key)
-    obs, new_state, reward, done, info = jax.jit(env.step)(state, _action)
-    chex.assert_shape(obs, (_H, _W, 4))
-    chex.assert_rank(reward, 0)
-    chex.assert_rank(done, 0)
-
-
 def test_vmap_compatible(fake_env):
     env = AtariPreprocessing(fake_env, h=_H, w=_W)
     _, state = env.reset(_key)

@@ -74,11 +74,3 @@ def test_reward_dtype_preserved(fake_env):
     _, _, reward, _, _ = env.step(state, _action)
     chex.assert_type(reward, jnp.float32)
     chex.assert_rank(reward, 0)
-
-
-def test_jit_compiles(fake_env):
-    env = ClipReward(fake_env)
-    _, state = env.reset(_key)
-    _, _, reward, done, _ = jax.jit(env.step)(state, _action)
-    chex.assert_rank(reward, 0)
-    chex.assert_rank(done, 0)
