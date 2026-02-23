@@ -34,6 +34,7 @@ from atarax.env.wrappers import (
 
 _key = jax.random.PRNGKey(0)
 _action = jnp.int32(0)
+_H, _W = 20, 20
 
 
 def _make_rollout(env):
@@ -51,7 +52,7 @@ def _make_rollout(env):
 
 def _dqn_stack(env):
     """Standard DQN preprocessing via AtariPreprocessing composite wrapper."""
-    return AtariPreprocessing(env)
+    return AtariPreprocessing(env, h=_H, w=_W)
 
 
 def test_stateless_chain_reset_shape(fake_env):
@@ -80,7 +81,7 @@ def test_stateless_chain_reward_clipped(fake_env):
 def test_dqn_reset_obs_shape(fake_env):
     env = _dqn_stack(fake_env)
     obs, state = env.reset(_key)
-    chex.assert_shape(obs, (84, 84, 4))
+    chex.assert_shape(obs, (_H, _W, 4))
     chex.assert_type(obs, jnp.uint8)
 
 
@@ -96,7 +97,7 @@ def test_dqn_step_obs_shape(fake_env):
     env = _dqn_stack(fake_env)
     _, state = env.reset(_key)
     obs, _, _, _, _ = env.step(state, _action)
-    chex.assert_shape(obs, (84, 84, 4))
+    chex.assert_shape(obs, (_H, _W, 4))
 
 
 def test_dqn_step_reward_clipped(fake_env):
@@ -135,7 +136,7 @@ def test_dqn_jit_compiles(fake_env):
     env = _dqn_stack(fake_env)
     _, state = env.reset(_key)
     obs, new_state, reward, done, info = jax.jit(env.step)(state, _action)
-    chex.assert_shape(obs, (84, 84, 4))
+    chex.assert_shape(obs, (_H, _W, 4))
     chex.assert_rank(reward, 0)
     chex.assert_rank(done, 0)
 
@@ -146,7 +147,7 @@ def test_dqn_rollout_obs_shape(fake_env):
     _, state = env.reset(_key)
     actions = jnp.zeros(8, dtype=jnp.int32)
     _, (obs, reward, done, info) = rollout(state, actions)
-    chex.assert_shape(obs, (8, 84, 84, 4))
+    chex.assert_shape(obs, (8, _H, _W, 4))
     chex.assert_shape(reward, (8,))
     chex.assert_shape(done, (8,))
 
@@ -157,7 +158,7 @@ def test_dqn_rollout_jit_compiles(fake_env):
     _, state = env.reset(_key)
     actions = jnp.zeros(8, dtype=jnp.int32)
     final_state, (obs, reward, done, info) = rollout(state, actions)
-    chex.assert_shape(obs, (8, 84, 84, 4))
+    chex.assert_shape(obs, (8, _H, _W, 4))
     assert isinstance(final_state, EpisodeStatisticsState)
 
 
@@ -169,5 +170,5 @@ def test_dqn_rollout_vmap(fake_env):
     states = jax.tree_util.tree_map(lambda x: jnp.stack([x] * n_envs), state)
     actions = jnp.zeros((n_envs, 8), dtype=jnp.int32)
     _, (obs, reward, done, info) = rollout(states, actions)
-    chex.assert_shape(obs, (n_envs, 8, 84, 84, 4))
+    chex.assert_shape(obs, (n_envs, 8, _H, _W, 4))
     chex.assert_shape(reward, (n_envs, 8))

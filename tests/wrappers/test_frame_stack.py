@@ -28,16 +28,19 @@ from atarax.env.wrappers import (
 
 _key = jax.random.PRNGKey(0)
 _action = jnp.int32(0)
+_H, _W = 20, 20
 
 
 def _make_env(fake_env, n_stack=4):
-    return FrameStackObservation(ResizeObservation(GrayscaleObservation(fake_env)), n_stack=n_stack)
+    return FrameStackObservation(
+        ResizeObservation(GrayscaleObservation(fake_env), h=_H, w=_W), n_stack=n_stack
+    )
 
 
 def test_reset_obs_shape(fake_env):
     env = _make_env(fake_env)
     obs, state = env.reset(_key)
-    chex.assert_shape(obs, (84, 84, 4))
+    chex.assert_shape(obs, (_H, _W, 4))
     assert isinstance(state, FrameStackState)
 
 
@@ -45,19 +48,19 @@ def test_step_obs_shape(fake_env):
     env = _make_env(fake_env)
     _, state = env.reset(_key)
     obs, _, _, _, _ = env.step(state, _action)
-    chex.assert_shape(obs, (84, 84, 4))
+    chex.assert_shape(obs, (_H, _W, 4))
 
 
 def test_observation_space(fake_env):
     env = _make_env(fake_env)
-    assert env.observation_space.shape == (84, 84, 4)
+    assert env.observation_space.shape == (_H, _W, 4)
 
 
 def test_custom_n_stack(fake_env):
     env = _make_env(fake_env, n_stack=8)
     obs, state = env.reset(_key)
-    chex.assert_shape(obs, (84, 84, 8))
-    assert env.observation_space.shape == (84, 84, 8)
+    chex.assert_shape(obs, (_H, _W, 8))
+    assert env.observation_space.shape == (_H, _W, 8)
 
 
 def test_rolls_oldest_frame(fake_env):
@@ -72,7 +75,7 @@ def test_jit_compiles(fake_env):
     env = _make_env(fake_env)
     _, state = env.reset(_key)
     obs, new_state, reward, done, _ = jax.jit(env.step)(state, _action)
-    chex.assert_shape(obs, (84, 84, 4))
+    chex.assert_shape(obs, (_H, _W, 4))
     chex.assert_rank(reward, 0)
     chex.assert_rank(done, 0)
     assert isinstance(new_state, FrameStackState)

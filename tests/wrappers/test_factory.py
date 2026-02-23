@@ -82,7 +82,7 @@ class TestNormalModeUnchanged:
         assert isinstance(env, ResizeObservation)
 
     def test_frame_stack_with_env_is_not_factory(self, fake_env):
-        inner = ResizeObservation(GrayscaleObservation(fake_env), h=84, w=84)
+        inner = ResizeObservation(GrayscaleObservation(fake_env), h=20, w=20)
         env = FrameStackObservation(inner, n_stack=4)
         assert isinstance(env, FrameStackObservation)
         assert not isinstance(env, _WrapperFactory)
@@ -118,11 +118,11 @@ class TestFactoryCall:
 
     def test_frame_stack_factory_custom_n_stack(self, fake_env):
         frame_factory = FrameStackObservation(n_stack=8)
-        inner = ResizeObservation(GrayscaleObservation(fake_env), h=84, w=84)
+        inner = ResizeObservation(GrayscaleObservation(fake_env), h=20, w=20)
         env = frame_factory(inner)
         obs, _ = env.reset(_key)
-        chex.assert_shape(obs, (84, 84, 8))
-        assert env.observation_space.shape == (84, 84, 8)
+        chex.assert_shape(obs, (20, 20, 8))
+        assert env.observation_space.shape == (20, 20, 8)
 
     def test_same_factory_callable_multiple_times(self, fake_env):
         """One factory instance can wrap different envs."""

@@ -28,44 +28,45 @@ from atarax.env.wrappers import (
 
 _key = jax.random.PRNGKey(0)
 _action = jnp.int32(0)
+_H, _W = 20, 20
 
 
 def test_reset_obs_shape(fake_env):
-    env = AtariPreprocessing(fake_env)
+    env = AtariPreprocessing(fake_env, h=_H, w=_W)
     obs, _ = env.reset(_key)
-    chex.assert_shape(obs, (84, 84, 4))
+    chex.assert_shape(obs, (_H, _W, 4))
     chex.assert_type(obs, jnp.uint8)
 
 
 def test_reset_state_type(fake_env):
-    env = AtariPreprocessing(fake_env)
+    env = AtariPreprocessing(fake_env, h=_H, w=_W)
     _, state = env.reset(_key)
     assert isinstance(state, EpisodeStatisticsState)
 
 
 def test_step_obs_shape(fake_env):
-    env = AtariPreprocessing(fake_env)
+    env = AtariPreprocessing(fake_env, h=_H, w=_W)
     _, state = env.reset(_key)
     obs, _, _, _, _ = env.step(state, _action)
-    chex.assert_shape(obs, (84, 84, 4))
+    chex.assert_shape(obs, (_H, _W, 4))
 
 
 def test_step_reward_clipped(fake_env):
-    env = AtariPreprocessing(fake_env)
+    env = AtariPreprocessing(fake_env, h=_H, w=_W)
     _, state = env.reset(_key)
     _, _, reward, _, _ = env.step(state, _action)
     assert float(reward) in {-1.0, 0.0, 1.0}
 
 
 def test_step_info_has_real_done(fake_env):
-    env = AtariPreprocessing(fake_env)
+    env = AtariPreprocessing(fake_env, h=_H, w=_W)
     _, state = env.reset(_key)
     _, _, _, _, info = env.step(state, _action)
     assert "real_done" in info
 
 
 def test_step_info_has_episode(fake_env):
-    env = AtariPreprocessing(fake_env)
+    env = AtariPreprocessing(fake_env, h=_H, w=_W)
     _, state = env.reset(_key)
     _, _, _, _, info = env.step(state, _action)
     assert "episode" in info
@@ -74,7 +75,7 @@ def test_step_info_has_episode(fake_env):
 
 
 def test_step_state_types(fake_env):
-    env = AtariPreprocessing(fake_env)
+    env = AtariPreprocessing(fake_env, h=_H, w=_W)
     _, state = env.reset(_key)
     _, new_state, _, _, _ = env.step(state, _action)
     assert isinstance(new_state, EpisodeStatisticsState)
@@ -89,9 +90,9 @@ def test_custom_size(fake_env):
 
 
 def test_custom_n_stack(fake_env):
-    env = AtariPreprocessing(fake_env, n_stack=2)
+    env = AtariPreprocessing(fake_env, h=_H, w=_W, n_stack=2)
     obs, _ = env.reset(_key)
-    chex.assert_shape(obs, (84, 84, 2))
+    chex.assert_shape(obs, (_H, _W, 2))
 
 
 def test_observation_space(fake_env):
@@ -101,25 +102,25 @@ def test_observation_space(fake_env):
 
 
 def test_action_space_delegated(fake_env):
-    env = AtariPreprocessing(fake_env)
+    env = AtariPreprocessing(fake_env, h=_H, w=_W)
     assert env.action_space.n == 18
 
 
 def test_jit_compiles(fake_env):
-    env = AtariPreprocessing(fake_env)
+    env = AtariPreprocessing(fake_env, h=_H, w=_W)
     _, state = env.reset(_key)
     obs, new_state, reward, done, info = jax.jit(env.step)(state, _action)
-    chex.assert_shape(obs, (84, 84, 4))
+    chex.assert_shape(obs, (_H, _W, 4))
     chex.assert_rank(reward, 0)
     chex.assert_rank(done, 0)
 
 
 def test_vmap_compatible(fake_env):
-    env = AtariPreprocessing(fake_env)
+    env = AtariPreprocessing(fake_env, h=_H, w=_W)
     _, state = env.reset(_key)
     states = jax.tree_util.tree_map(lambda x: jnp.stack([x, x]), state)
     actions = jnp.zeros(2, dtype=jnp.int32)
     obs, _, reward, done, _ = jax.vmap(env.step)(states, actions)
-    chex.assert_shape(obs, (2, 84, 84, 4))
+    chex.assert_shape(obs, (2, _H, _W, 4))
     chex.assert_shape(reward, (2,))
     chex.assert_shape(done, (2,))
