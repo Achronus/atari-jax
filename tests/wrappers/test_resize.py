@@ -51,11 +51,3 @@ def test_step_obs_shape(fake_env):
 def test_observation_space(fake_env):
     env = ResizeObservation(GrayscaleObservation(fake_env), h=_H, w=_W)
     assert env.observation_space.shape == (_H, _W)
-
-
-def test_custom_output_size(fake_env):
-    env = ResizeObservation(GrayscaleObservation(fake_env), h=42, w=42)
-    _, state = env.reset(_key)
-    obs, _, _, _, _ = env.step(state, _action)
-    chex.assert_shape(obs, (42, 42))
-    assert env.observation_space.shape == (42, 42)

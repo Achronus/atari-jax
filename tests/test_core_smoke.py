@@ -31,18 +31,6 @@ def _rom(size=4096, fill=0xEA):
     return rom
 
 
-def _rom_with_reset(prog: bytes, rom_size=4096) -> jnp.ndarray:
-    """Place prog at 0xF000 in a 4 KB ROM and set reset vector to 0xF000."""
-    data = bytearray(rom_size)
-    base = 0xF000 & 0x0FFF  # page offset within 4 KB bank = 0x000
-    for i, b in enumerate(prog):
-        data[base + i] = b
-    # Reset vector at 0xFFC/0xFFD (page offset in 4 KB)
-    data[0xFFC] = 0x00  # lo of 0xF000
-    data[0xFFD] = 0xF0  # hi
-    return jnp.array(data, dtype=jnp.uint8)
-
-
 def test_new_atari_state_shapes():
     state = new_atari_state()
     assert state.cpu.a.shape == ()
