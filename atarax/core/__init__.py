@@ -13,4 +13,20 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Hardware emulation layer: 6507 CPU, M6532 RIOT, TIA, system bus, cartridge."""
+"""atarax.core — shared JAX-native physics primitives."""
+
+from atarax.core.mechanics import (
+    aabb_overlap,
+    clamp,
+    grid_hit_test,
+    reflect_axis,
+    wrap_position,
+)
+
+__all__ = [
+    "aabb_overlap",
+    "clamp",
+    "grid_hit_test",
+    "reflect_axis",
+    "wrap_position",
+]
