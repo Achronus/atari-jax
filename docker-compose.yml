@@ -5,6 +5,7 @@ services:
       - .:/workspace
     environment:
       - ATARAX_CACHE_DIR=/workspace/.xla-cache/xla_cache
+      - XLA_FLAGS=--xla_gpu_cuda_data_dir=/usr/local/cuda
     stdin_open: true
     tty: true
     command: bash

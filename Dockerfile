@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+FROM nvidia/cuda:13.1.1-cudnn-runtime-ubuntu24.04
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -19,7 +19,7 @@ RUN ln -sf /usr/bin/python3.13 /usr/local/bin/python \
 
 # CUDA-capable JAX must be installed before the editable install so pip does
 # not downgrade to the CPU-only build declared in pyproject.toml.
-RUN python -m pip install "jax[cuda12]"
+RUN python -m pip install "jax[cuda13]"
 
 WORKDIR /workspace
 COPY . /workspace
