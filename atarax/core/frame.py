@@ -23,20 +23,36 @@ from atarax.core.cpu import cpu_step
 from atarax.core.state import AtariState
 from atarax.core.tia import render_scanline
 
-
 # ALE action index → SWCHA byte (active-low; bit low = direction pressed).
 # Bit pattern: bit 3 = P0 right, bit 2 = P0 left (Breakout joystick convention).
 _SWCHA: jax.Array = jnp.array(
     [
-        0xFF, 0xFF, 0xFF, 0xF7, 0xFB, 0xFF, 0xF3, 0xFF,
-        0xF7, 0xFB, 0xFF, 0xF7, 0xFB, 0xFF, 0xFF, 0xFF,
-        0xFF, 0xFF,
+        0xFF,
+        0xFF,
+        0xFF,
+        0xF7,
+        0xFB,
+        0xFF,
+        0xF3,
+        0xFF,
+        0xF7,
+        0xFB,
+        0xFF,
+        0xF7,
+        0xFB,
+        0xFF,
+        0xFF,
+        0xFF,
+        0xFF,
+        0xFF,
     ],
     dtype=jnp.uint8,
 )
 
 
-def emulate_scanline(state: AtariState, rom: chex.Array, sl_idx: chex.Array) -> AtariState:
+def emulate_scanline(
+    state: AtariState, rom: chex.Array, sl_idx: chex.Array
+) -> AtariState:
     """
     Emulate one scanline: run the CPU for 76 cycles then render if visible.
 
@@ -84,7 +100,9 @@ def emulate_scanline(state: AtariState, rom: chex.Array, sl_idx: chex.Array) -> 
             cycles=(s.cycles + jnp.int32(1)).astype(jnp.int32),
             tia=s.tia.__replace__(hpos=stall_hpos),
         )
-        return jax.lax.cond(s.tia.wsync, lambda: stalled_s, lambda: new_s)
+        return jax.tree_util.tree_map(
+            lambda a, b: jnp.where(s.tia.wsync, a, b), stalled_s, new_s
+        )
 
     state = jax.lax.while_loop(_cond, _body, state)
     state = state.__replace__(tia=state.tia.__replace__(wsync=jnp.bool_(False)))
@@ -94,10 +112,10 @@ def emulate_scanline(state: AtariState, rom: chex.Array, sl_idx: chex.Array) -> 
     screen_row = jnp.clip(sl_idx - jnp.int32(37), 0, 209)
     new_state, pixels = render_scanline(state)
     new_screen = new_state.screen.at[screen_row].set(pixels)
-    return jax.lax.cond(
-        visible,
-        lambda: new_state.__replace__(screen=new_screen),
-        lambda: state,
+    return jax.tree_util.tree_map(
+        lambda a, b: jnp.where(visible, a, b),
+        new_state.__replace__(screen=new_screen),
+        state,
     )
 
 
@@ -125,9 +143,7 @@ def emulate_frame(state: AtariState, rom: chex.Array, action: chex.Array) -> Ata
     swcha = _SWCHA[action.astype(jnp.int32)]
     state = state.__replace__(riot=state.riot.__replace__(port_a=swcha))
     state = state.__replace__(
-        tia=state.tia.__replace__(
-            fire=(action == jnp.int32(1)).astype(jnp.bool_)
-        )
+        tia=state.tia.__replace__(fire=(action == jnp.int32(1)).astype(jnp.bool_))
     )
 
     state = jax.lax.fori_loop(

@@ -236,11 +236,8 @@ def _build_pf_mask(
     pf2_bits = ((pf2 >> pf2_shifts) & jnp.uint8(1)).astype(jnp.bool_)
 
     left_20 = jnp.concatenate([pf0_bits, pf1_bits, pf2_bits])  # bool[20]
-    right_20 = jax.lax.cond(
-        (ctrlpf & jnp.uint8(1)).astype(jnp.bool_),
-        lambda: jnp.flip(left_20),
-        lambda: left_20,
-    )
+    reflect = (ctrlpf & jnp.uint8(1)).astype(jnp.bool_)
+    right_20 = jnp.where(reflect, jnp.flip(left_20), left_20)
     pf_groups = jnp.concatenate([left_20, right_20])  # bool[40]
     return jnp.repeat(pf_groups, 4)  # bool[160]
 
@@ -282,35 +279,22 @@ def _player_mask(
     width = jnp.where(sz == jnp.int32(5), jnp.int32(2), jnp.int32(1))
     width = jnp.where(sz == jnp.int32(7), jnp.int32(4), width)
 
-    # Bit-reverse uint8 for REFP using three swap passes
+    # Bit-reverse uint8 for REFP: branchless pass then select
     grp_b = grp.astype(jnp.uint8)
-    grp_b = jax.lax.cond(
-        refp.astype(jnp.bool_),
-        lambda g: (
-            ((g & jnp.uint8(0xF0)) >> jnp.uint8(4))
-            | ((g & jnp.uint8(0x0F)) << jnp.uint8(4))
-        ).astype(jnp.uint8),
-        lambda g: g,
-        grp_b,
-    )
-    grp_b = jax.lax.cond(
-        refp.astype(jnp.bool_),
-        lambda g: (
-            ((g & jnp.uint8(0xCC)) >> jnp.uint8(2))
-            | ((g & jnp.uint8(0x33)) << jnp.uint8(2))
-        ).astype(jnp.uint8),
-        lambda g: g,
-        grp_b,
-    )
-    grp_b = jax.lax.cond(
-        refp.astype(jnp.bool_),
-        lambda g: (
-            ((g & jnp.uint8(0xAA)) >> jnp.uint8(1))
-            | ((g & jnp.uint8(0x55)) << jnp.uint8(1))
-        ).astype(jnp.uint8),
-        lambda g: g,
-        grp_b,
-    )
+
+    def _bit_reverse(g: jax.Array) -> jax.Array:
+        g = ((g & jnp.uint8(0xF0)) >> jnp.uint8(4)) | (
+            (g & jnp.uint8(0x0F)) << jnp.uint8(4)
+        )
+        g = ((g & jnp.uint8(0xCC)) >> jnp.uint8(2)) | (
+            (g & jnp.uint8(0x33)) << jnp.uint8(2)
+        )
+        g = ((g & jnp.uint8(0xAA)) >> jnp.uint8(1)) | (
+            (g & jnp.uint8(0x55)) << jnp.uint8(1)
+        )
+        return g.astype(jnp.uint8)
+
+    grp_b = jnp.where(refp.astype(jnp.bool_), _bit_reverse(grp_b), grp_b)
 
     def _copy_mask(copy_idx: int) -> jax.Array:
         start = (pos_i + offsets[copy_idx]) % jnp.int32(160)
@@ -549,51 +533,43 @@ def tia_write(state: AtariState, addr13: chex.Array, value: chex.Array) -> Atari
     tia = state.tia.__replace__(regs=new_regs)
 
     # WSYNC (0x02) — stall CPU until end of scanline
-    tia = jax.lax.cond(
-        reg_idx == jnp.int32(0x02),
-        lambda t: t.__replace__(wsync=jnp.bool_(True)),
-        lambda t: t,
-        tia,
+    tia = tia.__replace__(
+        wsync=jnp.where(reg_idx == jnp.int32(0x02), jnp.bool_(True), tia.wsync)
     )
 
     # RESP0 (0x10)
-    tia = jax.lax.cond(
-        reg_idx == jnp.int32(0x10),
-        lambda t: t.__replace__(p0_pos=_hpos_to_pixel(t.hpos)),
-        lambda t: t,
-        tia,
+    tia = tia.__replace__(
+        p0_pos=jnp.where(
+            reg_idx == jnp.int32(0x10), _hpos_to_pixel(tia.hpos), tia.p0_pos
+        )
     )
 
     # RESP1 (0x11)
-    tia = jax.lax.cond(
-        reg_idx == jnp.int32(0x11),
-        lambda t: t.__replace__(p1_pos=_hpos_to_pixel(t.hpos)),
-        lambda t: t,
-        tia,
+    tia = tia.__replace__(
+        p1_pos=jnp.where(
+            reg_idx == jnp.int32(0x11), _hpos_to_pixel(tia.hpos), tia.p1_pos
+        )
     )
 
     # RESM0 (0x12)
-    tia = jax.lax.cond(
-        reg_idx == jnp.int32(0x12),
-        lambda t: t.__replace__(m0_pos=_hpos_to_pixel(t.hpos)),
-        lambda t: t,
-        tia,
+    tia = tia.__replace__(
+        m0_pos=jnp.where(
+            reg_idx == jnp.int32(0x12), _hpos_to_pixel(tia.hpos), tia.m0_pos
+        )
     )
 
     # RESM1 (0x13)
-    tia = jax.lax.cond(
-        reg_idx == jnp.int32(0x13),
-        lambda t: t.__replace__(m1_pos=_hpos_to_pixel(t.hpos)),
-        lambda t: t,
-        tia,
+    tia = tia.__replace__(
+        m1_pos=jnp.where(
+            reg_idx == jnp.int32(0x13), _hpos_to_pixel(tia.hpos), tia.m1_pos
+        )
     )
 
     # RESBL (0x14)
-    tia = jax.lax.cond(
-        reg_idx == jnp.int32(0x14),
-        lambda t: t.__replace__(bl_pos=_hpos_to_pixel(t.hpos)),
-        lambda t: t,
-        tia,
+    tia = tia.__replace__(
+        bl_pos=jnp.where(
+            reg_idx == jnp.int32(0x14), _hpos_to_pixel(tia.hpos), tia.bl_pos
+        )
     )
 
     # HMOVE (0x2A) — apply horizontal motion to all sprites
@@ -615,11 +591,8 @@ def tia_write(state: AtariState, addr13: chex.Array, value: chex.Array) -> Atari
             bl_pos=bl.astype(jnp.uint8),
         )
 
-    tia = jax.lax.cond(
-        reg_idx == jnp.int32(0x2A),
-        _apply_hmove,
-        lambda t: t,
-        tia,
+    tia = jax.tree_util.tree_map(
+        lambda a, b: jnp.where(reg_idx == jnp.int32(0x2A), a, b), _apply_hmove(tia), tia
     )
 
     # HMCLR (0x2B) — zero HMP0/HMP1/HMM0/HMM1/HMBL (regs 0x20–0x24)
@@ -629,19 +602,13 @@ def tia_write(state: AtariState, addr13: chex.Array, value: chex.Array) -> Atari
             r = r.at[i].set(jnp.uint8(0))
         return t.__replace__(regs=r)
 
-    tia = jax.lax.cond(
-        reg_idx == jnp.int32(0x2B),
-        _hmclr,
-        lambda t: t,
-        tia,
+    tia = jax.tree_util.tree_map(
+        lambda a, b: jnp.where(reg_idx == jnp.int32(0x2B), a, b), _hmclr(tia), tia
     )
 
     # CXCLR (0x2C) — clear all collision latches
-    tia = jax.lax.cond(
-        reg_idx == jnp.int32(0x2C),
-        lambda t: t.__replace__(collisions=jnp.uint16(0)),
-        lambda t: t,
-        tia,
+    tia = tia.__replace__(
+        collisions=jnp.where(reg_idx == jnp.int32(0x2C), jnp.uint16(0), tia.collisions)
     )
 
     return state.__replace__(tia=tia)
