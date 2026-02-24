@@ -409,6 +409,18 @@ _T[0x2C] = _op_bit_abs
 
 OPCODE_TABLE = _T
 
+# Compact dispatch: deduplicate the ~105 identical _op_undef slots so XLA only
+# compiles one undef subgraph.  Reduces lax.switch from 256 → ~152 branches.
+_UNIQUE_OPS: list = [_op_undef]  # index 0 = undef handler
+_OP_INDEX: list = [0] * 256
+for _opcode, _fn in enumerate(_T):
+    if _fn is _op_undef:
+        _OP_INDEX[_opcode] = 0
+    else:
+        _UNIQUE_OPS.append(_fn)
+        _OP_INDEX[_opcode] = len(_UNIQUE_OPS) - 1
+_OP_INDEX_ARRAY: jax.Array = jnp.array(_OP_INDEX, dtype=jnp.int32)
+
 
 def cpu_step(state: AtariState, rom: chex.Array) -> Tuple[AtariState, chex.Array]:
     """
@@ -429,7 +441,8 @@ def cpu_step(state: AtariState, rom: chex.Array) -> Tuple[AtariState, chex.Array
         int32 — CPU cycles consumed by this instruction.
     """
     opcode = bus_read(state, rom, state.cpu.pc.astype(jnp.int32)).astype(jnp.int32)
-    new_state, cycles = jax.lax.switch(opcode, OPCODE_TABLE, state, rom)
+    idx = _OP_INDEX_ARRAY[opcode]
+    new_state, cycles = jax.lax.switch(idx, _UNIQUE_OPS, state, rom)
     new_state = new_state.__replace__(
         cycles=(new_state.cycles + cycles).astype(jnp.int32)
     )
