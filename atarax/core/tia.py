@@ -532,6 +532,16 @@ def tia_write(state: AtariState, addr13: chex.Array, value: chex.Array) -> Atari
     new_regs = state.tia.regs.at[reg_idx].set(val8)
     tia = state.tia.__replace__(regs=new_regs)
 
+    # Cache playfield mask when PF0 (0x0D), PF1 (0x0E), PF2 (0x0F), or CTRLPF (0x0A) changes
+    pf_changed = (
+        (reg_idx == jnp.int32(0x0A))
+        | (reg_idx == jnp.int32(0x0D))
+        | (reg_idx == jnp.int32(0x0E))
+        | (reg_idx == jnp.int32(0x0F))
+    )
+    new_pf_mask = _build_pf_mask(tia.regs[0x0D], tia.regs[0x0E], tia.regs[0x0F], tia.regs[0x0A])
+    tia = tia.__replace__(pf_mask=jnp.where(pf_changed, new_pf_mask, tia.pf_mask))
+
     # WSYNC (0x02) — stall CPU until end of scanline
     tia = tia.__replace__(
         wsync=jnp.where(reg_idx == jnp.int32(0x02), jnp.bool_(True), tia.wsync)
@@ -634,8 +644,8 @@ def render_scanline(state: AtariState) -> Tuple[AtariState, chex.Array]:
     regs = tia.regs
     px = jnp.arange(160, dtype=jnp.int32)
 
-    # Playfield
-    pf_mask = _build_pf_mask(regs[0x0D], regs[0x0E], regs[0x0F], regs[0x0A])
+    # Playfield — read cached mask (kept current by tia_write)
+    pf_mask = tia.pf_mask
 
     # Players
     refp0 = ((regs[0x0B] >> jnp.uint8(3)) & jnp.uint8(1)).astype(jnp.bool_)

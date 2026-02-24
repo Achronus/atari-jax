@@ -114,6 +114,11 @@ class TIAState:
         (0–227).  Reset to 0 at the start of each scanline; advanced by
         `cycles × 3` after each CPU instruction.  Read by `tia_write` when
         RESP*/RESM*/RESBL are written to derive the sprite position.
+    pf_mask : jax.Array
+        bool[160] — Cached 160-pixel playfield mask derived from PF0/PF1/PF2
+        and CTRLPF.  Recomputed in `tia_write` whenever any of those four
+        registers is written; read directly in `render_scanline` instead of
+        recomputing from scratch on every visible scanline.
     wsync : jax.Array
         bool — WSYNC stall active.  Set by a write to WSYNC (TIA 0x02);
         cleared at the start of the next scanline.  While True the CPU
@@ -132,6 +137,7 @@ class TIAState:
     m1_pos: jax.Array
     bl_pos: jax.Array
     hpos: jax.Array
+    pf_mask: jax.Array
     wsync: jax.Array
     fire: jax.Array
 
@@ -246,6 +252,7 @@ def new_tia_state() -> TIAState:
         m1_pos=jnp.uint8(0),
         bl_pos=jnp.uint8(0),
         hpos=jnp.uint8(0),
+        pf_mask=jnp.zeros(160, dtype=jnp.bool_),
         wsync=jnp.bool_(False),
         fire=jnp.bool_(False),
     )
