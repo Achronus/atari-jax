@@ -52,9 +52,7 @@ def run(game: str, n_steps: int, n_warmup: int) -> None:
     print(f"device : {_backend}")
     print(f"cache  : {'warm' if _cache.is_dir() and any(_cache.iterdir()) else 'cold'}")
 
-    env = make(
-        f"atari/{game}-v0", preset=True, jit_compile=True, show_compile_progress=True
-    )
+    env = make(f"atari/{game}-v0", preset=True, jit_compile=True)
     key = jax.random.PRNGKey(0)
 
     obs, state = env.reset(key)

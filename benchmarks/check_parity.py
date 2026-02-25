@@ -14,13 +14,19 @@
 # ==============================================================================
 
 """
-Parity check: JAX environment vs. ALE reference implementation.
+Parity check: JAX-native environment vs. ALE reference implementation.
 
 Runs both environments for the same fixed action sequence and compares
-rewards, terminal signals, and screen pixel statistics.  Exact frame-for-frame
-pixel agreement is not expected (seeding and TIA rendering can differ slightly),
-but rewards and done flags should match for the same game events, and screens
-should have similar statistical properties.
+rewards, terminal signals, and screen pixel statistics.
+
+Exact frame-for-frame pixel agreement is not expected — ALE renders via the
+original TIA chip while our JAX implementation draws simplified sprites — but
+rewards and done flags should broadly match for the same game events.  Ball
+angle at each serve is randomised by independent PRNGs, so minor divergence in
+reward timing is expected.
+
+Requires `ale-py` to be installed for the ALE side:
+    uv add ale-py
 
 Usage
 -----
@@ -38,37 +44,39 @@ from ale_py import ALEInterface
 from ale_py.roms import get_rom_path
 from tqdm import tqdm
 
-from atarax.env._compile import DEFAULT_CACHE_DIR, _live_bar, setup_cache
-from atarax.env.atari_env import AtariEnv, EnvParams
+from atarax.env import make
+from atarax.env._compile import DEFAULT_CACHE_DIR, _live_bar
+from atarax.env.atari_env import EnvParams
 
 
-def _run_jax(ale_name: str, actions: list[int], seed: int) -> dict:
-    """Run the JAX environment for the given action sequence."""
+def _run_jax(game: str, actions: list[int], seed: int) -> dict:
+    """Run the JAX-native environment for the given action sequence."""
     _backend = jax.default_backend()
     _cache = DEFAULT_CACHE_DIR / _backend
     print(f"device : {_backend}")
     print(f"cache  : {'warm' if _cache.is_dir() and any(_cache.iterdir()) else 'cold'}")
 
-    setup_cache()
-    params = EnvParams(noop_max=0)
-    env = AtariEnv(ale_name, params)
-    key = jax.random.PRNGKey(seed)
-
-    # First reset triggers XLA kernel compilation — show live progress.
     with tqdm(total=1, desc="Compiling JAX kernel", leave=True) as bar:
         with _live_bar(bar):
-            _, state = env.reset(key)
+            env = make(
+                f"atari/{game}-v0",
+                params=EnvParams(noop_max=0),
+                jit_compile=True,
+            )
         bar.update(1)
+
+    key = jax.random.PRNGKey(seed)
+    obs, state = env.reset(key)
 
     rewards, dones, screens = [], [], []
 
     for a in actions:
-        _, state, reward, done, _ = env.step(state, jnp.int32(a))
+        obs, state, reward, done, _ = env.step(state, jnp.int32(a))
         rewards.append(float(reward))
         dones.append(bool(done))
-        screens.append(np.asarray(state.screen))
+        screens.append(np.asarray(obs))
         if done:
-            _, state = env.reset(key)
+            obs, state = env.reset(key)
 
     return {"rewards": rewards, "dones": dones, "screens": screens}
 
@@ -152,27 +160,22 @@ def _compare(jax_data: dict, ale_data: dict, n_steps: int) -> None:
         f"{100 * (screens_ale > 0).mean():>11.1f}%"
     )
 
-    # Mean absolute error between corresponding frames
     mae = np.abs(screens_jax.astype(np.int32) - screens_ale.astype(np.int32)).mean()
     print(f"\n  Mean absolute pixel error (JAX vs ALE): {mae:.2f}")
-    if mae < 5.0:
-        print("  -> Screens are very close (MAE < 5).")
-    elif mae < 20.0:
-        print("  -> Screens differ slightly — likely seeding or TIA timing.")
-    else:
-        print("  -> Screens differ substantially — investigate TIA rendering.")
+    print("  Note: pixel MAE is expected to be high — JAX uses simplified sprites,")
+    print("  not the original TIA renderer.  Reward/done parity is the key metric.")
 
     _print_header("Summary")
     ok = reward_match and done_match
-    print(f"  Rewards match  : {'PASS' if reward_match else 'FAIL'}")
-    print(f"  Done flags match: {'PASS' if done_match else 'FAIL'}")
-    print(f"  Overall        : {'PASS' if ok else 'FAIL (see above)'}")
+    print(f"  Rewards match   : {'PASS' if reward_match else 'NO (see above)'}")
+    print(f"  Done flags match: {'PASS' if done_match else 'NO (see above)'}")
+    print(f"  Overall         : {'PASS' if ok else 'PARTIAL — review divergences'}")
     print()
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="JAX vs ALE parity check")
-    parser.add_argument("--game", default="breakout", help="ALE game name")
+    parser.add_argument("--game", default="breakout", help="Registered game name")
     parser.add_argument("--steps", type=int, default=300, help="Number of steps")
     parser.add_argument("--seed", type=int, default=0, help="Random seed")
     args = parser.parse_args()

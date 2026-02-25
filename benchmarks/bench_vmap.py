@@ -61,7 +61,6 @@ def run(game: str, n_envs: int, n_steps: int, n_warmup: int) -> None:
         n_envs=n_envs,
         preset=True,
         jit_compile=True,
-        show_compile_progress=True,
     )
     key = jax.random.PRNGKey(0)
 
