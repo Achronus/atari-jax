@@ -13,17 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
-"""atarax.games — JAX-native game implementations."""
+"""Re-exports of base state types for JAX-native game implementations."""
 
-from atarax.games._base import AtariState, GameState
-from atarax.games.breakout import Breakout, BreakoutState
-from atarax.games.registry import GAMES, get_game
+from atarax.env.atari_env import AtariState, GameState
 
-__all__ = [
-    "AtariState",
-    "Breakout",
-    "BreakoutState",
-    "GAMES",
-    "GameState",
-    "get_game",
-]
+__all__ = ["AtariState", "GameState"]
