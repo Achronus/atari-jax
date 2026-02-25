@@ -1,35 +1,33 @@
 # Atari Jax (Atarax)
 
-A pure-JAX implementation of all 57 standard Atari 2600 ALE environments.
-All mutable emulator state lives in an `AtariState` pytree, making each
+A pure-JAX library of Atari 2600 game environments using Brax-style game logic.
+All mutable game state lives in an `AtariState` pytree, making each
 `step(state, action) → state` call a stateless JAX computation that compiles
 with `jax.jit` and batches with `jax.vmap` — no Python loops, no host-side
-control flow.
+control flow, no ROM loading.
 
 ## Features
 
-- **Hardware-accurate emulation** — MOS 6507 CPU (all 56 legal opcodes), M6532
-  RIOT chip, full NTSC TIA rasteriser (background, playfield, players, missiles,
-  ball, collisions, HMOVE).
-- **JIT + vmap ready** — the entire emulation stack is written in JAX primitives
-  (`jax.lax.switch`, `jax.lax.fori_loop`, `jnp.where`). No Python-level
+- **Brax-style game logic** — each game is a collection of branch-free JAX
+  functions operating on a flat `chex.dataclass` pytree. No hardware emulation,
+  no ROM files, no `ale-py` dependency.
+- **JIT + vmap ready** — the entire stack is written in JAX primitives
+  (`jnp.where`, `jax.lax.fori_loop`, `jax.lax.scan`). No Python-level
   branching on traced values.
-- **All 57 Mnih et al. (2015) games** — reward extraction, terminal detection,
-  and lives counters sourced directly from the ALE reference implementation.
 - **Pytree state** — `AtariState` is a `chex.dataclass` so it works out of the
   box with `jax.tree_util`, `optax`, and `flax`.
 - **gymnax-style env API** — `AtariEnv` exposes `reset(key)` / `step(state, action)`
   with external state, fully compatible with `jit`, `vmap`, and `lax.scan`.
 - **`make()` / `make_vec()`** — Gymnasium-familiar factory functions returning `Env`
-  and `VecEnv`; optional wrapper presets (including the standard DQN stack) and
-  `jit_compile` support.
-- **`make_multi()` / `make_vec_multi()`** — group-compilation variants: compile one
-  shared XLA program for a set of games and receive one `Env` / `VecEnv` per game.
-- **Compile-mode selection** — three XLA strategies: `"all"` (default, shared 57-game
-  program), `"single"` (one-game constant-folded program), and `"group"` (compact
-  N-way program over a named or custom game subset).
-- **Composable wrappers** — nine preprocessing wrappers, fully compatible with
-  `jax.jit`, batching, and `lax.scan`. See the [Wrappers](#wrappers) table below.
+  and `VecEnv`; optional wrapper presets (including the standard DQN stack) and a
+  persistent XLA compilation cache built in.
+- **`make_multi()` / `make_multi_vec()`** — convenience variants for creating one
+  `Env` or `VecEnv` per game from a list of IDs; useful for multi-game training loops.
+- **Composable wrappers** — ten wrappers covering RL preprocessing and JIT
+  compilation, fully compatible with `jax.jit`, batching, and `lax.scan`. See
+  the [Wrappers](#wrappers) table below.
+- **Rendering + interactive play** — single-frame rendering and a keyboard-driven
+  `play()` loop backed by pygame.
 
 ## Requirements
 
@@ -50,46 +48,42 @@ cd atari-jax
 uv sync
 ```
 
-Game ROMs are loaded via [ale-py](https://github.com/Farama-Foundation/Arcade-Learning-Environment)
-(installed automatically).  ROMs must be accepted under the ALE ROM licence:
-
-```python
-import ale_py
-ale_py.ALEInterface().loadROM(ale_py.roms.Breakout)  # accept licence on first run
-```
-
 ## Quick Start
 
 ### `make()`
 
 ```python
 import jax
-from atarax.env import EnvSpec, make
+from atarax.env import make
 
 key = jax.random.PRNGKey(0)
 
-# Raw environment — use EnvSpec or the "atari/<name>-v0" string
-env = make(EnvSpec("atari", "breakout"))
-env = make("atari/breakout-v0")               # equivalent string form
+# Raw environment — use the "atari/<name>-v0" string
+env = make("atari/breakout-v0")
 obs, state = env.reset(key)                   # obs: uint8[210, 160, 3]
 obs, state, reward, done, info = env.step(state, env.sample(key))
 
-# Full DQN preprocessing stack (JIT-compiled + local XLA cache by default)
+# Full DQN preprocessing stack (JIT-compiled with XLA cache by default)
 env = make("atari/breakout-v0", preset=True)
 obs, state = env.reset(key)                   # obs: uint8[84, 84, 4]
 
 # AtariPreprocessing can also be used standalone
-from atarax.env import AtariEnv, AtariPreprocessing
-env = AtariPreprocessing(AtariEnv("breakout"))
-env = AtariPreprocessing(AtariEnv("breakout"), h=42, w=42, n_stack=2)
+from atarax.env import AtariPreprocessing
+env = AtariPreprocessing(make("atari/breakout-v0", jit_compile=False))
+env = AtariPreprocessing(make("atari/breakout-v0", jit_compile=False), h=42, w=42, n_stack=2)
 
 # Custom wrapper list (applied innermost → outermost)
 from atarax.env import GrayscaleObservation, ResizeObservation
 env = make("atari/breakout-v0", wrappers=[GrayscaleObservation, ResizeObservation])
 
-# Progress bar shown on first (compilation) call of each method
-env = make("atari/breakout-v0", preset=True, show_compile_progress=True)
-obs, state = env.reset(key)                   # Compiling reset: ████████ 1/3 [00:05]
+# Disable the XLA cache for ephemeral runs
+env = make("atari/breakout-v0", preset=True, cache_dir=None)
+
+# Multi-step rollout via lax.scan
+import jax.numpy as jnp
+actions = jnp.zeros(128, dtype=jnp.int32)
+final_state, (obs, reward, done, info) = env.rollout(state, actions)
+# obs: uint8[128, 84, 84, 4]
 ```
 
 ### `make_vec()`
@@ -113,92 +107,40 @@ obs, states, reward, done, info = vec_env.step(states, actions)
 actions = jnp.zeros((32, 128), dtype=jnp.int32)
 final_states, (obs, reward, done, info) = vec_env.rollout(states, actions)
 # obs: uint8[32, 128, 84, 84, 4]
-
-# JIT-compiled with progress bar feedback
-vec_env = make_vec("atari/breakout-v0", n_envs=32, preset=True, show_compile_progress=True)
 ```
 
-### `make_multi()` / `make_vec_multi()`
+### `make_multi()` / `make_multi_vec()`
 
-Group-compile a set of games into one shared XLA program.  Each game gets its
-own `Env` or `VecEnv`, but they all share the same compiled kernel — so the
-combined compile cost is paid once.
+Create one `Env` or `VecEnv` per game from a list of IDs. Intended for
+multi-game training loops where each game needs its own independent environment.
 
 ```python
 import jax
-import jax.numpy as jnp
-from atarax.env import make_multi, make_vec_multi
+from atarax.env import make_multi, make_multi_vec
 
 key = jax.random.PRNGKey(0)
 
-# Returns List[Env] — one per game, all sharing one compiled kernel
-envs = make_multi(["atari/breakout-v0", "atari/pong-v0"])
-obs, state = envs[0].reset(key)         # obs: uint8[210, 160, 3]
-
-# Use a predefined group ("atari5", "atari10", or "atari26")
-from atarax.games.registry import GAME_GROUPS
-group_ids = [f"atari/{n}-v0" for n in GAME_GROUPS["atari5"]]
-envs = make_multi(group_ids)            # 5 envs, one compiled program
+# Returns List[Env] — one per game
+envs = make_multi(["atari/breakout-v0"])
+obs, state = envs[0].reset(key)              # obs: uint8[210, 160, 3]
 
 # Vectorized variant — Returns List[VecEnv]
-vec_envs = make_vec_multi(["atari/breakout-v0", "atari/pong-v0"], n_envs=16)
-obs, states = vec_envs[0].reset(key)   # obs: uint8[16, 210, 160, 3]
+vec_envs = make_multi_vec(["atari/breakout-v0"], n_envs=16)
+obs, states = vec_envs[0].reset(key)         # obs: uint8[16, 210, 160, 3]
+
+# Use a predefined group (games not yet implemented raise ValueError at make time)
+from atarax.games.registry import GAME_GROUPS
+envs = make_multi(GAME_GROUPS["atari5"], preset=True)
 ```
 
 Predefined groups:
 
-| Group | Games |
-| --- | --- |
-| `"atari5"` | `breakout`, `ms_pacman`, `pong`, `qbert`, `space_invaders` |
-| `"atari10"` | `alien`, `beam_rider`, `breakout`, `enduro`, `montezuma_revenge`, `ms_pacman`, `pitfall`, `pong`, `qbert`, `space_invaders` |
-| `"atari26"` | `alien`, `amidar`, `assault`, `asterix`, `asteroids`, `atlantis`, `bank_heist`, `battle_zone`, `beam_rider`, `bowling`, `boxing`, `breakout`, `centipede`, `chopper_command`, `crazy_climber`, `demon_attack`, `enduro`, `fishing_derby`, `freeway`, `gopher`, `gravitar`, `ice_hockey`, `jamesbond`, `kangaroo`, `krull`, `kung_fu_master` |
-
-Use `make_multi()` when you need to switch between games frequently — the shared
-kernel amortizes compilation cost across the group.  Pass a custom list of any
-games to define your own group.
-
-### `precompile_all()`
-
-Compile and cache all 57 environments up-front so every subsequent
-`make()` / `make_vec()` call loads from the XLA disk cache instead of
-recompiling from scratch.
-
-```python
-from atarax.env import precompile_all
-
-# Bare environments — single env, no wrappers (the default)
-precompile_all()
-
-# Full DQN stack, batched with rollouts — match your training loop exactly
-precompile_all(n_envs=32, n_steps=128, preset=True)
-
-# Custom wrapper stack
-from atarax.env import ClipReward, EpisodeDiscount
-precompile_all(n_envs=8, n_steps=64, wrappers=[ClipReward, EpisodeDiscount])
-```
-
-Progress is shown with a progress bar (one step per game, 57 total).
-
-> **Cache key:** the XLA cache key encodes the full computation graph and
-> all input shapes.  `n_envs`, `n_steps`, `wrappers`, and `preset` must
-> **exactly** match how environments are used in training — mixing a
-> `preset=True` precompile with a bare `make()` call at train time gets
-> no cache hit.
-
-### Compile modes
-
-The factory function you choose determines the XLA compilation strategy.
-All strategies produce identical outputs — the difference is compile-time cost
-and XLA graph size.
-
-| Factory | Strategy | Branches compiled | Best for |
-| --- | --- | --- | --- |
-| `make()` / `make_vec()` | single-game | 1 per game | Single-game training / fast cold start |
-| `make_multi()` / `make_vec_multi()` | group | N (group size) | Benchmarking subsets; amortizes compilation cost |
-
-`make()` traces only the selected game's dispatch branches, producing a small,
-fast-to-compile program.  `make_multi()` compiles all listed games into one shared
-N-way `jax.lax.switch` program — the upfront cost is paid once for the whole group.
+| Group | Size | Games |
+| --- | --- | --- |
+| `"atari5"` | 5 | `breakout`, `ms_pacman`, `pong`, `qbert`, `space_invaders` |
+| `"atari10"` | 10 | `alien`, `beam_rider`, `breakout`, `enduro`, `montezuma_revenge`, … |
+| `"atari26"` | 26 | Standard Mnih 26-game subset |
+| `"atari57"` | 57 | Full Mnih et al. (2015) benchmark suite |
 
 ### Rendering and Interactive Play
 
@@ -212,11 +154,11 @@ key = jax.random.PRNGKey(0)
 # Render a single frame in a pygame window
 env = make("atari/breakout-v0")
 obs, state = env.reset(key)
-render(state)                          # 320×420 window (scale=2 default)
-render(state, scale=4, caption="Breakout")
+render(obs)                                  # 320×420 window (scale=2 default)
+render(obs, scale=4, caption="Breakout")
 
 # Play a game interactively (keyboard control, native 210×160 RGB)
-play("atari/breakout-v0")             # scale=3 default → 480×630 window
+play("atari/breakout-v0")                    # scale=3 default → 480×630 window
 play("atari/breakout-v0", scale=2, fps=30)
 ```
 
@@ -230,8 +172,8 @@ Keyboard controls for `play()`:
 
 ## Wrappers
 
-Nine composable RL preprocessing wrappers, each accepting any `Env` and
-exposing the same `reset(key)` / `step(state, action)` interface.
+Ten composable wrappers, each accepting any `Env` and exposing the same
+`reset(key)` / `step(state, action)` interface.
 
 | Wrapper | Input | Output | Description | Extra state |
 | --- | --- | --- | --- | --- |
@@ -241,14 +183,23 @@ exposing the same `reset(key)` / `step(state, action)` interface.
 | `NormalizeObservation` | `uint8[...]` | `float32[...]` in `[0, 1]` | Divide by 255 | — |
 | `FrameStackObservation(n_stack)` | `uint8[H, W]` | `uint8[H, W, n_stack]` | Rolling frame buffer (default 4) | `FrameStackState` |
 | `ClipReward` | any reward | `float32 ∈ {−1, 0, +1}` | Sign clipping | — |
-| `ExpandDims` | any env | same obs | Adds a trailing `1` dim to `reward` and `done` (e.g. `float32` → `float32[1]`) | — |
+| `ExpandDims` | any env | same obs | Adds a trailing `1` dim to `reward` and `done` | — |
 | `EpisodeDiscount` | any env | same obs | Converts `done` bool to float32 discount (`1.0` continues, `0.0` terminated) | — |
 | `EpisodicLife` | any env | same obs | Terminal on every life loss | `EpisodicLifeState` |
 | `RecordEpisodeStatistics` | any env | same obs | Tracks episode return + length in `info["episode"]` | `EpisodeStatisticsState` |
+| `JitWrapper` | any env | same obs | JIT-compiles `reset` + `step` with a warmup pass; applied automatically by `make()` when `jit_compile=True` | — |
 
 Stateless wrappers pass the inner state through unchanged. Stateful wrappers
 return a `chex.dataclass` pytree that carries extra data alongside the inner
 state — both are fully compatible with `jit`, `vmap`, and `lax.scan`.
+
+`JitWrapper` can also be used standalone to eagerly compile any env:
+
+```python
+from atarax.env import JitWrapper, make
+
+env = JitWrapper(make("atari/breakout-v0", jit_compile=False))
+```
 
 ### Standard DQN preprocessing stack
 
@@ -258,71 +209,47 @@ The standard Mnih et al. (2015) observation pipeline:
 import jax
 from atarax.env import make
 
-env = make("atari/breakout-v0", preset=True, jit_compile=True)
+env = make("atari/breakout-v0", preset=True)
 
 key = jax.random.PRNGKey(0)
-obs, state = env.reset(key)           # obs: uint8[84, 84, 4]
+obs, state = env.reset(key)                  # obs: uint8[84, 84, 4]
 obs, state, reward, done, info = env.step(state, env.sample(key))
-# done                 — True on life loss or game over
-# reward               — clipped to {-1, 0, +1}
-# info["real_done"]    — True only on true game over
-# info["episode"]["r"] — episode return (non-zero at done)
-# info["episode"]["l"] — episode length (non-zero at done)
+# done                    → True on life loss or game over
+# reward                  → clipped to {-1, 0, +1}
+# info["episode"]["r"]    → episode return (non-zero at episode end)
+# info["episode"]["l"]    → episode length (non-zero at episode end)
 ```
 
 ## Supported Games
 
-All 57 environments from the standard RL benchmark (Mnih et al. 2015, *Human-level
-control through deep reinforcement learning*, Nature):
+Atarax targets all 57 Mnih et al. (2015) Atari environments with more added in
+each release. Currently implemented:
 
-| ID | `ale_name` | ID | `ale_name` | ID | `ale_name` |
-|----|------------|----|------------|----|------------|
-| 0  | alien | 20 | fishing_derby | 40 | riverraid |
-| 1  | amidar | 21 | freeway | 41 | road_runner |
-| 2  | assault | 22 | frostbite | 42 | robotank |
-| 3  | asterix | 23 | gopher | 43 | seaquest |
-| 4  | asteroids | 24 | gravitar | 44 | skiing |
-| 5  | atlantis | 25 | hero | 45 | solaris |
-| 6  | bank_heist | 26 | ice_hockey | 46 | space_invaders |
-| 7  | battle_zone | 27 | jamesbond | 47 | star_gunner |
-| 8  | beam_rider | 28 | kangaroo | 48 | tennis |
-| 9  | berzerk | 29 | krull | 49 | time_pilot |
-| 10 | bowling | 30 | kung_fu_master | 50 | tutankham |
-| 11 | boxing | 31 | montezuma_revenge | 51 | up_n_down |
-| 12 | breakout | 32 | ms_pacman | 52 | venture |
-| 13 | centipede | 33 | name_this_game | 53 | video_pinball |
-| 14 | chopper_command | 34 | phoenix | 54 | wizard_of_wor |
-| 15 | crazy_climber | 35 | pitfall | 55 | yars_revenge |
-| 16 | defender | 36 | pong | 56 | zaxxon |
-| 17 | demon_attack | 37 | pooyan | | |
-| 18 | double_dunk | 38 | private_eye | | |
-| 19 | enduro | 39 | qbert | | |
-
-Look up a game ID at runtime:
-
-```python
-from atarax.games.registry import GAME_IDS
-game_id = GAME_IDS["seaquest"]  # → 43
-```
+| Game | `make()` ID |
+| --- | --- |
+| Breakout | `"atari/breakout-v0"` |
 
 ## Architecture Notes
 
 `AtariState` is a flat `chex.dataclass` pytree — every field is a fixed-shape
 JAX array, making it compatible with `jax.vmap`, `jax.lax.scan`, and any
-JAX-native optimiser.
+JAX-native optimiser. Game implementations extend the three-level state
+hierarchy:
 
-The emulation loop follows the 6502 timing model: each CPU cycle advances the
-TIA by 3 colour clocks.  One ALE frame = 262 scanlines × 76 CPU cycles = 19,912
-colour clocks.
+| Class | Fields |
+| --- | --- |
+| `GameState` | `reward`, `done`, `step`, `episode_step` |
+| `AtariState(GameState)` | + `lives`, `score` |
+| `BreakoutState(AtariState)` | + game-specific fields (`ball_x`, `bricks`, …) |
 
-All branching inside the emulator uses JAX primitives so the computation graph
-is fixed at trace time:
+All game logic is branch-free — every conditional uses a JAX primitive so the
+computation graph is fixed at trace time:
 
 | Situation | Pattern used |
-|-----------|-------------|
-| Dispatch on opcode / game ID | `jax.lax.switch` |
-| Conditional state update | `jax.lax.cond` / `jnp.where` |
-| Fixed-count loop | `jax.lax.fori_loop` |
+| --- | --- |
+| Conditional state update | `jnp.where` |
+| Fixed-count loop (e.g. frame skip) | `jax.lax.fori_loop` |
+| Multi-step rollout | `jax.lax.scan` |
 
 ## Licence
 
