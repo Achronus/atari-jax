@@ -19,12 +19,124 @@ from typing import Dict, List, Type
 
 from atarax.env.atari_env import AtariEnv
 from atarax.env.spec import EnvSpec
+from atarax.games.alien import Alien
+from atarax.games.amidar import Amidar
+from atarax.games.assault import Assault
+from atarax.games.asterix import Asterix
+from atarax.games.asteroids import Asteroids
+from atarax.games.atlantis import Atlantis
+from atarax.games.bank_heist import BankHeist
+from atarax.games.battle_zone import BattleZone
+from atarax.games.beam_rider import BeamRider
+from atarax.games.berzerk import Berzerk
+from atarax.games.bowling import Bowling
+from atarax.games.boxing import Boxing
 from atarax.games.breakout import Breakout
+from atarax.games.centipede import Centipede
+from atarax.games.chopper_command import ChopperCommand
+from atarax.games.crazy_climber import CrazyClimber
+from atarax.games.defender import Defender
+from atarax.games.demon_attack import DemonAttack
+from atarax.games.double_dunk import DoubleDunk
+from atarax.games.enduro import Enduro
+from atarax.games.fishing_derby import FishingDerby
+from atarax.games.freeway import Freeway
+from atarax.games.frostbite import Frostbite
+from atarax.games.gopher import Gopher
+from atarax.games.gravitar import Gravitar
+from atarax.games.hero import Hero
+from atarax.games.ice_hockey import IceHockey
+from atarax.games.jamesbond import JamesBond
+from atarax.games.kangaroo import Kangaroo
+from atarax.games.krull import Krull
+from atarax.games.kung_fu_master import KungFuMaster
+from atarax.games.montezuma_revenge import MontezumaRevenge
+from atarax.games.ms_pacman import MsPacman
+from atarax.games.name_this_game import NameThisGame
+from atarax.games.phoenix import Phoenix
+from atarax.games.pitfall import Pitfall
+from atarax.games.pong import Pong
+from atarax.games.pooyan import Pooyan
+from atarax.games.private_eye import PrivateEye
+from atarax.games.qbert import Qbert
+from atarax.games.riverraid import RiverRaid
+from atarax.games.road_runner import RoadRunner
+from atarax.games.robotank import Robotank
+from atarax.games.seaquest import Seaquest
+from atarax.games.skiing import Skiing
+from atarax.games.solaris import Solaris
+from atarax.games.space_invaders import SpaceInvaders
+from atarax.games.star_gunner import StarGunner
+from atarax.games.tennis import Tennis
+from atarax.games.time_pilot import TimePilot
+from atarax.games.tutankham import Tutankham
+from atarax.games.up_n_down import UpNDown
+from atarax.games.venture import Venture
+from atarax.games.video_pinball import VideoPinball
+from atarax.games.wizard_of_wor import WizardOfWor
+from atarax.games.yars_revenge import YarsRevenge
+from atarax.games.zaxxon import Zaxxon
 
 #: Mapping of lower-case game name → `AtariEnv` class.
 #: Grows as games are implemented; order is alphabetical.
 GAMES: Dict[str, Type[AtariEnv]] = {
+    "alien": Alien,
+    "amidar": Amidar,
+    "assault": Assault,
+    "asterix": Asterix,
+    "asteroids": Asteroids,
+    "atlantis": Atlantis,
+    "bank_heist": BankHeist,
+    "battle_zone": BattleZone,
+    "beam_rider": BeamRider,
+    "berzerk": Berzerk,
+    "bowling": Bowling,
+    "boxing": Boxing,
     "breakout": Breakout,
+    "centipede": Centipede,
+    "chopper_command": ChopperCommand,
+    "crazy_climber": CrazyClimber,
+    "defender": Defender,
+    "demon_attack": DemonAttack,
+    "double_dunk": DoubleDunk,
+    "enduro": Enduro,
+    "fishing_derby": FishingDerby,
+    "freeway": Freeway,
+    "frostbite": Frostbite,
+    "gopher": Gopher,
+    "gravitar": Gravitar,
+    "hero": Hero,
+    "ice_hockey": IceHockey,
+    "jamesbond": JamesBond,
+    "kangaroo": Kangaroo,
+    "krull": Krull,
+    "kung_fu_master": KungFuMaster,
+    "montezuma_revenge": MontezumaRevenge,
+    "ms_pacman": MsPacman,
+    "name_this_game": NameThisGame,
+    "phoenix": Phoenix,
+    "pitfall": Pitfall,
+    "pong": Pong,
+    "pooyan": Pooyan,
+    "private_eye": PrivateEye,
+    "qbert": Qbert,
+    "riverraid": RiverRaid,
+    "road_runner": RoadRunner,
+    "robotank": Robotank,
+    "seaquest": Seaquest,
+    "skiing": Skiing,
+    "solaris": Solaris,
+    "space_invaders": SpaceInvaders,
+    "star_gunner": StarGunner,
+    "tennis": Tennis,
+    "time_pilot": TimePilot,
+    "tutankham": Tutankham,
+    "up_n_down": UpNDown,
+    "venture": Venture,
+    "video_pinball": VideoPinball,
+    "wizard_of_wor": WizardOfWor,
+    "yars_revenge": YarsRevenge,
+    "zaxxon": Zaxxon,
 }
 
 #: Pre-built `EnvSpec` for every registered game (alphabetical order).
@@ -165,7 +277,5 @@ def get_game(name: str) -> Type[AtariEnv]:
     key = name.lower()
     if key not in GAMES:
         available = sorted(GAMES)
-        raise ValueError(
-            f"Unknown game {name!r}. Available games: {available}"
-        )
+        raise ValueError(f"Unknown game {name!r}. Available games: {available}")
     return GAMES[key]
