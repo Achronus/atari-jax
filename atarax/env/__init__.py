@@ -13,10 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
-from atarax.env._compile import DEFAULT_CACHE_DIR, setup_cache
+from atarax.env._base import Env
 from atarax.env.atari_env import AtariEnv, EnvParams
-from atarax.env.env import Env
-from atarax.env.make import make, make_multi, make_vec, make_vec_multi, precompile_all
+from atarax.env.make import make, make_multi, make_multi_vec, make_vec
 from atarax.env.spaces import Box, Discrete
 from atarax.env.spec import EnvSpec
 from atarax.env.vec_env import VecEnv
@@ -31,6 +30,7 @@ from atarax.env.wrappers import (
     FrameStackObservation,
     FrameStackState,
     GrayscaleObservation,
+    JitWrapper,
     NormalizeObservation,
     RecordEpisodeStatistics,
     ResizeObservation,
@@ -42,7 +42,6 @@ __all__ = [
     "AtariPreprocessing",
     "Box",
     "ClipReward",
-    "DEFAULT_CACHE_DIR",
     "Discrete",
     "Env",
     "EnvParams",
@@ -55,15 +54,14 @@ __all__ = [
     "FrameStackObservation",
     "FrameStackState",
     "GrayscaleObservation",
-    "make",
-    "make_multi",
-    "make_vec",
-    "make_vec_multi",
+    "JitWrapper",
     "NormalizeObservation",
-    "precompile_all",
     "RecordEpisodeStatistics",
     "ResizeObservation",
-    "setup_cache",
     "VecEnv",
     "Wrapper",
+    "make",
+    "make_multi",
+    "make_multi_vec",
+    "make_vec",
 ]

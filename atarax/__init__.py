@@ -13,4 +13,38 @@
 # limitations under the License.
 # ==============================================================================
 
-"""atarax — Pure JAX/XLA Atari 2600 emulator."""
+"""atarax — JAX-native Atari game environments (Brax-style)."""
+
+from atarax.env._base import Env
+from atarax.env.atari_env import AtariEnv, EnvParams
+from atarax.env.make import make, make_multi, make_multi_vec, make_vec
+from atarax.env.spaces import Box, Discrete
+from atarax.env.spec import EnvSpec
+from atarax.env.vec_env import VecEnv
+from atarax.env.wrappers.jit_wrapper import JitWrapper
+from atarax.games._base import AtariState, GameState
+from atarax.games.breakout import Breakout, BreakoutState
+from atarax.games.registry import GAME_GROUPS, GAME_SPECS, GAMES, get_game
+
+__all__ = [
+    "AtariEnv",
+    "AtariState",
+    "Box",
+    "Breakout",
+    "BreakoutState",
+    "Discrete",
+    "Env",
+    "EnvParams",
+    "EnvSpec",
+    "GAME_GROUPS",
+    "GAME_SPECS",
+    "GAMES",
+    "GameState",
+    "JitWrapper",
+    "VecEnv",
+    "get_game",
+    "make",
+    "make_multi",
+    "make_multi_vec",
+    "make_vec",
+]
