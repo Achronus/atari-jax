@@ -116,8 +116,23 @@ class AtariEnv(Env):
 
     num_actions: int
 
+    def default_params(self) -> EnvParams:
+        """
+        Return the default `EnvParams` for this game.
+
+        Override in subclasses to customize `noop_max` or
+        `max_episode_steps`.  Called by `__init__` when no explicit
+        params are supplied.
+
+        Returns
+        -------
+        params : EnvParams
+            Default environment hyper-parameters.
+        """
+        return EnvParams()
+
     def __init__(self, params: EnvParams | None = None) -> None:
-        self._params = params or EnvParams()
+        self._params = params if params is not None else self.default_params()
 
     @abstractmethod
     def _reset(self, key: chex.Array) -> AtariState:
@@ -384,6 +399,19 @@ class AtariEnv(Env):
             surf = pygame.surfarray.make_surface(frame_np.transpose(1, 0, 2))
             scaled = pygame.transform.scale(surf, (160 * scale, 210 * scale))
             display.blit(scaled, (0, 0))
+
+            # Score overlay
+            font = pygame.font.SysFont("monospace", max(12, 5 * scale), bold=True)
+            score_val = int(state.score)
+            lives_val = int(state.lives)
+            label = (
+                f"SCORE {score_val}"
+                if lives_val == 0
+                else f"SCORE {score_val}  LIVES {lives_val}"
+            )
+            text_surf = font.render(label, True, (255, 255, 255), (0, 0, 0))
+            display.blit(text_surf, (4, 4))
+
             pygame.display.flip()
             clock.tick(fps)
 
