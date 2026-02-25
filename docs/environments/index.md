@@ -1,65 +1,96 @@
 # Environments
 
-All 57 Atari 2600 environments from the standard RL benchmark (Mnih et al. 2015).
-All environments share the same observation space (`Box(uint8, shape=(210, 160, 3))`)
-and action space (`Discrete(18)`).
+All 57 Atari 2600 environments from the standard RL benchmark (Mnih et al. 2015),
+implemented as pure JAX functions — no ROM loading, no hardware emulation.
 
-| Game | ID | Description |
+Every environment shares the same observation space: `Box(uint8, shape=(210, 160, 3))`.
+Action spaces vary per game; each page lists the exact `Discrete(N)` size and
+action table.
+
+## Usage
+
+```python
+from atarax.env.make import make
+
+env = make("atari/breakout-v0")           # single environment
+env = make("atari/breakout-v0", preset=True)  # DQN preprocessing stack
+```
+
+## Game Groups
+
+Standard benchmark subsets used in the RL literature:
+
+| Group | Size | Description |
 | --- | --- | --- |
-| [Alien](alien.md) | 0 | Navigate a space station shooting aliens and collecting eggs while avoiding the deadly alien creature. |
-| [Amidar](amidar.md) | 1 | Paint every cell of a grid by moving along the paths while evading enemies. |
-| [Assault](assault.md) | 2 | Pilot a turret to destroy waves of attacking alien ships before they reach you. |
-| [Asterix](asterix.md) | 3 | Guide Asterix across the screen collecting objects and avoiding enemies in this endless runner. |
-| [Asteroids](asteroids.md) | 4 | Pilot a spaceship and destroy asteroids and flying saucers while avoiding collisions. |
-| [Atlantis](atlantis.md) | 5 | Defend the underwater city of Atlantis from waves of alien ships using three gun emplacements. |
-| [Bank Heist](bank_heist.md) | 6 | Drive a getaway car through a city, robbing banks while evading police pursuit. |
-| [Battle Zone](battle_zone.md) | 7 | Destroy enemy tanks and flying saucers in a first-person 3D tank combat arena. |
-| [Beam Rider](beam_rider.md) | 8 | Ride a beam across space shooting enemy ships and dodging obstacles on a fixed path. |
-| [Berzerk](berzerk.md) | 9 | Navigate a maze of rooms shooting robots while evading the invincible Evil Otto. |
-| [Bowling](bowling.md) | 10 | Bowl a ten-frame game, aiming for strikes and spares to maximise your score. |
-| [Boxing](boxing.md) | 11 | Trade punches with a CPU opponent in a two-minute boxing match. |
-| [Breakout](breakout.md) | 12 | Use a paddle to bounce a ball and destroy all the bricks in the wall above. |
-| [Centipede](centipede.md) | 13 | Shoot a descending centipede and other insects before they reach the bottom of the screen. |
-| [Chopper Command](chopper_command.md) | 14 | Pilot a helicopter gunship to protect a convoy of trucks from enemy aircraft. |
-| [Crazy Climber](crazy_climber.md) | 15 | Scale the faces of skyscrapers while dodging falling objects and hostile birds. |
-| [Defender](defender.md) | 16 | Defend humanoids from alien abduction in a side-scrolling space shooter. |
-| [Demon Attack](demon_attack.md) | 17 | Destroy waves of attacking demons from your cannon on the surface of a hostile planet. |
-| [Double Dunk](double_dunk.md) | 18 | Play a two-on-two basketball game and outscore the opposing team to 24 points. |
-| [Enduro](enduro.md) | 19 | Race through day and night conditions, passing a quota of cars each day to continue. |
-| [Fishing Derby](fishing_derby.md) | 20 | Fish against a CPU opponent; first angler to land 99 points worth of fish wins. |
-| [Freeway](freeway.md) | 21 | Guide a chicken across a busy multi-lane highway within a time limit. |
-| [Frostbite](frostbite.md) | 22 | Jump across floating ice floes to build an igloo while avoiding hazards in the Arctic. |
-| [Gopher](gopher.md) | 23 | Protect your three carrots from an underground gopher by shooting it and filling its holes. |
-| [Gravitar](gravitar.md) | 24 | Pilot a spaceship through gravitational hazards, destroying fuel tanks and rescuing humanoids. |
-| [H.E.R.O.](hero.md) | 25 | Use a jetpack and laser to rescue miners trapped deep in underground caverns. |
-| [Ice Hockey](ice_hockey.md) | 26 | Play a one-on-one ice hockey match, scoring goals against the CPU opponent. |
-| [James Bond](jamesbond.md) | 27 | Play as Agent 007, piloting a multi-mode vehicle through enemy-filled missions. |
-| [Kangaroo](kangaroo.md) | 28 | Guide a mother kangaroo up platforms to rescue her joey from a gang of monkeys. |
-| [Krull](krull.md) | 29 | Fight through various scenes from the film Krull, collecting weapons and defeating enemies. |
-| [Kung-Fu Master](kung_fu_master.md) | 30 | Battle through five floors of enemies using kicks, punches, and jumps to rescue a hostage. |
-| [Montezuma's Revenge](montezuma_revenge.md) | 31 | Explore the multi-room underground pyramid of Montezuma, collecting treasures and keys. |
-| [Ms. Pac-Man](ms_pacman.md) | 32 | Guide Ms. Pac-Man through a maze eating dots and power pellets while evading ghosts. |
-| [Name This Game](name_this_game.md) | 33 | Defend a treasure chest from a series of sea creatures as a scuba diver. |
-| [Phoenix](phoenix.md) | 34 | Shoot waves of descending alien birds and then destroy the giant alien mothership. |
-| [Pitfall!](pitfall.md) | 35 | Swing on vines, jump over obstacles, and collect treasures while navigating a jungle. |
-| [Pong](pong.md) | 36 | Volley a ball back and forth with paddles; first player to 21 points wins. |
-| [Pooyan](pooyan.md) | 37 | Ride a cable car and shoot wolves descending on balloons to protect your piglet family. |
-| [Private Eye](private_eye.md) | 38 | Drive through a city as a private detective, tracking down criminals and recovering stolen items. |
-| [Q*bert](qbert.md) | 39 | Hop across a pyramid of cubes to change their colour while avoiding enemies. |
-| [River Raid](riverraid.md) | 40 | Pilot a jet plane down a river, shooting ships and helicopters while managing fuel. |
-| [Road Runner](road_runner.md) | 41 | Race ahead of Wile E. Coyote collecting birdseed and dodging obstacles on a winding road. |
-| [Robotank](robotank.md) | 42 | Command a tank to destroy enemy robot tank squadrons in a first-person combat simulation. |
-| [Seaquest](seaquest.md) | 43 | Pilot a submarine to rescue divers and shoot enemy fish while managing your oxygen supply. |
-| [Skiing](skiing.md) | 44 | Ski downhill through a slalom course as quickly as possible; reward is a time penalty. |
-| [Solaris](solaris.md) | 45 | Pilot a starship across a galactic map, fighting enemies to liberate star systems. |
-| [Space Invaders](space_invaders.md) | 46 | Shoot descending alien invaders before they reach the ground, using bunkers for cover. |
-| [Star Gunner](star_gunner.md) | 47 | Pilot a star fighter through waves of alien ships, destroying enemies for points. |
-| [Tennis](tennis.md) | 48 | Play a singles tennis match against a CPU opponent; first to win a set ends the episode. |
-| [Time Pilot](time_pilot.md) | 49 | Fly through multiple historical eras destroying enemy planes and rescuing stranded soldiers. |
-| [Tutankham](tutankham.md) | 50 | Navigate through the labyrinthine tomb of Tutankham, shooting enemies and collecting treasures. |
-| [Up 'n Down](up_n_down.md) | 51 | Drive a car along a hilly road, jumping over or destroying other vehicles for points. |
-| [Venture](venture.md) | 52 | Explore dungeon rooms collecting treasures while battling monsters with a bow and arrow. |
-| [Video Pinball](video_pinball.md) | 53 | Play a digital pinball table, using flippers to score points and keep the ball in play. |
-| [Wizard of Wor](wizard_of_wor.md) | 54 | Fight through dungeon mazes shooting monsters, including the deadly Wizard of Wor. |
-| [Yar's Revenge](yars_revenge.md) | 55 | Control a flying insect that must eat through a shield to fire a cannon at the Qotile. |
-| [Zaxxon](zaxxon.md) | 56 | Pilot a spacecraft through a fortress in a diagonal-scrolling isometric shoot-em-up. |
+| `"atari5"` | 5 | Breakout, Ms. Pac-Man, Pong, Q*bert, Space Invaders |
+| `"atari10"` | 10 | atari5 + Alien, Beam Rider, Enduro, Montezuma's Revenge, Pitfall! |
+| `"atari26"` | 26 | The original 26-game evaluation set |
+| `"atari57"` | 57 | Full 57-game suite |
+
+```python
+from atarax.games.registry import GAME_GROUPS
+
+specs = GAME_GROUPS["atari57"]   # list of EnvSpec
+```
+
+## All Environments
+
+| Game | Game ID | Description |
+| --- | --- | --- |
+| [Alien](alien.md) | `"atari/alien-v0"` | Navigate a space station shooting alien creatures and collecting eggs while avoiding the deadly alien. |
+| [Amidar](amidar.md) | `"atari/amidar-v0"` | Paint every cell of a grid by moving along paths while evading enemies. |
+| [Assault](assault.md) | `"atari/assault-v0"` | Pilot a turret to destroy waves of attacking alien ships before they reach you. |
+| [Asterix](asterix.md) | `"atari/asterix-v0"` | Guide Asterix collecting objects and avoiding enemies in this side-scrolling arcade game. |
+| [Asteroids](asteroids.md) | `"atari/asteroids-v0"` | Pilot a spaceship and destroy asteroids and flying saucers while avoiding collisions. |
+| [Atlantis](atlantis.md) | `"atari/atlantis-v0"` | Defend the city of Atlantis from alien ships using three gun emplacements. |
+| [Bank Heist](bank_heist.md) | `"atari/bank_heist-v0"` | Drive a getaway car through a city robbing banks while evading police. |
+| [Battle Zone](battle_zone.md) | `"atari/battle_zone-v0"` | Destroy enemy tanks and saucers in a first-person 3D tank combat arena. |
+| [Beam Rider](beam_rider.md) | `"atari/beam_rider-v0"` | Ride a beam across space shooting enemy ships while dodging obstacles. |
+| [Berzerk](berzerk.md) | `"atari/berzerk-v0"` | Navigate a maze shooting robots while evading the invincible Evil Otto. |
+| [Bowling](bowling.md) | `"atari/bowling-v0"` | Bowl a ten-frame game, aiming for strikes and spares to maximise your score. |
+| [Boxing](boxing.md) | `"atari/boxing-v0"` | Trade punches with a CPU opponent in a two-minute boxing match. |
+| [Breakout](breakout.md) | `"atari/breakout-v0"` | Use a paddle to bounce a ball and destroy all the bricks in the wall above. |
+| [Centipede](centipede.md) | `"atari/centipede-v0"` | Shoot a descending centipede and other insects before they reach the bottom. |
+| [Chopper Command](chopper_command.md) | `"atari/chopper_command-v0"` | Pilot a helicopter gunship to protect a truck convoy from enemy aircraft. |
+| [Crazy Climber](crazy_climber.md) | `"atari/crazy_climber-v0"` | Scale skyscrapers while dodging falling objects and hostile birds. |
+| [Defender](defender.md) | `"atari/defender-v0"` | Defend humanoids from alien abduction in a side-scrolling space shooter. |
+| [Demon Attack](demon_attack.md) | `"atari/demon_attack-v0"` | Destroy waves of attacking demons from your cannon on a hostile planet. |
+| [Double Dunk](double_dunk.md) | `"atari/double_dunk-v0"` | Play two-on-two basketball and outscore the opposing team. |
+| [Enduro](enduro.md) | `"atari/enduro-v0"` | Race through day and night conditions, passing a quota of cars each day to continue. |
+| [Fishing Derby](fishing_derby.md) | `"atari/fishing_derby-v0"` | Fish against a CPU opponent; first angler to 99 points wins. |
+| [Freeway](freeway.md) | `"atari/freeway-v0"` | Guide a chicken across a busy multi-lane highway within a time limit. |
+| [Frostbite](frostbite.md) | `"atari/frostbite-v0"` | Jump across floating ice floes to build an igloo while avoiding Arctic hazards. |
+| [Gopher](gopher.md) | `"atari/gopher-v0"` | Protect three carrots from a tunnelling gopher by shooting it and filling its holes. |
+| [Gravitar](gravitar.md) | `"atari/gravitar-v0"` | Pilot a spaceship through gravitational hazards, destroying targets and rescuing humanoids. |
+| [H.E.R.O.](hero.md) | `"atari/hero-v0"` | Use a jetpack and laser to rescue miners trapped in underground caverns. |
+| [Ice Hockey](ice_hockey.md) | `"atari/ice_hockey-v0"` | Play one-on-one ice hockey, scoring goals against the CPU opponent. |
+| [James Bond](jamesbond.md) | `"atari/jamesbond-v0"` | Play as Agent 007 piloting a multi-mode vehicle through enemy-filled missions. |
+| [Kangaroo](kangaroo.md) | `"atari/kangaroo-v0"` | Guide a mother kangaroo up platforms to rescue her joey from monkeys. |
+| [Krull](krull.md) | `"atari/krull-v0"` | Fight through scenes from the film Krull, collecting weapons and defeating enemies. |
+| [Kung-Fu Master](kung_fu_master.md) | `"atari/kung_fu_master-v0"` | Battle through five floors of enemies using kicks, punches, and jumps. |
+| [Montezuma's Revenge](montezuma_revenge.md) | `"atari/montezuma_revenge-v0"` | Explore an underground pyramid collecting treasures and keys. |
+| [Ms. Pac-Man](ms_pacman.md) | `"atari/ms_pacman-v0"` | Guide Ms. Pac-Man through a maze eating dots while evading ghosts. |
+| [Name This Game](name_this_game.md) | `"atari/name_this_game-v0"` | Defend a treasure chest from sea creatures as a scuba diver. |
+| [Phoenix](phoenix.md) | `"atari/phoenix-v0"` | Shoot waves of alien birds and then destroy the giant mothership. |
+| [Pitfall!](pitfall.md) | `"atari/pitfall-v0"` | Swing on vines, jump over obstacles, and collect treasures in a jungle. |
+| [Pong](pong.md) | `"atari/pong-v0"` | Volley a ball with paddles; first to 21 points wins. |
+| [Pooyan](pooyan.md) | `"atari/pooyan-v0"` | Ride a cable car shooting wolves on balloons to protect your piglet family. |
+| [Private Eye](private_eye.md) | `"atari/private_eye-v0"` | Drive through a city as a detective, tracking criminals and recovering stolen items. |
+| [Q\*bert](qbert.md) | `"atari/qbert-v0"` | Hop across a pyramid of cubes changing their colour while avoiding enemies. |
+| [River Raid](riverraid.md) | `"atari/riverraid-v0"` | Pilot a jet plane down a river, shooting ships and helicopters while managing fuel. |
+| [Road Runner](road_runner.md) | `"atari/road_runner-v0"` | Race ahead of Wile E. Coyote collecting birdseed and dodging obstacles. |
+| [Robotank](robotank.md) | `"atari/robotank-v0"` | Command a tank to destroy enemy robot squadrons in a first-person simulation. |
+| [Seaquest](seaquest.md) | `"atari/seaquest-v0"` | Pilot a submarine rescuing divers and shooting enemies while managing oxygen. |
+| [Skiing](skiing.md) | `"atari/skiing-v0"` | Ski downhill through a slalom course as quickly as possible. |
+| [Solaris](solaris.md) | `"atari/solaris-v0"` | Pilot a starship across a galactic map, fighting enemies to liberate star systems. |
+| [Space Invaders](space_invaders.md) | `"atari/space_invaders-v0"` | Shoot descending alien invaders before they reach the ground. |
+| [Star Gunner](star_gunner.md) | `"atari/star_gunner-v0"` | Pilot a star fighter through waves of alien ships. |
+| [Tennis](tennis.md) | `"atari/tennis-v0"` | Play a singles tennis match against a CPU opponent. |
+| [Time Pilot](time_pilot.md) | `"atari/time_pilot-v0"` | Fly through historical eras destroying enemy planes and rescuing soldiers. |
+| [Tutankham](tutankham.md) | `"atari/tutankham-v0"` | Navigate through a tomb shooting enemies and collecting treasures. |
+| [Up 'n Down](up_n_down.md) | `"atari/up_n_down-v0"` | Drive along a hilly road, jumping over or destroying other vehicles for points. |
+| [Venture](venture.md) | `"atari/venture-v0"` | Explore dungeon rooms collecting treasures while battling monsters. |
+| [Video Pinball](video_pinball.md) | `"atari/video_pinball-v0"` | Play a digital pinball table, using flippers to score points. |
+| [Wizard of Wor](wizard_of_wor.md) | `"atari/wizard_of_wor-v0"` | Fight through dungeon mazes shooting monsters, including the Wizard of Wor. |
+| [Yar's Revenge](yars_revenge.md) | `"atari/yars_revenge-v0"` | Eat through a shield to fire a cannon at the Qotile. |
+| [Zaxxon](zaxxon.md) | `"atari/zaxxon-v0"` | Pilot a spacecraft through a fortress in a diagonal-scrolling isometric shooter. |

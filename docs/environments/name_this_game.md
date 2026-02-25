@@ -1,24 +1,73 @@
 # Name This Game
 
-> ALE name: `name_this_game` · Game ID: `33`
+> Game ID: `"atari/name_this_game-v0"`
 
-Protect an underwater treasure chest from a series of sea creatures as a scuba diver, shooting at enemies before they can steal it.
+Underwater shooter: a scuba diver collects treasures while an octopus and
+a shark descend from above.  Shoot the octopus' tentacles and the shark
+before they reach the player.
 
 ## Spaces
 
 | | Value |
 | --- | --- |
 | **Observation** | `Box(uint8, shape=(210, 160, 3))` |
-| **Actions** | `Discrete(18)` |
+| **Actions** | `Discrete(6)` |
+
+### Action table
+
+| Index | Meaning |
+| --- | --- |
+| `0` | NOOP |
+| `1` | FIRE |
+| `2` | RIGHT |
+| `3` | LEFT |
+| `4` | RIGHT + FIRE |
+| `5` | LEFT + FIRE |
 
 ## Reward
 
-The reward is the increase in score on each step. Points are earned for shooting sea creatures before they reach the treasure chest. Score is stored as packed BCD across three RAM bytes.
+Points are awarded for shooting tentacles, hitting the shark, and collecting
+treasure.
+
+| Event | Points |
+| --- | --- |
+| Tentacle shot | +100 |
+| Shark shot | +200 |
+| Treasure collected | +50 |
 
 ## Episode End
 
-The episode ends when all lives are exhausted, detected when the 3-bit lives field in RAM reaches zero.
+The episode ends when all lives are lost.  A life is lost when a tentacle
+reaches the player or the shark touches the player.
 
 ## Lives
 
-Lives are stored as a 0-based count in the lower 3 bits of a RAM byte. A life is lost when a sea creature successfully steals from the chest or the player is caught.
+The player starts with 3 lives.
+
+## Screen Geometry
+
+| Element | Position |
+| --- | --- |
+| Player | y = 160, x ∈ [5, 147] |
+| Octopus body | y = 40, x ∈ [68, 92] |
+| Tentacles (4) | descend from y = 50; x = 30, 60, 100, 130 |
+| Shark | y = 60, patrols x ∈ [5, 145] |
+| Treasures (3) | x = 40, 80, 120 at player level |
+
+## Interactive Play
+
+```python
+from atarax.utils.render import play
+
+play("atari/name_this_game-v0")
+play("atari/name_this_game-v0", scale=2, fps=30)
+```
+
+### Keyboard controls
+
+| Key | Action |
+| --- | --- |
+| `Space` | Fire |
+| `→` / `D` | Move right |
+| `←` / `A` | Move left |
+| `Esc` / close window | Quit |

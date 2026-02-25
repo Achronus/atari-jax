@@ -1,24 +1,73 @@
 # Time Pilot
 
-> ALE name: `time_pilot` · Game ID: `49`
+> Game ID: `"atari/time_pilot-v0"`
 
-Fly a fighter plane through five historical eras, from 1910 biplanes to 2001 UFOs, destroying enemies and rescuing stranded soldiers.
+Omnidirectional aerial combat through multiple historical eras. Your plane is always at the screen centre; enemies scroll relative to your heading. Clear 25 enemies to advance to the next era.
 
 ## Spaces
 
 | | Value |
 | --- | --- |
 | **Observation** | `Box(uint8, shape=(210, 160, 3))` |
-| **Actions** | `Discrete(18)` |
+| **Actions** | `Discrete(9)` |
+
+### Action table
+
+| Index | Meaning |
+| --- | --- |
+| `0` | NOOP |
+| `1` | FIRE |
+| `2` | UP (aim up) |
+| `3` | RIGHT (aim right / clockwise) |
+| `4` | DOWN (aim down) |
+| `5` | LEFT (aim left / counter-clockwise) |
+| `6` | UP+FIRE |
+| `7` | RIGHT+FIRE |
+| `8` | DOWN+FIRE |
 
 ## Reward
 
-The reward is the increase in score on each step. Points are earned for destroying enemy aircraft and for rescuing soldiers; scores are multiples of 100. Score is stored as packed BCD across two non-sequential RAM bytes.
+| Event | Reward |
+| --- | --- |
+| Era 1 (WWI) enemy destroyed | `+100` |
+| Era 2 (WWII) enemy destroyed | `+150` |
+| Era 3 (Korea) enemy destroyed | `+200` |
+| Era 4 (Vietnam) enemy destroyed | `+300` |
+| Era 5 (Present) enemy destroyed | `+500` |
+| Boss destroyed | `+1000` |
 
 ## Episode End
 
-The episode ends when a game-over flag byte becomes non-zero.
+The episode ends when all lives are lost. A life is lost when the player's plane is hit by an enemy bullet or by a colliding enemy aircraft.
 
 ## Lives
 
-Lives are stored in the lower 3 bits of a RAM byte (displayed lives = bits + 1). A life is lost each time the player's plane is shot down.
+The player starts with 3 lives.
+
+## Screen Geometry
+
+| Element | Position |
+| --- | --- |
+| Player | fixed at x = 80, y = 105 (screen centre) |
+| Enemies | distributed across the screen; world scrolls relative to heading |
+| Enemies to clear per era | 25 |
+
+## Interactive Play
+
+```python
+from atarax.utils.render import play
+
+play("atari/time_pilot-v0")
+play("atari/time_pilot-v0", scale=2, fps=30)
+```
+
+### Keyboard controls
+
+| Key | Action |
+| --- | --- |
+| `Space` | FIRE |
+| `↑` / `W` | UP (aim up) |
+| `→` / `D` | RIGHT (aim right) |
+| `↓` / `S` | DOWN (aim down) |
+| `←` / `A` | LEFT (aim left) |
+| `Esc` / close window | Quit |

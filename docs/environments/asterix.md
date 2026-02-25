@@ -1,24 +1,67 @@
 # Asterix
 
-> ALE name: `asterix` · Game ID: `3`
+> Game ID: `"atari/asterix-v0"`
 
-Guide Asterix horizontally across the screen collecting magic potions while avoiding enemies and their projectiles in this endless side-scroller.
+Guide Asterix through a side-scrolling world collecting magic potions while
+avoiding enemies.  Items scroll from right to left across 8 fixed lanes.
 
 ## Spaces
 
 | | Value |
 | --- | --- |
 | **Observation** | `Box(uint8, shape=(210, 160, 3))` |
-| **Actions** | `Discrete(18)` |
+| **Actions** | `Discrete(5)` |
+
+### Action table
+
+| Index | Meaning |
+| --- | --- |
+| `0` | NOOP |
+| `1` | UP — move one lane up |
+| `2` | DOWN — move one lane down |
+| `3` | LEFT |
+| `4` | RIGHT |
 
 ## Reward
 
-The reward is the increase in score on each step. Points are earned by collecting magic potion objects that scroll across the screen. Score is stored as packed BCD across three RAM bytes.
+Collecting a magic potion earns points.
+
+| Event | Points |
+| --- | --- |
+| Magic potion collected | +50 |
+
+Touching an enemy costs a life; no points deducted.
 
 ## Episode End
 
-The episode ends on the final death animation frame, detected when the death counter reaches 1 while the player has exactly 1 life remaining.
+The episode ends when all lives are lost.  A life is lost each time the
+player touches an enemy item.
 
 ## Lives
 
-The player starts with several lives stored in the low nibble of a RAM byte. A life is lost by touching an enemy or their projectile.
+The player starts with 3 lives.
+
+## Screen Geometry
+
+| Element | Position |
+| --- | --- |
+| Lanes | 8 horizontal lanes y ∈ {30, 52, 74, 96, 118, 140, 162, 184} |
+| Player | x = 40 (fixed), starts in lane 3 |
+| Items | spawn at x = 155, scroll left |
+
+## Interactive Play
+
+```python
+from atarax.utils.render import play
+
+play("atari/asterix-v0")
+play("atari/asterix-v0", scale=2, fps=30)
+```
+
+### Keyboard controls
+
+| Key | Action |
+| --- | --- |
+| `↑` / `W` | Move lane up |
+| `↓` / `S` | Move lane down |
+| `Esc` / close window | Quit |

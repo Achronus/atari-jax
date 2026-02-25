@@ -1,24 +1,74 @@
 # Krull
 
-> ALE name: `krull` · Game ID: `29`
+> Game ID: `"atari/krull-v0"`
 
-Fight through multiple scenes based on the film Krull, wielding the magical Glaive weapon to defeat enemies and rescue Princess Lyssa.
+Prince Colwyn must navigate a series of challenges to rescue Princess
+Lyssa, using the magical Glaive as a weapon.  Throw the Glaive at enemies;
+it bounces off walls and returns to the player.
 
 ## Spaces
 
 | | Value |
 | --- | --- |
 | **Observation** | `Box(uint8, shape=(210, 160, 3))` |
-| **Actions** | `Discrete(18)` |
+| **Actions** | `Discrete(10)` |
+
+### Action table
+
+| Index | Meaning |
+| --- | --- |
+| `0` | NOOP |
+| `1` | FIRE — throw Glaive |
+| `2` | UP |
+| `3` | RIGHT |
+| `4` | DOWN |
+| `5` | LEFT |
+| `6` | UP + RIGHT |
+| `7` | UP + LEFT |
+| `8` | DOWN + RIGHT |
+| `9` | DOWN + LEFT |
 
 ## Reward
 
-The reward is the increase in score on each step. Points are earned for defeating enemies across the various scenes. Score is stored as packed BCD across three RAM bytes.
+Points are awarded for each enemy hit by the Glaive.
+
+| Event | Points |
+| --- | --- |
+| Enemy hit | +50 |
 
 ## Episode End
 
-The episode ends when all three game-over conditions are simultaneously met: the lives byte reaches zero, a status byte equals `0x03`, and a second status byte equals `0x80`.
+The episode ends when all lives are lost.  A life is lost when an enemy
+reaches the player.
 
 ## Lives
 
-Lives are stored in the lower 3 bits of a RAM byte (displayed lives = bits + 1). A life is lost each time the player character is defeated by an enemy.
+The player starts with 3 lives.
+
+## Screen Geometry
+
+| Element | Position |
+| --- | --- |
+| Arena | x ∈ [5, 155], y ∈ [20, 195] |
+| Player start | x = 80, y = 140 |
+| Enemies (6) | start spread across rows y = 40–80 |
+
+## Interactive Play
+
+```python
+from atarax.utils.render import play
+
+play("atari/krull-v0")
+play("atari/krull-v0", scale=2, fps=30)
+```
+
+### Keyboard controls
+
+| Key | Action |
+| --- | --- |
+| `Space` | Throw Glaive |
+| `↑` / `W` | Move up |
+| `→` / `D` | Move right |
+| `↓` / `S` | Move down |
+| `←` / `A` | Move left |
+| `Esc` / close window | Quit |

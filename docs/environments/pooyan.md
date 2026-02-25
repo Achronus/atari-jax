@@ -1,24 +1,68 @@
 # Pooyan
 
-> ALE name: `pooyan` · Game ID: `37`
+> Game ID: `"atari/pooyan-v0"`
 
-Ride a cable car up and down a cliff, shooting wolves that descend on balloons to protect your family of piglets below.
+A mama pig defends her piglets from wolves descending on balloons.  The
+player's basket moves up and down on the left side; shoot arrows to pop
+balloons and hit wolves before they reach the basket.
 
 ## Spaces
 
 | | Value |
 | --- | --- |
 | **Observation** | `Box(uint8, shape=(210, 160, 3))` |
-| **Actions** | `Discrete(18)` |
+| **Actions** | `Discrete(5)` |
+
+### Action table
+
+| Index | Meaning |
+| --- | --- |
+| `0` | NOOP |
+| `1` | FIRE — shoot arrow |
+| `2` | UP |
+| `3` | DOWN |
+| `4` | FIRE + UP |
 
 ## Reward
 
-The reward is the increase in score on each step. Points are earned for shooting wolves and bursting their balloons. Score is stored as packed BCD across three RAM bytes.
+Points are awarded for each wolf balloon popped.
+
+| Event | Points |
+| --- | --- |
+| Balloon popped (wolf falls) | +110 |
 
 ## Episode End
 
-The episode ends when all lives are exhausted and the game-over screen is shown, detected when the lives byte reaches zero and a terminal screen byte equals `0x05`.
+The episode ends when all lives are lost.  A life is lost when a wolf
+reaches the basket at the left edge.
 
 ## Lives
 
-Lives are stored in the lower 3 bits of a RAM byte (displayed lives = bits + 1). A life is lost each time a wolf reaches the bottom of the cliff and kidnaps a piglet.
+The player starts with 5 lives.
+
+## Screen Geometry
+
+| Element | Position |
+| --- | --- |
+| Basket (player) | x = 10, y ∈ [20, 175] |
+| Basket rope | x ∈ [10, 14], y ∈ [20, 190] |
+| Wolves on balloons | approach from x = 150, fixed y positions |
+| Arrow | flies rightward from basket |
+
+## Interactive Play
+
+```python
+from atarax.utils.render import play
+
+play("atari/pooyan-v0")
+play("atari/pooyan-v0", scale=2, fps=30)
+```
+
+### Keyboard controls
+
+| Key | Action |
+| --- | --- |
+| `Space` | Shoot arrow |
+| `↑` / `W` | Move basket up |
+| `↓` / `S` | Move basket down |
+| `Esc` / close window | Quit |

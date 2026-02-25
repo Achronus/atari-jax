@@ -1,24 +1,74 @@
 # Kangaroo
 
-> ALE name: `kangaroo` · Game ID: `28`
+> Game ID: `"atari/kangaroo-v0"`
 
-Guide a mother kangaroo up a series of platforms to rescue her joey, punching monkeys and avoiding thrown apples and bells.
+A mother kangaroo must climb four platform levels to rescue her joey,
+punching monkeys that throw apples along the way.  Reach the top floor to
+rescue the joey and reset to the ground.
 
 ## Spaces
 
 | | Value |
 | --- | --- |
 | **Observation** | `Box(uint8, shape=(210, 160, 3))` |
-| **Actions** | `Discrete(18)` |
+| **Actions** | `Discrete(6)` |
+
+### Action table
+
+| Index | Meaning |
+| --- | --- |
+| `0` | NOOP |
+| `1` | FIRE — punch |
+| `2` | UP — jump / climb ladder |
+| `3` | RIGHT |
+| `4` | DOWN |
+| `5` | LEFT |
 
 ## Reward
 
-The reward is the increase in score on each step. Points are earned for punching monkeys, collecting fruit, and rescuing the joey. Score values are multiples of 100. Score is stored as packed BCD across two RAM bytes.
+Points are awarded for punching monkeys, dodging apples, and rescuing the joey.
+
+| Event | Points |
+| --- | --- |
+| Monkey punched | +200 |
+| Apple dodged (rolls off screen) | +100 |
+| Joey rescued (reach top floor) | +1000 |
 
 ## Episode End
 
-The episode ends when the game-over sentinel value (`0xFF`) is written to the lives RAM byte, representing an underflow past zero lives.
+The episode ends when all lives are lost.  A life is lost when an apple hits
+the player.
 
 ## Lives
 
-Lives are stored in the lower 3 bits of a RAM byte (displayed lives = bits + 1). The sentinel `0xFF` signals game over. A life is lost each time the kangaroo is hit by a thrown object or catches a claw.
+The player starts with 3 lives.
+
+## Screen Geometry
+
+| Element | Position |
+| --- | --- |
+| Platforms (4 floors) | y = 185, 140, 95, 50 (bottom edge) |
+| Player x range | x ∈ [10, 150] |
+| Ladders | x = 80 (floor 0→1), x = 50 (floor 1→2), x = 110 (floor 2→3) |
+| Monkeys (3) | one per floor 1–3; patrol x ∈ [10, 150] |
+| Joey | top-right of floor 3 (x ∈ [130, 148]) |
+
+## Interactive Play
+
+```python
+from atarax.utils.render import play
+
+play("atari/kangaroo-v0")
+play("atari/kangaroo-v0", scale=2, fps=30)
+```
+
+### Keyboard controls
+
+| Key | Action |
+| --- | --- |
+| `Space` | Punch |
+| `↑` / `W` | Jump / climb |
+| `→` / `D` | Move right |
+| `↓` / `S` | Move down |
+| `←` / `A` | Move left |
+| `Esc` / close window | Quit |

@@ -1,24 +1,68 @@
 # Amidar
 
-> ALE name: `amidar` · Game ID: `1`
+> Game ID: `"atari/amidar-v0"`
 
-Paint every cell of a grid by walking along its paths while enemies patrol and chase you; bonus points are awarded for completing boxes.
+Paint every node of a grid by walking along paths while enemies patrol the
+same routes.  The episode ends when all nodes are painted or all lives are
+lost.
 
 ## Spaces
 
 | | Value |
 | --- | --- |
 | **Observation** | `Box(uint8, shape=(210, 160, 3))` |
-| **Actions** | `Discrete(18)` |
+| **Actions** | `Discrete(5)` |
+
+### Action table
+
+| Index | Meaning |
+| --- | --- |
+| `0` | NOOP |
+| `1` | UP |
+| `2` | RIGHT |
+| `3` | DOWN |
+| `4` | LEFT |
 
 ## Reward
 
-The reward is the increase in score on each step. Points are earned for each grid segment painted and for completing enclosed rectangular boxes. Score is stored as packed BCD across three RAM bytes.
+Points are awarded for painting new grid nodes.
+
+| Event | Points |
+| --- | --- |
+| New node painted | +1 |
 
 ## Episode End
 
-The episode ends when the game-over sentinel value is written to the lives RAM byte (a special value of `0x80` rather than a simple zero count). All lives must be exhausted to trigger this condition.
+The episode ends when all lives are lost or all grid nodes have been
+painted.  A life is lost each time an enemy catches the player.
 
 ## Lives
 
-The player starts with several lives, stored in the low nibble of a RAM byte. A life is lost when an enemy catches the player. The episode ends when all lives are gone.
+The player starts with 3 lives.
+
+## Screen Geometry
+
+| Element | Position |
+| --- | --- |
+| Grid | 6 rows × 6 columns; nodes at x ∈ [10, 150], y ∈ [20, 160] |
+| Player start | top-left node |
+| Enemies | 3 enemies patrolling the grid paths |
+
+## Interactive Play
+
+```python
+from atarax.utils.render import play
+
+play("atari/amidar-v0")
+play("atari/amidar-v0", scale=2, fps=30)
+```
+
+### Keyboard controls
+
+| Key | Action |
+| --- | --- |
+| `↑` / `W` | Move up |
+| `→` / `D` | Move right |
+| `↓` / `S` | Move down |
+| `←` / `A` | Move left |
+| `Esc` / close window | Quit |

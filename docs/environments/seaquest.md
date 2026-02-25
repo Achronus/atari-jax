@@ -1,24 +1,68 @@
 # Seaquest
 
-> ALE name: `seaquest` · Game ID: `43`
+> Game ID: `"atari/seaquest-v0"`
 
-Pilot a submarine through the ocean, shooting enemy fish and sharks while rescuing divers and surfacing regularly to replenish oxygen.
+Pilot a submarine underwater, rescuing divers and shooting enemy submarines and sharks. Surface periodically to replenish oxygen before it runs out.
 
 ## Spaces
 
 | | Value |
 | --- | --- |
 | **Observation** | `Box(uint8, shape=(210, 160, 3))` |
-| **Actions** | `Discrete(18)` |
+| **Actions** | `Discrete(6)` |
+
+### Action table
+
+| Index | Meaning |
+| --- | --- |
+| `0` | NOOP |
+| `1` | FIRE |
+| `2` | UP (surface / ascend) |
+| `3` | RIGHT |
+| `4` | DOWN (descend) |
+| `5` | LEFT |
 
 ## Reward
 
-The reward is the increase in score on each step. Points are earned for shooting enemy fish and sharks and for successfully rescuing divers by surfacing with them. Score is stored as packed BCD across three RAM bytes.
+| Event | Reward |
+| --- | --- |
+| Enemy sub shot | `+20` |
+| Shark shot | `+20` |
+| Diver rescued (per diver carried when surfacing) | `+50` |
 
 ## Episode End
 
-The episode ends when a terminal flag byte becomes non-zero. This is triggered when all lives are lost through running out of oxygen or being hit by an enemy.
+The episode ends when all lives are lost. A life is lost by colliding with an enemy or by allowing the oxygen supply to run out without surfacing.
 
 ## Lives
 
-Lives are stored as a zero-based count (displayed lives = RAM value + 1). A life is lost by running out of oxygen without surfacing, being hit by an enemy, or letting the shark reach the submarine.
+The player starts with 3 lives.
+
+## Screen Geometry
+
+| Element | Position |
+| --- | --- |
+| Surface line | y = 20 |
+| Bottom boundary | y = 190 |
+| Oxygen bar | top strip, rows 0–9 |
+| Player submarine | clipped to x ∈ [0, 152], y ∈ [20, 190] |
+
+## Interactive Play
+
+```python
+from atarax.utils.render import play
+
+play("atari/seaquest-v0")
+play("atari/seaquest-v0", scale=2, fps=30)
+```
+
+### Keyboard controls
+
+| Key | Action |
+| --- | --- |
+| `Space` | FIRE |
+| `↑` / `W` | UP (ascend / surface) |
+| `→` / `D` | RIGHT |
+| `↓` / `S` | DOWN (descend) |
+| `←` / `A` | LEFT |
+| `Esc` / close window | Quit |

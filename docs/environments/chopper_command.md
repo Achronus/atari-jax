@@ -1,24 +1,70 @@
 # Chopper Command
 
-> ALE name: `chopper_command` · Game ID: `14`
+> Game ID: `"atari/chopper_command-v0"`
 
-Pilot a military helicopter gunship to protect a convoy of ground trucks from waves of enemy aircraft and helicopters.
+Pilot a helicopter defending a convoy against enemy planes and tanks. Enemies approach from both sides; shoot them before they reach the trucks.
 
 ## Spaces
 
 | | Value |
 | --- | --- |
 | **Observation** | `Box(uint8, shape=(210, 160, 3))` |
-| **Actions** | `Discrete(18)` |
+| **Actions** | `Discrete(7)` |
+
+### Action table
+
+| Index | Meaning |
+| --- | --- |
+| `0` | NOOP |
+| `1` | FIRE |
+| `2` | UP |
+| `3` | RIGHT |
+| `4` | DOWN |
+| `5` | LEFT |
+| `6` | UP + FIRE |
 
 ## Reward
 
-The reward is the increase in score on each step. Points are earned for shooting down enemy aircraft; scores are multiples of 100. Score is stored as packed BCD across two RAM bytes.
+| Event | Reward |
+| --- | --- |
+| Enemy jet shot | +100 |
+| Enemy tank shot | +200 |
+| Convoy truck destroyed | -100 |
 
 ## Episode End
 
-The episode ends when the game has started and all lives have been depleted, detected when the started-flag is set and the lives count reaches zero.
+The episode ends when the helicopter is hit by an enemy jet and all lives are lost.
 
 ## Lives
 
-Lives are stored in the low nibble of a RAM byte. A life is lost each time the player's helicopter is shot down.
+The player starts with 3 lives.
+
+## Screen Geometry
+
+| Element | Position |
+| --- | --- |
+| Sky (jet flight altitude) | y = 50 |
+| Ground strip | y >= 170 |
+| Truck convoy | y = 165 |
+| Chopper x range | x ∈ [8, 152] |
+| Chopper y range | y ∈ [30, 160] |
+
+## Interactive Play
+
+```python
+from atarax.utils.render import play
+
+play("atari/chopper_command-v0")
+play("atari/chopper_command-v0", scale=2, fps=30)
+```
+
+### Keyboard controls
+
+| Key | Action |
+| --- | --- |
+| `Space` | FIRE |
+| `↑` / `W` | UP |
+| `→` / `D` | RIGHT |
+| `↓` / `S` | DOWN |
+| `←` / `A` | LEFT |
+| `Esc` / close window | Quit |

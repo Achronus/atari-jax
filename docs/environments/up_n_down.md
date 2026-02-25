@@ -1,24 +1,67 @@
 # Up 'n Down
 
-> ALE name: `up_n_down` · Game ID: `51`
+> Game ID: `"atari/up_n_down-v0"`
 
-Drive a car along a hilly, scrolling road, jumping over or crashing into other vehicles to collect flags and score points.
+Drive a jeep on a winding mountain road, collecting flags and running over or jumping over enemy vehicles. Collect all flags in a level to advance.
 
 ## Spaces
 
 | | Value |
 | --- | --- |
 | **Observation** | `Box(uint8, shape=(210, 160, 3))` |
-| **Actions** | `Discrete(18)` |
+| **Actions** | `Discrete(6)` |
+
+### Action table
+
+| Index | Meaning |
+| --- | --- |
+| `0` | NOOP |
+| `1` | FIRE (unused / honk) |
+| `2` | UP (jump) |
+| `3` | RIGHT (accelerate) |
+| `4` | DOWN (unused) |
+| `5` | LEFT (brake) |
 
 ## Reward
 
-The reward is the increase in score on each step. Points are earned for destroying other vehicles by jumping on them and for collecting flags along the road. Score is stored as packed BCD across three RAM bytes.
+| Event | Reward |
+| --- | --- |
+| Flag collected | `+100` |
+| Enemy squashed (land on enemy while airborne) | `+200` |
+| Level complete | `+1000` |
 
 ## Episode End
 
-The episode ends when the death timer exceeds `0x40` and the lives nibble has reached zero, indicating the final death sequence is active.
+The episode ends when all lives are lost. A life is lost by colliding with an enemy vehicle while on the ground.
 
 ## Lives
 
-Lives are stored in the lower nibble of a RAM byte (displayed lives = nibble + 1). A life is lost each time the player's car collides with another vehicle without jumping on it.
+The player starts with 3 lives.
+
+## Screen Geometry
+
+| Element | Position |
+| --- | --- |
+| Road y | y = 140 |
+| Ground level | y = 128 (road y − 12) |
+| Player x | x = 30 (fixed; road scrolls) |
+| Flags (world coords) | evenly spaced from x = 200 to x = 1400 |
+| Speed range | 1.0–4.0 px/frame |
+
+## Interactive Play
+
+```python
+from atarax.utils.render import play
+
+play("atari/up_n_down-v0")
+play("atari/up_n_down-v0", scale=2, fps=30)
+```
+
+### Keyboard controls
+
+| Key | Action |
+| --- | --- |
+| `↑` / `W` | UP (jump) |
+| `→` / `D` | RIGHT (accelerate) |
+| `←` / `A` | LEFT (brake) |
+| `Esc` / close window | Quit |
