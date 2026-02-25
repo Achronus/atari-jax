@@ -13,16 +13,13 @@
 # limitations under the License.
 # ==============================================================================
 
-from typing import TYPE_CHECKING, Any, Dict, Tuple
+from typing import Any, Dict, Tuple
 
 import chex
 import jax.numpy as jnp
 
-from atarax.core.state import AtariState
+from atarax.env._base import Env
 from atarax.env.wrappers.base import Wrapper
-
-if TYPE_CHECKING:
-    from atarax.env.atari_env import AtariEnv
 
 
 class ClipReward(Wrapper):
@@ -31,27 +28,27 @@ class ClipReward(Wrapper):
 
     Parameters
     ----------
-    env : AtariEnv | Wrapper
+    env : Env
         Inner environment to wrap.
     """
 
-    def __init__(self, env: "AtariEnv | Wrapper") -> None:
+    def __init__(self, env: Env) -> None:
         super().__init__(env)
 
-    def reset(self, key: chex.Array) -> Tuple[chex.Array, AtariState]:
+    def reset(self, key: chex.Array) -> Tuple[chex.Array, Any]:
         return self._env.reset(key)
 
     def step(
         self,
         state,
         action: chex.Array,
-    ) -> Tuple[chex.Array, AtariState, chex.Array, chex.Array, Dict[str, Any]]:
+    ) -> Tuple[chex.Array, Any, chex.Array, chex.Array, Dict[str, Any]]:
         """
         Advance the environment by one step and clip the reward to `{−1, 0, +1}`.
 
         Parameters
         ----------
-        state : AtariState
+        state : Any
             Current environment state.
         action : chex.Array
             int32 — ALE action index.
@@ -60,8 +57,8 @@ class ClipReward(Wrapper):
         -------
         obs : chex.Array
             Observation from the inner step.
-        new_state : AtariState
-            Updated wrapper state.
+        new_state : Any
+            Updated environment state.
         reward : chex.Array
             float32 — Reward clipped to sign: `{−1.0, 0.0, +1.0}`.
         done : chex.Array

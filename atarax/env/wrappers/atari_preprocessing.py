@@ -18,9 +18,9 @@ from typing import TYPE_CHECKING, Any, Dict, Tuple
 import chex
 
 if TYPE_CHECKING:
-    from atarax.env.atari_env import AtariEnv
     from atarax.env.wrappers.record_episode_statistics import EpisodeStatisticsState
 
+from atarax.env._base import Env
 from atarax.env.wrappers.base import Wrapper
 from atarax.env.wrappers.clip_reward import ClipReward
 from atarax.env.wrappers.episodic_life import EpisodicLife
@@ -48,7 +48,7 @@ class AtariPreprocessing(Wrapper):
 
     Parameters
     ----------
-    env : AtariEnv | Wrapper
+    env : Env
         Base environment to wrap.
     h : int (optional)
         Output frame height after resize. Default is `84`.
@@ -59,13 +59,13 @@ class AtariPreprocessing(Wrapper):
 
     Examples
     --------
-    >>> env = AtariPreprocessing(AtariEnv("breakout"))
+    >>> env = AtariPreprocessing(make("breakout"))
     >>> obs, state = env.reset(key)   # obs: uint8[84, 84, 4]
     """
 
     def __init__(
         self,
-        env: "AtariEnv | Wrapper",
+        env: Env,
         *,
         h: int = 84,
         w: int = 84,
@@ -121,7 +121,7 @@ class AtariPreprocessing(Wrapper):
         done : chex.Array
             True on life loss or game over.
         info : dict
-            Includes `"real_done"`, `"lives"`, `"episode_frame"`, and
+            Includes `"real_done"`, `"lives"`, `"episode_step"`, and
             `"episode": {"r": float32, "l": int32}`.
         """
         return self._env.step(state, action)

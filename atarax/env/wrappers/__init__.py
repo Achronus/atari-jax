@@ -17,6 +17,7 @@
 
 from atarax.env.wrappers.atari_preprocessing import AtariPreprocessing
 from atarax.env.wrappers.base import Wrapper
+from atarax.env.wrappers.jit_wrapper import JitWrapper
 from atarax.env.wrappers.clip_reward import ClipReward
 from atarax.env.wrappers.discount import EpisodeDiscount
 from atarax.env.wrappers.expand_dims import ExpandDims
@@ -34,6 +35,7 @@ from atarax.env.wrappers.utils import to_gray
 __all__ = [
     "AtariPreprocessing",
     "ClipReward",
+    "JitWrapper",
     "EpisodeDiscount",
     "ExpandDims",
     "EpisodicLife",

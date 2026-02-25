@@ -13,14 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-from typing import TYPE_CHECKING, Any, Dict, Tuple
+from typing import Any, Dict, Tuple
 
 import chex
 
-if TYPE_CHECKING:
-    from atarax.env.atari_env import AtariEnv
-
-from atarax.core.state import AtariState
+from atarax.env._base import Env
 from atarax.env.spaces import Box
 from atarax.env.wrappers.base import Wrapper
 from atarax.env.wrappers.utils import resize
@@ -36,7 +33,7 @@ class ResizeObservation(Wrapper):
 
     Parameters
     ----------
-    env : AtariEnv | Wrapper
+    env : Env | Wrapper
         Inner environment returning 2-D grayscale observations.
     h : int (optional)
         Output height in pixels. Default is `84`.
@@ -44,13 +41,13 @@ class ResizeObservation(Wrapper):
         Output width in pixels. Default is `84`.
     """
 
-    def __init__(self, env: "AtariEnv | Wrapper", *, h: int = 84, w: int = 84) -> None:
+    def __init__(self, env: Env, *, h: int = 84, w: int = 84) -> None:
         super().__init__(env)
 
         self._h = h
         self._w = w
 
-    def reset(self, key: chex.Array) -> Tuple[chex.Array, AtariState]:
+    def reset(self, key: chex.Array) -> Tuple[chex.Array, Any]:
         """
         Reset the inner environment and resize the observation.
 
@@ -63,8 +60,8 @@ class ResizeObservation(Wrapper):
         -------
         obs : chex.Array
             uint8[h, w] — Resized grayscale observation.
-        state : AtariState
-            Inner machine state.
+        state : Any
+            Inner environment state.
         """
         obs, state = self._env.reset(key)
         return resize(obs, self._h, self._w), state
@@ -73,14 +70,14 @@ class ResizeObservation(Wrapper):
         self,
         state,
         action: chex.Array,
-    ) -> Tuple[chex.Array, AtariState, chex.Array, chex.Array, Dict[str, Any]]:
+    ) -> Tuple[chex.Array, Any, chex.Array, chex.Array, Dict[str, Any]]:
         """
         Step the inner environment and resize the observation.
 
         Parameters
         ----------
-        state : AtariState
-            Current machine state.
+        state : Any
+            Current environment state.
         action : chex.Array
             int32 — ALE action index.
 
@@ -88,8 +85,8 @@ class ResizeObservation(Wrapper):
         -------
         obs : chex.Array
             uint8[h, w] — Resized grayscale observation.
-        new_state : AtariState
-            Updated machine state.
+        new_state : Any
+            Updated environment state.
         reward : chex.Array
             float32 — Reward from the inner step.
         done : chex.Array

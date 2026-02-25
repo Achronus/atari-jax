@@ -13,14 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
-from typing import TYPE_CHECKING, Any, Dict, Tuple
+from typing import Any, Dict, Tuple
 
 import chex
 
-if TYPE_CHECKING:
-    from atarax.env.atari_env import AtariEnv
-
-from atarax.core.state import AtariState
+from atarax.env._base import Env
 from atarax.env.spaces import Box
 from atarax.env.wrappers.base import Wrapper
 from atarax.env.wrappers.utils import to_gray
@@ -35,14 +32,14 @@ class GrayscaleObservation(Wrapper):
 
     Parameters
     ----------
-    env : AtariEnv | Wrapper
+    env : Env
         Inner environment to wrap.
     """
 
-    def __init__(self, env: "AtariEnv | Wrapper") -> None:
+    def __init__(self, env: Env) -> None:
         super().__init__(env)
 
-    def reset(self, key: chex.Array) -> Tuple[chex.Array, AtariState]:
+    def reset(self, key: chex.Array) -> Tuple[chex.Array, Any]:
         """
         Reset the inner environment and convert the observation to grayscale.
 
@@ -55,8 +52,8 @@ class GrayscaleObservation(Wrapper):
         -------
         obs : chex.Array
             uint8[H, W] — Grayscale observation.
-        state : AtariState
-            Inner machine state.
+        state : Any
+            Inner environment state.
         """
         obs, state = self._env.reset(key)
         return to_gray(obs), state
@@ -65,14 +62,14 @@ class GrayscaleObservation(Wrapper):
         self,
         state,
         action: chex.Array,
-    ) -> Tuple[chex.Array, AtariState, chex.Array, chex.Array, Dict[str, Any]]:
+    ) -> Tuple[chex.Array, Any, chex.Array, chex.Array, Dict[str, Any]]:
         """
         Step the inner environment and convert the observation to grayscale.
 
         Parameters
         ----------
-        state : AtariState
-            Current machine state.
+        state : Any
+            Current environment state.
         action : chex.Array
             int32 — ALE action index.
 
@@ -80,8 +77,8 @@ class GrayscaleObservation(Wrapper):
         -------
         obs : chex.Array
             uint8[H, W] — Grayscale observation.
-        new_state : AtariState
-            Updated machine state.
+        new_state : Any
+            Updated environment state.
         reward : chex.Array
             float32 — Reward from the inner step.
         done : chex.Array

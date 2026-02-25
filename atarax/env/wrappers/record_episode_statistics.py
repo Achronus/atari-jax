@@ -13,14 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 
-from typing import TYPE_CHECKING, Any, Dict, Tuple
+from typing import Any, Dict, Tuple
 
 import chex
 import jax.numpy as jnp
 
-if TYPE_CHECKING:
-    from atarax.env.atari_env import AtariEnv
-
+from atarax.env._base import Env
 from atarax.env.wrappers.base import Wrapper
 
 
@@ -54,18 +52,18 @@ class RecordEpisodeStatistics(Wrapper):
 
     Parameters
     ----------
-    env : AtariEnv | Wrapper
+    env : Env | Wrapper
         Environment to wrap.
 
     Examples
     --------
-    >>> env = RecordEpisodeStatistics(make("atari/breakout-v0"))
+    >>> env = RecordEpisodeStatistics(make("breakout"))
     >>> obs, state = env.reset(key)
     >>> obs, state, reward, done, info = env.step(state, action)
     >>> info["episode"]   # {"r": 0.0, "l": 0} while running; non-zero at done
     """
 
-    def __init__(self, env: "AtariEnv | Wrapper") -> None:
+    def __init__(self, env: Env) -> None:
         super().__init__(env)
 
     def reset(self, key: chex.Array) -> Tuple[chex.Array, EpisodeStatisticsState]:

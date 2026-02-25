@@ -13,16 +13,13 @@
 # limitations under the License.
 # ==============================================================================
 
-from typing import TYPE_CHECKING, Any, Dict, Tuple
+from typing import Any, Dict, Tuple
 
 import chex
 import jax
 import jax.numpy as jnp
 
-if TYPE_CHECKING:
-    from atarax.env.atari_env import AtariEnv
-
-from atarax.core.state import AtariState
+from atarax.env._base import Env
 from atarax.env.spaces import Box
 from atarax.env.wrappers.base import Wrapper
 
@@ -34,14 +31,14 @@ class FrameStackState:
 
     Parameters
     ----------
-    env_state : AtariState
-        Underlying machine state (may itself be a wrapped state).
+    env_state : Any
+        Underlying environment state (may itself be a wrapped state).
     obs_stack : jax.Array
         uint8[H, W, n_stack] — Ring buffer of the last `n_stack` processed
         observations, oldest frame at channel index 0.
     """
 
-    env_state: AtariState
+    env_state: Any
     obs_stack: jax.Array
 
 
@@ -53,17 +50,17 @@ class FrameStackObservation(Wrapper):
     The stacked observation has shape `uint8[H, W, n_stack]`.
 
     State is carried in `FrameStackState` (a `chex.dataclass` pytree), which
-    is passed to / returned from `reset` and `step` in place of `AtariState`.
+    is passed to / returned from `reset` and `step`.
 
     Parameters
     ----------
-    env : AtariEnv | Wrapper
+    env : Env
         Inner environment returning 2-D observations.
     n_stack : int (optional)
         Number of frames to stack. Default is `4`.
     """
 
-    def __init__(self, env: "AtariEnv | Wrapper", *, n_stack: int = 4) -> None:
+    def __init__(self, env: Env, *, n_stack: int = 4) -> None:
         super().__init__(env)
 
         self._n_stack = n_stack

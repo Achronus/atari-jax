@@ -18,8 +18,7 @@ from typing import Any, Dict, Self, Tuple, overload
 
 import chex
 
-from atarax.core.state import AtariState
-from atarax.env.env import Env
+from atarax.env._base import Env
 from atarax.env.spaces import Box, Discrete
 
 
@@ -113,7 +112,7 @@ class Wrapper(Env):
         return f"{self.__class__.__name__}<{self._env!r}>"
 
     @abstractmethod
-    def reset(self, key: chex.Array) -> Tuple[chex.Array, AtariState]:
+    def reset(self, key: chex.Array) -> Tuple[chex.Array, Any]:
         """
         Reset the environment and return the initial observation and state.
 
@@ -126,15 +125,15 @@ class Wrapper(Env):
         -------
         obs : chex.Array
             uint8[210, 160, 3] — First RGB observation.
-        state : AtariState
-            Initial machine state after reset and no-ops.
+        state : Any
+            Initial environment state after reset.
         """
         raise NotImplementedError()
 
     @abstractmethod
     def step(
         self, state, action: chex.Array
-    ) -> Tuple[chex.Array, AtariState, chex.Array, chex.Array, Dict[str, Any]]:
+    ) -> Tuple[chex.Array, Any, chex.Array, chex.Array, Dict[str, Any]]:
         """
         Advance the environment by one step.
 
@@ -149,14 +148,14 @@ class Wrapper(Env):
         -------
         obs : chex.Array
             `uint8[210, 160, 3]` — Observation after the step
-        new_state : AtariState
-            Updated machine state
+        new_state : Any
+            Updated environment state
         reward : chex.Array
             float32 — Total reward accumulated over skipped frames
         done : chex.Array
             bool — `True` when the episode has ended
         info : Dict[str, Any]
-            `{"lives": int32, "episode_frame": int32, "truncated": bool}`
+            `{"lives": int32, "episode_step": int32, "truncated": bool}`
         """
         raise NotImplementedError()
 

@@ -20,6 +20,7 @@ from typing import Any, Dict, Tuple
 import chex
 import jax.numpy as jnp
 
+from atarax.env._base import Env
 from atarax.env.wrappers.base import Wrapper
 
 
@@ -44,7 +45,15 @@ class ExpandDims(Wrapper):
     Note: actions are inputs to `step()`, not outputs, so they are not
     affected by this wrapper.  Unsqueeze action tensors in the training
     loop if needed (e.g. `actions[..., None]`).
+
+    Parameters
+    ----------
+    env : Env
+        Inner environment to wrap.
     """
+
+    def __init__(self, env: Env) -> None:
+        super().__init__(env)
 
     def reset(self, key: chex.Array) -> Tuple[chex.Array, Any]:
         """
@@ -93,4 +102,10 @@ class ExpandDims(Wrapper):
             Auxiliary info dict (unchanged).
         """
         obs, new_state, reward, done, info = self._env.step(state, action)
-        return obs, new_state, jnp.expand_dims(reward, -1), jnp.expand_dims(done, -1), info
+        return (
+            obs,
+            new_state,
+            jnp.expand_dims(reward, -1),
+            jnp.expand_dims(done, -1),
+            info,
+        )

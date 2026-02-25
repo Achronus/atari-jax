@@ -13,15 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 
-from typing import TYPE_CHECKING, Any, Dict, Tuple
+from typing import Any, Dict, Tuple
 
 import chex
 import jax.numpy as jnp
 
-if TYPE_CHECKING:
-    from atarax.env.atari_env import AtariEnv
-
-from atarax.core.state import AtariState
+from atarax.env._base import Env
 from atarax.env.wrappers.base import Wrapper
 
 
@@ -32,8 +29,8 @@ class EpisodicLifeState:
 
     Parameters
     ----------
-    env_state : AtariState
-        Underlying machine state (may itself be a wrapped state).
+    env_state : Any
+        Underlying environment state (may itself be a wrapped state).
     prev_lives : chex.Array
         int32 — Lives count at the end of the previous step (or at `reset`);
         compared against `info["lives"]` each step to detect a life loss.
@@ -41,7 +38,7 @@ class EpisodicLifeState:
         bool — `True` when the game itself (not just a life) is over.
     """
 
-    env_state: AtariState
+    env_state: Any
     prev_lives: chex.Array
     real_done: chex.Array
 
@@ -56,12 +53,11 @@ class EpisodicLife(Wrapper):
 
     Parameters
     ----------
-    env : AtariEnv | Wrapper
-        Inner environment. Its `step` must return `info["lives"]` (int32),
-        and its `reset` state chain must terminate at an `AtariState`.
+    env : Env
+        Inner environment. Its `step` must return `info["lives"]` (int32).
     """
 
-    def __init__(self, env: "AtariEnv | Wrapper") -> None:
+    def __init__(self, env: Env) -> None:
         super().__init__(env)
 
     def reset(self, key: chex.Array) -> Tuple[chex.Array, EpisodicLifeState]:
@@ -79,7 +75,7 @@ class EpisodicLife(Wrapper):
             First observation from the inner reset.
         state : EpisodicLifeState
             Wrapper state with `real_done=False` and `prev_lives` initialized
-            from the base `AtariState` at the bottom of the state chain.
+            from the base state at the bottom of the state chain.
         """
         obs, env_state = self._env.reset(key)
         base = env_state

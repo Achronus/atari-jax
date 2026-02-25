@@ -13,15 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 
-from typing import TYPE_CHECKING, Any, Dict, Tuple
+from typing import Any, Dict, Tuple
 
 import chex
 import jax.numpy as jnp
 
-if TYPE_CHECKING:
-    from atarax.env.atari_env import AtariEnv
-
-from atarax.core.state import AtariState
+from atarax.env._base import Env
 from atarax.env.spaces import Box
 from atarax.env.wrappers.base import Wrapper
 
@@ -35,19 +32,19 @@ class NormalizeObservation(Wrapper):
 
     Parameters
     ----------
-    env : AtariEnv | Wrapper
+    env : Env | Wrapper
         Environment to wrap.
 
     Examples
     --------
-    >>> env = NormalizeObservation(make("atari/breakout-v0"))
+    >>> env = NormalizeObservation(make("breakout"))
     >>> obs, state = env.reset(key)   # obs: float32[210, 160, 3] in [0, 1]
     """
 
-    def __init__(self, env: "AtariEnv | Wrapper") -> None:
+    def __init__(self, env: Env) -> None:
         super().__init__(env)
 
-    def reset(self, key: chex.Array) -> Tuple[chex.Array, AtariState]:
+    def reset(self, key: chex.Array) -> Tuple[chex.Array, Any]:
         """
         Reset and return a normalised initial observation.
 
@@ -60,7 +57,7 @@ class NormalizeObservation(Wrapper):
         -------
         obs : chex.Array
             Normalised observation, float32 in [0, 1].
-        state : AtariState
+        state : Any
             Inner environment state.
         """
         obs, state = self._env.reset(key)
