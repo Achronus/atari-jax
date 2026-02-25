@@ -157,18 +157,13 @@ obs, state = env.reset(key)
 render(obs)                                  # 320×420 window (scale=2 default)
 render(obs, scale=4, caption="Breakout")
 
-# Play a game interactively (keyboard control, native 210×160 RGB)
-play("atari/breakout-v0")                    # scale=3 default → 480×630 window
-play("atari/breakout-v0", scale=2, fps=30)
+# Play a game interactively
+play("atari/breakout-v0")
 ```
 
-Keyboard controls for `play()`:
-
-| Key | Action |
-| --- | --- |
-| Arrow keys / `W A S D` | Movement |
-| `Space` | Fire |
-| `Esc` / close window | Quit |
+`Esc` or closing the window always quits. Per-game action tables, reward
+details, and keyboard controls are documented in
+[docs/environments/](docs/environments/).
 
 ## Wrappers
 

@@ -66,14 +66,16 @@ def play(
     game_id: str,
     *,
     scale: int = 3,
-    fps: int = 60,
+    fps: int = 15,
 ) -> None:
     """
-    Play a game interactively in a pygame window using the JAX implementation.
+    Play a game interactively in a pygame window.
 
-    Close the window or press `Esc` to quit.
+    Delegates to `AtariEnv.play()` on the game resolved from `game_id`.
+    Keyboard controls vary by game; see the game's `_key_map` method
+    or documentation page.
 
-    Requires `pygame`.
+    Requires `pygame` (`pip install pygame`).
 
     Parameters
     ----------
@@ -81,82 +83,15 @@ def play(
         Environment ID in Gymnasium format, e.g. `"atari/breakout-v0"`
         (case-insensitive for engine and game name).
     scale : int (optional)
-        Integer upscale factor applied to the native 160 x 210 screen.
-        Default is `3`, giving a 480 x 630 window.
+        Integer upscale factor applied to the native 160 × 210 screen.
+        Default is `3`, giving a 480 × 630 window.
     fps : int (optional)
-        Target frames per second for the game loop. Default is `60`.
-
-    Notes
-    -----
-    Keyboard controls:
-
-    - Arrow keys / `W A S D` — movement
-    - `Space` — fire
-    - `Esc` / close window — quit
+        Target agent steps per second.  Default is `15`, matching the
+        ALE 60 Hz display rate at 4× frame skip.
     """
-    try:
-        import pygame
-    except ImportError as exc:
-        raise ImportError(
-            "pygame is required for interactive play. "
-            "Install it with: pip install pygame"
-        ) from exc
-
-    import jax
-    import jax.numpy as jnp
-
     from atarax.env.spec import EnvSpec
     from atarax.games.registry import get_game
 
     spec = EnvSpec.parse(game_id)
-    game = get_game(spec.env_name)
-    key = jax.random.PRNGKey(42)
-    state = game.reset(key)
-
-    pygame.init()
-    display = pygame.display.set_mode((160 * scale, 210 * scale))
-    pygame.display.set_caption(f"atari-jax \u2014 {game_id}")
-    clock = pygame.time.Clock()
-
-    key_map = {
-        pygame.K_UP: 2,
-        pygame.K_w: 2,
-        pygame.K_RIGHT: 3,
-        pygame.K_d: 3,
-        pygame.K_LEFT: 4,
-        pygame.K_a: 4,
-        pygame.K_DOWN: 5,
-        pygame.K_s: 5,
-        pygame.K_SPACE: 1,
-    }
-
-    step_fn = jax.jit(game.step)
-    render_fn = jax.jit(game.render)
-
-    running = True
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                running = False
-
-        keys = pygame.key.get_pressed()
-        action = next((a for k, a in key_map.items() if keys[k]), 0)
-        action_arr = jnp.int32(action)
-
-        state = step_fn(state, action_arr)
-
-        if bool(state.done):
-            key, subkey = jax.random.split(state.key)
-            state = game.reset(subkey)
-
-        frame_np = np.asarray(render_fn(state))  # uint8[210, 160, 3]
-        surf = pygame.surfarray.make_surface(frame_np.transpose(1, 0, 2))
-        scaled = pygame.transform.scale(surf, (160 * scale, 210 * scale))
-        display.blit(scaled, (0, 0))
-        pygame.display.flip()
-
-        clock.tick(fps)
-
-    pygame.quit()
+    game = get_game(spec.env_name)()
+    game.play(scale=scale, fps=fps)

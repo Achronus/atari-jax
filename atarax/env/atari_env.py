@@ -302,5 +302,92 @@ class AtariEnv(Env):
         """Return `self` — `AtariEnv` is the innermost env."""
         return self
 
+    def _key_map(self) -> Dict[int, int]:
+        """
+        Return the key-to-action mapping for interactive play.
+
+        Override in subclasses to provide game-specific bindings.  The
+        default returns an empty mapping (all key presses produce NOOP).
+
+        Returns
+        -------
+        key_map : Dict[int, int]
+            Mapping of pygame key constants to action indices.
+        """
+        return {}
+
+    def play(self, *, scale: int = 3, fps: int = 15) -> None:
+        """
+        Play the game interactively in a pygame window.
+
+        Keyboard controls are defined by `_key_map`.  Override `_key_map`
+        in subclasses to provide game-specific bindings.  Pressing `Esc`
+        or closing the window exits the loop.
+
+        Requires `pygame` (`pip install pygame`).
+
+        Parameters
+        ----------
+        scale : int (optional)
+            Integer upscale factor applied to the native 160 × 210 screen.
+            Default is `3`, giving a 480 × 630 window.
+        fps : int (optional)
+            Target agent steps per second.  Default is `15`, matching the
+            ALE 60 Hz display rate at 4× frame skip.
+        """
+        try:
+            import pygame
+        except ImportError as exc:
+            raise ImportError(
+                "pygame is required for interactive play. "
+                "Install it with: pip install pygame"
+            ) from exc
+
+        import numpy as np
+
+        reset_fn = jax.jit(self.reset)
+        step_fn = jax.jit(self.step)
+
+        key = jax.random.PRNGKey(42)
+        obs, state = reset_fn(key)
+
+        # Warm up XLA compilation before the game loop
+        _wu, *_ = step_fn(state, jnp.int32(0))
+        _wu.block_until_ready()
+
+        pygame.init()
+        display = pygame.display.set_mode((160 * scale, 210 * scale))
+        pygame.display.set_caption(
+            f"atari-jax \u2014 {self.__class__.__name__.lower()}"
+        )
+        clock = pygame.time.Clock()
+        key_map = self._key_map()
+
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    running = False
+
+            keys = pygame.key.get_pressed()
+            action = next((a for k, a in key_map.items() if keys[k]), 0)
+
+            obs, state, _, done, _ = step_fn(state, jnp.int32(action))
+
+            if bool(done):
+                key, subkey = jax.random.split(key)
+                obs, state = reset_fn(subkey)
+
+            frame_np = np.asarray(obs)  # uint8[210, 160, 3]
+            surf = pygame.surfarray.make_surface(frame_np.transpose(1, 0, 2))
+            scaled = pygame.transform.scale(surf, (160 * scale, 210 * scale))
+            display.blit(scaled, (0, 0))
+            pygame.display.flip()
+            clock.tick(fps)
+
+        pygame.quit()
+
     def __repr__(self) -> str:
         return f"AtariEnv<{self.__class__.__name__.lower()}>"

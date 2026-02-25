@@ -393,8 +393,7 @@ class Breakout(AtariEnv):
             & (_ROW_IDX < by + _BALL_SIZE)
             & (_COL_IDX >= bx)
             & (_COL_IDX < bx + _BALL_SIZE)
-            & state.ball_active
-        )  # bool[210, 160]
+        )  # bool[210, 160] — position is always valid; show ball even when awaiting serve
         frame = jnp.where(ball_mask[:, :, None], jnp.uint8(255), frame)
 
         # --- Paddle ---
@@ -408,3 +407,23 @@ class Breakout(AtariEnv):
         frame = jnp.where(paddle_mask[:, :, None], jnp.uint8(200), frame)
 
         return frame
+
+    def _key_map(self) -> dict:
+        """
+        Return the key-to-action mapping for interactive play.
+
+        Returns
+        -------
+        key_map : dict
+            Mapping of pygame key constants to Breakout action indices.
+            Actions: 0=NOOP, 1=FIRE, 2=RIGHT, 3=LEFT.
+        """
+        import pygame
+
+        return {
+            pygame.K_SPACE: 1,
+            pygame.K_RIGHT: 2,
+            pygame.K_d: 2,
+            pygame.K_LEFT: 3,
+            pygame.K_a: 3,
+        }
