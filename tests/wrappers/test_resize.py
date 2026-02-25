@@ -13,25 +13,17 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Tests for ResizeObservation and the preprocess() utility."""
+"""Tests for ResizeObservation."""
 
 import chex
 import jax
 import jax.numpy as jnp
 
 from atarax.env.wrappers import GrayscaleObservation, ResizeObservation
-from atarax.utils.preprocess import preprocess
 
 _key = jax.random.PRNGKey(0)
 _action = jnp.int32(0)
 _H, _W = 20, 20
-
-
-def test_preprocess_output_shape():
-    frame = jnp.zeros((210, 160, 3), dtype=jnp.uint8)
-    obs = preprocess(frame)
-    chex.assert_shape(obs, (84, 84))
-    chex.assert_type(obs, jnp.uint8)
 
 
 def test_reset_obs_shape(fake_env):

@@ -15,51 +15,60 @@
 
 """pytest session configuration and shared fixtures.
 
-Enables the JAX persistent XLA compilation cache so that expensive JIT
-compilations (e.g. the full emulator reset/step graph) are written to disk
-on the first run and reused on all subsequent runs.
-
-FakeEnv is a ROM-free environment that mirrors the AtariEnv/Wrapper
-interface; it is available to all test subdirectories.
+FakeEnv is a dependency-free environment that mirrors the Env/Wrapper interface;
+it is available to all test subdirectories.
 """
 
-import os
-
+import chex
 import jax
 import jax.numpy as jnp
 import pytest
 
-from atarax.core.state import new_atari_state
-from atarax.env._compile import setup_cache
 from atarax.env.spaces import Box, Discrete
 
 
-def pytest_configure(config):
-    cache_dir = os.path.join(os.path.dirname(__file__), ".jax-cache")
-    setup_cache(cache_dir)
+@chex.dataclass
+class FakeState:
+    """Minimal pytree state for use in wrapper tests."""
+
+    lives: chex.Array          # int32
+    episode_step: chex.Array   # int32
+    reward: chex.Array         # float32
+    terminal: chex.Array       # bool
+
+
+def _make_fake_state() -> FakeState:
+    return FakeState(
+        lives=jnp.int32(3),
+        episode_step=jnp.int32(0),
+        reward=jnp.float32(0.0),
+        terminal=jnp.bool_(False),
+    )
 
 
 class FakeEnv:
-    """Minimal ROM-free env that mirrors the AtariEnv/Wrapper interface."""
+    """Minimal env that mirrors the Env/Wrapper interface for wrapper tests."""
 
     def reset(self, key):
-        state = new_atari_state()
-        return state.screen, state
+        state = _make_fake_state()
+        obs = jnp.zeros((210, 160, 3), dtype=jnp.uint8)
+        return obs, state
 
     def step(self, state, action):
         new_state = state.__replace__(
-            episode_frame=(state.episode_frame + jnp.int32(1)).astype(jnp.int32),
+            episode_step=(state.episode_step + jnp.int32(1)).astype(jnp.int32),
             reward=jnp.float32(1.0),
             terminal=jnp.bool_(False),
             lives=jnp.int32(3),
         )
         done = jnp.bool_(False)
+        obs = jnp.zeros((210, 160, 3), dtype=jnp.uint8)
         info = {
             "lives": new_state.lives,
-            "episode_frame": new_state.episode_frame,
+            "episode_step": new_state.episode_step,
             "truncated": jnp.bool_(False),
         }
-        return new_state.screen, new_state, new_state.reward, done, info
+        return obs, new_state, new_state.reward, done, info
 
     def sample(self, key):
         return jax.random.randint(key, shape=(), minval=0, maxval=18, dtype=jnp.int32)

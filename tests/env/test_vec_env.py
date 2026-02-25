@@ -15,8 +15,6 @@
 
 """Unit tests for VecEnv.
 
-ROM-backed: requires ale-py to load game ROMs.
-
 Run with:
     pytest tests/env/test_vec_env.py -v
 """
@@ -38,7 +36,7 @@ def test_vec_env_rollout_obs_shape():
     _, states = vec_env.reset(_key)
     actions = jnp.zeros((_N_ENVS, _N_STEPS), dtype=jnp.int32)
     _, (obs, reward, done, _info) = vec_env.rollout(states, actions)
-    chex.assert_shape(obs, (_N_STEPS, _N_ENVS, 210, 160, 3))
+    chex.assert_shape(obs, (_N_ENVS, _N_STEPS, 210, 160, 3))
 
 
 def test_vec_env_rollout_reward_shape():
@@ -46,7 +44,7 @@ def test_vec_env_rollout_reward_shape():
     _, states = vec_env.reset(_key)
     actions = jnp.zeros((_N_ENVS, _N_STEPS), dtype=jnp.int32)
     _, (obs, reward, done, _info) = vec_env.rollout(states, actions)
-    chex.assert_shape(reward, (_N_STEPS, _N_ENVS))
+    chex.assert_shape(reward, (_N_ENVS, _N_STEPS))
     chex.assert_type(reward, jnp.float32)
 
 
@@ -55,7 +53,7 @@ def test_vec_env_rollout_done_shape():
     _, states = vec_env.reset(_key)
     actions = jnp.zeros((_N_ENVS, _N_STEPS), dtype=jnp.int32)
     _, (obs, reward, done, _info) = vec_env.rollout(states, actions)
-    chex.assert_shape(done, (_N_STEPS, _N_ENVS))
+    chex.assert_shape(done, (_N_ENVS, _N_STEPS))
 
 
 def test_vec_env_sample_shape():

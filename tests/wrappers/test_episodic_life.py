@@ -52,7 +52,7 @@ def test_life_loss_signals_terminal(fake_env_class):
         def step(self, state, action):
             obs, ns, reward, _, info = super().step(state, action)
             ns = ns.__replace__(lives=ns.lives - jnp.int32(1))
-            info = {"lives": ns.lives, "episode_frame": ns.episode_frame}
+            info = {"lives": ns.lives, "episode_step": ns.episode_step}
             return obs, ns, reward, jnp.bool_(False), info
 
     env = EpisodicLife(_LifeLossEnv())
@@ -74,7 +74,7 @@ def test_game_over_signals_both(fake_env_class):
         def step(self, state, action):
             obs, ns, reward, _, info = super().step(state, action)
             ns = ns.__replace__(lives=jnp.int32(0))
-            info = {"lives": ns.lives, "episode_frame": ns.episode_frame}
+            info = {"lives": ns.lives, "episode_step": ns.episode_step}
             return obs, ns, reward, jnp.bool_(True), info
 
     env = EpisodicLife(_GameOverEnv())

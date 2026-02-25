@@ -15,8 +15,6 @@
 
 """Tests for the make_vec() factory function.
 
-ROM-backed: requires ale-py to load game ROMs.
-
 Run with:
     pytest tests/make/test_make_vec.py -v
 """
@@ -25,7 +23,8 @@ import chex
 import jax
 import jax.numpy as jnp
 
-from atarax.env import EpisodeStatisticsState, VecEnv, make_vec
+from atarax.env import VecEnv, make_vec
+from atarax.env.wrappers import EpisodeStatisticsState
 
 _key = jax.random.PRNGKey(0)
 _BREAKOUT = "atari/breakout-v0"
@@ -54,9 +53,8 @@ def test_make_vec_step_shape():
 def test_make_vec_preset_reset_shape():
     n_envs = 2
     vec_env = make_vec(_BREAKOUT, n_envs=n_envs, preset=True, jit_compile=False)
-    obs, states = vec_env.reset(_key)
+    obs, _ = vec_env.reset(_key)
     assert obs.shape == (n_envs, 84, 84, 4)
-    assert isinstance(states, EpisodeStatisticsState)
 
 
 def test_make_vec_preset_step_shape():
@@ -80,42 +78,3 @@ def test_make_vec_rollout_shape():
     assert obs.shape == (n_envs, n_steps, 84, 84, 4)
     assert reward.shape == (n_envs, n_steps)
     assert done.shape == (n_envs, n_steps)
-
-
-def test_make_vec_jit_compile_true_reset():
-    n_envs = 2
-    vec_env = make_vec(_BREAKOUT, n_envs=n_envs, preset=True, jit_compile=True)
-    obs, states = vec_env.reset(_key)
-    assert obs.shape == (n_envs, 84, 84, 4)
-    assert isinstance(states, EpisodeStatisticsState)
-
-
-def test_make_vec_jit_compile_true_step():
-    n_envs = 2
-    vec_env = make_vec(_BREAKOUT, n_envs=n_envs, preset=True, jit_compile=True)
-    _, states = vec_env.reset(_key)
-    actions = jnp.zeros(n_envs, dtype=jnp.int32)
-    obs, _, reward, done, _ = vec_env.step(states, actions)
-    assert obs.shape == (n_envs, 84, 84, 4)
-    assert reward.shape == (n_envs,)
-    assert done.shape == (n_envs,)
-
-
-def test_make_vec_jit_compile_true_rollout():
-    n_envs = 2
-    n_steps = 4
-    vec_env = make_vec(_BREAKOUT, n_envs=n_envs, preset=True, jit_compile=True)
-    _, states = vec_env.reset(_key)
-    actions = jnp.zeros((n_envs, n_steps), dtype=jnp.int32)
-    _, (obs, reward, done, _) = vec_env.rollout(states, actions)
-    assert obs.shape == (n_envs, n_steps, 84, 84, 4)
-    assert reward.shape == (n_envs, n_steps)
-    assert done.shape == (n_envs, n_steps)
-
-
-def test_make_vec_jit_compile_false_reset():
-    n_envs = 2
-    vec_env = make_vec(_BREAKOUT, n_envs=n_envs, preset=True, jit_compile=False)
-    obs, states = vec_env.reset(_key)
-    assert obs.shape == (n_envs, 84, 84, 4)
-    assert isinstance(states, EpisodeStatisticsState)

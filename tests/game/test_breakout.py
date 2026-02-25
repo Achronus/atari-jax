@@ -13,86 +13,125 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Unit tests for atarax.games.roms.breakout — score and terminal logic.
+"""Unit tests for atarax.games.breakout — BreakoutState and game logic.
 
 Run with:
     pytest tests/game/test_breakout.py -v
 """
 
 import chex
+import jax
 import jax.numpy as jnp
 
-from atarax.games.roms.breakout import LIVES_ADDR, SCORE_X, SCORE_Y, Breakout
+from atarax.games._base import AtariState
+from atarax.games.breakout import Breakout, BreakoutState
+
+_key = jax.random.PRNGKey(0)
 
 game = Breakout()
 
 
-def _ram(overrides=None):
-    """Return a zeroed 128-byte RAM array with optional `{index: value}` overrides."""
-    data = jnp.zeros(128, dtype=jnp.uint8)
-    if overrides:
-        for idx, val in overrides.items():
-            data = data.at[idx].set(jnp.uint8(val))
-    return data
+def test_reset_returns_breakout_state():
+    _, state = game.reset(_key)
+    assert isinstance(state, BreakoutState)
+    assert isinstance(state, AtariState)
 
 
-def test_get_score_zero():
-    ram = _ram()
-    score = game.get_score(ram)
-    chex.assert_rank(score, 0)
-    chex.assert_type(score, jnp.int32)
-    assert int(score) == 0
+def test_reset_bricks_shape():
+    _, state = game.reset(_key)
+    chex.assert_shape(state.bricks, (6, 18))
 
 
-def test_get_score_ones():
-    # SCORE_X ones nibble: 0x01 → 1 point
-    ram = _ram({SCORE_X: 0x01})
-    score = game.get_score(ram)
-    chex.assert_rank(score, 0)
-    chex.assert_type(score, jnp.int32)
-    assert int(score) == 1
+def test_reset_all_bricks_active():
+    _, state = game.reset(_key)
+    assert bool(jnp.all(state.bricks))
 
 
-def test_get_score_ones_tens():
-    # SCORE_X = 0x10 → tens=1, ones=0 → 10 points
-    ram = _ram({SCORE_X: 0x10})
-    assert int(game.get_score(ram)) == 10
+def test_reset_lives():
+    _, state = game.reset(_key)
+    chex.assert_rank(state.lives, 0)
+    assert int(state.lives) == 5
 
 
-def test_get_score_hundreds():
-    # SCORE_Y = 0x01 → hundreds=1 → 100 points
-    ram = _ram({SCORE_Y: 0x01})
-    assert int(game.get_score(ram)) == 100
+def test_reset_score_zero():
+    _, state = game.reset(_key)
+    assert int(state.score) == 0
 
 
-def test_get_score_combined():
-    # SCORE_Y=0x01, SCORE_X=0x23 → 100 + 20 + 3 = 123 points
-    ram = _ram({SCORE_Y: 0x01, SCORE_X: 0x23})
-    assert int(game.get_score(ram)) == 123
+def test_reset_done_false():
+    _, state = game.reset(_key)
+    assert not bool(state.done)
 
 
-def test_is_terminal_false_before_start():
-    # lives_prev = 0 → game never started → not terminal even if ram lives = 0
-    ram = _ram({LIVES_ADDR: 0})
-    terminal = game.is_terminal(ram, jnp.int32(0))
-    chex.assert_rank(terminal, 0)
-    chex.assert_type(terminal, bool)
-    assert not bool(terminal)
+def test_reset_reward_zero():
+    _, state = game.reset(_key)
+    assert float(state.reward) == 0.0
 
 
-def test_is_terminal_true():
-    # lives_prev = 5, current lives = 0 → terminal
-    ram = _ram({LIVES_ADDR: 0})
-    assert bool(game.is_terminal(ram, jnp.int32(5)))
+def test_reset_deterministic():
+    _, s1 = game.reset(jax.random.PRNGKey(42))
+    _, s2 = game.reset(jax.random.PRNGKey(42))
+    assert bool(jnp.all(s1.bricks == s2.bricks))
+    assert float(s1.ball_x) == float(s2.ball_x)
+    assert float(s1.paddle_x) == float(s2.paddle_x)
 
 
-def test_is_terminal_false_mid_game():
-    # lives_prev = 3, current lives = 2 → still playing
-    ram = _ram({LIVES_ADDR: 2})
-    assert not bool(game.is_terminal(ram, jnp.int32(3)))
+def test_reset_different_keys_same_bricks():
+    _, s1 = game.reset(jax.random.PRNGKey(0))
+    _, s2 = game.reset(jax.random.PRNGKey(99))
+    assert bool(jnp.all(s1.bricks == s2.bricks))
 
 
-def test_is_terminal_false_when_lives_equal():
-    # lives_prev = 5, current lives = 5 → no change, not terminal
-    ram = _ram({LIVES_ADDR: 5})
-    assert not bool(game.is_terminal(ram, jnp.int32(5)))
+def test_step_returns_breakout_state():
+    _, state = game.reset(_key)
+    _, new_state, _, _, _ = game.step(state, jnp.int32(0))
+    assert isinstance(new_state, BreakoutState)
+
+
+def test_step_reward_type():
+    _, state = game.reset(_key)
+    _, new_state, reward, _, _ = game.step(state, jnp.int32(0))
+    chex.assert_rank(reward, 0)
+    chex.assert_type(reward, jnp.float32)
+
+
+def test_step_done_type():
+    _, state = game.reset(_key)
+    _, _, _, done, _ = game.step(state, jnp.int32(0))
+    chex.assert_rank(done, 0)
+    chex.assert_type(done, jnp.bool_)
+
+
+def test_step_episode_step_increments():
+    _, state = game.reset(_key)
+    _, new_state, _, _, _ = game.step(state, jnp.int32(0))
+    assert int(new_state.episode_step) > int(state.episode_step)
+
+
+def test_render_shape():
+    _, state = game.reset(_key)
+    frame = game.render(state)
+    chex.assert_shape(frame, (210, 160, 3))
+    chex.assert_type(frame, jnp.uint8)
+
+
+def test_vmap_reset():
+    keys = jax.random.split(_key, 8)
+    obs_batch, states = jax.vmap(game.reset)(keys)
+    chex.assert_shape(states.bricks, (8, 6, 18))
+    chex.assert_shape(states.ball_x, (8,))
+
+
+def test_jit_step():
+    _, state = game.reset(_key)
+    step_jit = jax.jit(game.step)
+    _, new_state, _, _, _ = step_jit(state, jnp.int32(0))
+    assert isinstance(new_state, BreakoutState)
+
+
+def test_pytree_flatten():
+    _, state = game.reset(_key)
+    flat, treedef = jax.tree_util.tree_flatten(state)
+    assert len(flat) > 0
+    restored = jax.tree_util.tree_unflatten(treedef, flat)
+    assert bool(jnp.all(restored.bricks == state.bricks))

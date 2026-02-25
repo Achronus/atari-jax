@@ -13,90 +13,92 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Unit tests for the game registry and jax.lax.switch dispatch.
+"""Tests for the game registry: GAMES, GAME_SPECS, GAME_GROUPS, get_game().
 
 Run with:
     pytest tests/game/test_registry.py -v
 """
 
-import chex
-import jax
-import jax.numpy as jnp
+import pytest
 
-from atarax.games import GAME_IDS, get_score, is_terminal
-from atarax.games.registry import _GAMES, SCORE_FNS, TERMINAL_FNS
-
-
-def test_game_ids_contains_breakout():
-    assert "breakout" in GAME_IDS
-    assert GAME_IDS["breakout"] == 12
+from atarax.env.atari_env import AtariEnv
+from atarax.env.spec import EnvSpec
+from atarax.games.registry import GAME_GROUPS, GAME_SPECS, GAMES, get_game
 
 
-def test_games_list_indexed_by_game_id():
-    for spec in _GAMES:
-        assert _GAMES[spec.game_id].ale_name == spec.ale_name
+def test_games_is_dict():
+    assert isinstance(GAMES, dict)
 
 
-def test_registry_has_57_games():
-    assert len(_GAMES) == 57
+def test_games_contains_breakout():
+    assert "breakout" in GAMES
 
 
-def test_score_fns_has_57_entries():
-    assert len(SCORE_FNS) == 57
+def test_games_values_are_atari_env_types():
+    for cls in GAMES.values():
+        assert issubclass(cls, AtariEnv)
 
 
-def test_terminal_fns_has_57_entries():
-    assert len(TERMINAL_FNS) == 57
+def test_game_specs_is_list():
+    assert isinstance(GAME_SPECS, list)
 
 
-def test_game_ids_dict_has_57_entries():
-    assert len(GAME_IDS) == 57
+def test_game_specs_all_env_spec():
+    assert all(isinstance(s, EnvSpec) for s in GAME_SPECS)
 
 
-def test_all_ale_names_unique():
-    names = [spec.ale_name for spec in _GAMES]
-    assert len(names) == len(set(names))
+def test_game_specs_engine_is_atari():
+    assert all(s.engine == "atari" for s in GAME_SPECS)
 
 
-def test_score_fns_are_callable():
-    assert all(callable(fn) for fn in SCORE_FNS)
+def test_game_specs_matches_games_keys():
+    names = {s.env_name for s in GAME_SPECS}
+    assert names == set(GAMES.keys())
 
 
-def test_terminal_fns_are_callable():
-    assert all(callable(fn) for fn in TERMINAL_FNS)
+def test_game_specs_contains_breakout():
+    games = [s.env_name for s in GAME_SPECS]
+    assert "breakout" in games
 
 
-def _zeros_ram() -> chex.Array:
-    return jnp.zeros(128, dtype=jnp.uint8)
+def test_game_groups_is_dict():
+    assert isinstance(GAME_GROUPS, dict)
 
 
-def test_dispatch_get_score_compiles():
-    """get_score dispatch via jax.lax.switch should JIT-compile."""
-    ram = _zeros_ram()
-    game_id = jnp.int32(GAME_IDS["breakout"])
-    result = jax.jit(get_score)(game_id, ram)
-    chex.assert_rank(result, 0)
-    chex.assert_type(result, jnp.int32)
-    assert int(result) == 0
+def test_game_groups_expected_keys():
+    assert {"atari5", "atari10", "atari26", "atari57"} == set(GAME_GROUPS.keys())
 
 
-def test_dispatch_is_terminal_compiles():
-    """is_terminal dispatch via jax.lax.switch should JIT-compile."""
-    ram = _zeros_ram()
-    game_id = jnp.int32(GAME_IDS["breakout"])
-    lives_prev = jnp.int32(0)  # game never started → always non-terminal
-    result = jax.jit(is_terminal)(game_id, ram, lives_prev)
-    chex.assert_rank(result, 0)
-    chex.assert_type(result, bool)
-    assert not bool(result)
+def test_game_groups_values_are_lists_of_env_spec():
+    for group_name, specs in GAME_GROUPS.items():
+        assert isinstance(specs, list), f"{group_name} value is not a list"
+        assert all(isinstance(s, EnvSpec) for s in specs), (
+            f"{group_name} contains non-EnvSpec entries"
+        )
 
 
-def test_dispatch_get_score_vmap():
-    """get_score should be vmappable over a batch of game_ids."""
-    n = 4
-    ram = _zeros_ram()
-    game_ids = jnp.zeros(n, dtype=jnp.int32)
-    rams = jnp.stack([ram] * n)
-    results = jax.vmap(lambda gid, r: get_score(gid, r))(game_ids, rams)
-    chex.assert_shape(results, (n,))
-    chex.assert_type(results, jnp.int32)
+def test_game_groups_sizes():
+    assert len(GAME_GROUPS["atari5"]) == 5
+    assert len(GAME_GROUPS["atari10"]) == 10
+    assert len(GAME_GROUPS["atari26"]) == 26
+    assert len(GAME_GROUPS["atari57"]) == 57
+
+
+def test_game_groups_breakout_in_all():
+    for name, specs in GAME_GROUPS.items():
+        games = [s.env_name for s in specs]
+        assert "breakout" in games, f"breakout missing from {name}"
+
+
+def test_get_game_returns_atari_env_type():
+    cls = get_game("breakout")
+    assert issubclass(cls, AtariEnv)
+
+
+def test_get_game_case_insensitive():
+    assert get_game("breakout") is get_game("Breakout")
+
+
+def test_get_game_unknown_raises():
+    with pytest.raises(ValueError, match="Unknown game"):
+        get_game("not_a_game")

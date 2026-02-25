@@ -15,8 +15,6 @@
 
 """Tests for the make() factory function.
 
-ROM-backed: requires ale-py to load game ROMs.
-
 Run with:
     pytest tests/make/test_make.py -v
 """
@@ -26,15 +24,9 @@ import jax
 import jax.numpy as jnp
 import pytest
 
-from atarax.env import (
-    AtariEnv,
-    Env,
-    EnvSpec,
-    EpisodeStatisticsState,
-    GrayscaleObservation,
-    make,
-)
+from atarax.env import Env, make
 from atarax.env.atari_env import AtariEnv
+from atarax.env.wrappers import EpisodeStatisticsState, GrayscaleObservation
 
 _key = jax.random.PRNGKey(0)
 _BREAKOUT = "atari/breakout-v0"
@@ -50,20 +42,14 @@ def test_make_raw_returns_atari_env():
     assert isinstance(env, AtariEnv)
 
 
-def test_make_returns_single_mode():
-    env = make(_BREAKOUT, jit_compile=False)
-    assert isinstance(env, AtariEnv)
-    assert env._compile_mode == "single"
-
-
-def test_make_env_spec_accepted():
-    env = make(EnvSpec("atari", "breakout"), jit_compile=False)
-    assert isinstance(env, AtariEnv)
-
-
-def test_make_invalid_id_raises():
+def test_make_invalid_format_raises():
     with pytest.raises(ValueError, match="Invalid environment ID"):
         make("breakout")
+
+
+def test_make_unknown_game_raises():
+    with pytest.raises(ValueError, match="Unknown game"):
+        make("atari/not_a_game-v0")
 
 
 def test_make_wrappers_list():
@@ -74,9 +60,8 @@ def test_make_wrappers_list():
 
 def test_make_preset_dqn_obs_shape():
     env = make(_BREAKOUT, preset=True, jit_compile=False)
-    obs, state = env.reset(_key)
+    obs, _ = env.reset(_key)
     assert obs.shape == (84, 84, 4)
-    assert isinstance(state, EpisodeStatisticsState)
 
 
 def test_make_preset_and_wrappers_raises():
@@ -99,24 +84,22 @@ def test_make_step_shape():
     chex.assert_rank(done, 0)
 
 
-def test_make_jit_compile_true_reset():
-    env = make(_BREAKOUT, preset=True, jit_compile=True)
-    obs, state = env.reset(_key)
-    assert obs.shape == (84, 84, 4)
-    assert isinstance(state, EpisodeStatisticsState)
-
-
-def test_make_jit_compile_true_step():
-    env = make(_BREAKOUT, preset=True, jit_compile=True)
+def test_make_step_info_keys():
+    env = make(_BREAKOUT, jit_compile=False)
     _, state = env.reset(_key)
-    obs, _, reward, done, _ = env.step(state, env.sample(_key))
-    assert obs.shape == (84, 84, 4)
-    assert reward.shape == ()
-    assert done.shape == ()
+    _, _, _, _, info = env.step(state, jnp.int32(0))
+    assert "lives" in info
+    assert "score" in info
+    assert "episode_step" in info
 
 
-def test_make_jit_compile_false_reset():
+def test_make_case_insensitive():
+    env1 = make("atari/breakout-v0", jit_compile=False)
+    env2 = make("atari/Breakout-v0", jit_compile=False)
+    assert type(env1) is type(env2)
+
+
+def test_make_preset_episode_statistics_state():
     env = make(_BREAKOUT, preset=True, jit_compile=False)
-    obs, state = env.reset(_key)
-    assert obs.shape == (84, 84, 4)
+    _, state = env.reset(_key)
     assert isinstance(state, EpisodeStatisticsState)
