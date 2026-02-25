@@ -13,10 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Utilities — ROM loading and observation preprocessing."""
+"""Utilities — rendering helpers."""
 
-from atarax.utils.preprocess import preprocess
-from atarax.utils.render import render
-from atarax.utils.rom_loader import load_rom
+from atarax.utils.render import play, render
 
-__all__ = ["load_rom", "preprocess", "render"]
+__all__ = ["play", "render"]

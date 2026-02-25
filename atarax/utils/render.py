@@ -13,36 +13,31 @@
 # limitations under the License.
 # ==============================================================================
 
-from typing import TYPE_CHECKING
-
+import chex
 import numpy as np
-
-from atarax.core.state import AtariState
-
-if TYPE_CHECKING:
-    from atarax.env.spec import EnvSpec
 
 
 def render(
-    state: AtariState,
+    frame: chex.Array,
     *,
     scale: int = 2,
     caption: str = "atari-jax",
 ) -> None:
     """
-    Display the current frame in a pygame window.
+    Display an RGB frame in a pygame window.
 
     Lazy-imports pygame so the library remains optional; install it with
     `pip install pygame` when human rendering is needed.
 
     Parameters
     ----------
-    state : AtariState
-        Current machine state.  Uses `state.screen` (uint8[210, 160, 3]).
+    frame : chex.Array
+        uint8[210, 160, 3] — RGB frame returned by `game.render(state)`.
     scale : int (optional)
-        Integer upscale factor applied to the native 160 x 210 pixel screen. Default is `2`
+        Integer upscale factor applied to the native 160 x 210 pixel screen.
+        Default is `2`.
     caption : str (optional)
-        Window title shown in the title bar. Default is `atari-jax`
+        Window title shown in the title bar. Default is `atari-jax`.
     """
     try:
         import pygame
@@ -55,44 +50,41 @@ def render(
     if not pygame.get_init():
         pygame.init()
 
-    screen_np = np.asarray(state.screen)  # (210, 160, 3) uint8
-    h, w = screen_np.shape[:2]
+    frame_np = np.asarray(frame)  # (210, 160, 3) uint8
+    h, w = frame_np.shape[:2]
 
     display = pygame.display.set_mode((w * scale, h * scale))
     pygame.display.set_caption(caption)
 
-    # pygame.surfarray.make_surface expects (width, height, 3)
-    surf = pygame.surfarray.make_surface(screen_np.transpose(1, 0, 2))
+    surf = pygame.surfarray.make_surface(frame_np.transpose(1, 0, 2))
     scaled = pygame.transform.scale(surf, (w * scale, h * scale))
     display.blit(scaled, (0, 0))
     pygame.display.flip()
 
 
 def play(
-    game_id: "str | EnvSpec",
+    game_id: str,
     *,
     scale: int = 3,
     fps: int = 60,
 ) -> None:
     """
-    Play a game interactively in a pygame window using the ALE reference
-    implementation.
+    Play a game interactively in a pygame window using the JAX implementation.
 
-    Backed by ale-py so the window opens instantly with no JAX compilation.
     Close the window or press `Esc` to quit.
 
-    Requires `pygame` and `ale-py`.
+    Requires `pygame`.
 
     Parameters
     ----------
-    game_id : str | EnvSpec
-        Environment identifier — either an `EnvSpec` (e.g.
-        `EnvSpec("atari", "breakout")`) or `"atari/breakout-v0"`.
+    game_id : str
+        Environment ID in Gymnasium format, e.g. `"atari/breakout-v0"`
+        (case-insensitive for engine and game name).
     scale : int (optional)
-        Integer upscale factor applied to the native 160x210 screen.
-        Default is `3`, giving a 480x630 window.
+        Integer upscale factor applied to the native 160 x 210 screen.
+        Default is `3`, giving a 480 x 630 window.
     fps : int (optional)
-        Target frames per second for the game loop. Default is `60`
+        Target frames per second for the game loop. Default is `60`.
 
     Notes
     -----
@@ -110,24 +102,16 @@ def play(
             "Install it with: pip install pygame"
         ) from exc
 
-    try:
-        from ale_py import ALEInterface
-        from ale_py.roms import get_rom_path
-    except ImportError as exc:
-        raise ImportError(
-            "ale-py is required for interactive play. "
-            "Install it with: pip install ale-py"
-        ) from exc
+    import jax
+    import jax.numpy as jnp
 
-    from atarax.env.make import _resolve_spec
+    from atarax.env.spec import EnvSpec
+    from atarax.games.registry import get_game
 
-    ale_name = _resolve_spec(game_id)
-
-    ale = ALEInterface()
-    ale.setInt("random_seed", 42)
-    ale.setFloat("repeat_action_probability", 0.0)
-    ale.setBool("display_screen", False)
-    ale.loadROM(get_rom_path(ale_name))  # type: ignore
+    spec = EnvSpec.parse(game_id)
+    game = get_game(spec.env_name)
+    key = jax.random.PRNGKey(42)
+    state = game.reset(key)
 
     pygame.init()
     display = pygame.display.set_mode((160 * scale, 210 * scale))
@@ -146,6 +130,9 @@ def play(
         pygame.K_SPACE: 1,
     }
 
+    step_fn = jax.jit(game.step)
+    render_fn = jax.jit(game.render)
+
     running = True
     while running:
         for event in pygame.event.get():
@@ -156,14 +143,16 @@ def play(
 
         keys = pygame.key.get_pressed()
         action = next((a for k, a in key_map.items() if keys[k]), 0)
+        action_arr = jnp.int32(action)
 
-        ale.act(action)
+        state = step_fn(state, action_arr)
 
-        if ale.game_over():
-            ale.reset_game()
+        if bool(state.done):
+            key, subkey = jax.random.split(state.key)
+            state = game.reset(subkey)
 
-        screen = ale.getScreenRGB()  # uint8[210, 160, 3]
-        surf = pygame.surfarray.make_surface(screen.transpose(1, 0, 2))
+        frame_np = np.asarray(render_fn(state))  # uint8[210, 160, 3]
+        surf = pygame.surfarray.make_surface(frame_np.transpose(1, 0, 2))
         scaled = pygame.transform.scale(surf, (160 * scale, 210 * scale))
         display.blit(scaled, (0, 0))
         pygame.display.flip()
