@@ -13,35 +13,43 @@
 # limitations under the License.
 # ==============================================================================
 
-"""atarax — JAX-native Atari game environments (Brax-style)."""
+from envrax.spaces import Box, Discrete
 
-from atarax.env._base import Env
-from atarax.env.atari_env import AtariEnv, EnvParams
-from atarax.env.make import make, make_multi, make_multi_vec, make_vec
-from atarax.env.spaces import Box, Discrete
-from atarax.env.spec import EnvSpec
-from atarax.env.vec_env import VecEnv
-from atarax.env.wrappers.jit_wrapper import JitWrapper
-from atarax.games._base import AtariState, GameState
+from atarax.game import AtaraxGame, AtaraxParams
 from atarax.games.breakout import Breakout, BreakoutState
 from atarax.games.registry import GAME_GROUPS, GAME_SPECS, GAMES, get_game
+from atarax.make import make, make_multi, make_multi_vec, make_vec
+from atarax.spec import EnvSpec
+from atarax.state import AtaraxState, AtariState, GameState
+from atarax.wrappers import (
+    AtariPreprocessing,
+    EpisodicLife,
+    EpisodicLifeState,
+    JitWrapper,
+    VmapEnv,
+    Wrapper,
+)
 
 __all__ = [
-    "AtariEnv",
+    "AtaraxGame",
+    "AtaraxParams",
+    "AtariPreprocessing",
     "AtariState",
+    "AtaraxState",
     "Box",
     "Breakout",
     "BreakoutState",
     "Discrete",
-    "Env",
-    "EnvParams",
     "EnvSpec",
+    "EpisodicLife",
+    "EpisodicLifeState",
     "GAME_GROUPS",
     "GAME_SPECS",
     "GAMES",
     "GameState",
     "JitWrapper",
-    "VecEnv",
+    "VmapEnv",
+    "Wrapper",
     "get_game",
     "make",
     "make_multi",
