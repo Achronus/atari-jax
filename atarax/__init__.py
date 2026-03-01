@@ -15,9 +15,16 @@
 
 from envrax.spaces import Box, Discrete
 
+from atarax.envs import (
+    ATARI_57,
+    ATARI_BASE,
+    ATARI_EASY,
+    ATARI_HARD,
+    ATARI_MEDIUM,
+    AtariEnvs,
+)
 from atarax.game import AtaraxGame, AtaraxParams
-from atarax.games.breakout import Breakout, BreakoutState
-from atarax.games.registry import GAME_GROUPS, GAME_SPECS, GAMES, get_game
+from atarax.games.registry import GAME_SPECS, GAMES, get_game
 from atarax.make import make, make_multi, make_multi_vec, make_vec
 from atarax.spec import EnvSpec
 from atarax.state import AtaraxState, AtariState, GameState
@@ -31,19 +38,22 @@ from atarax.wrappers import (
 )
 
 __all__ = [
+    "ATARI_57",
+    "ATARI_BASE",
+    "ATARI_EASY",
+    "ATARI_HARD",
+    "ATARI_MEDIUM",
     "AtaraxGame",
     "AtaraxParams",
+    "AtariEnvs",
     "AtariPreprocessing",
     "AtariState",
     "AtaraxState",
     "Box",
-    "Breakout",
-    "BreakoutState",
     "Discrete",
     "EnvSpec",
     "EpisodicLife",
     "EpisodicLifeState",
-    "GAME_GROUPS",
     "GAME_SPECS",
     "GAMES",
     "GameState",
