@@ -10,15 +10,18 @@ side of the court.  The first player to reach 21 points wins the match.
 | | Value |
 | --- | --- |
 | **Observation** | `Box(uint8, shape=(210, 160, 3))` |
-| **Actions** | `Discrete(3)` |
+| **Actions** | `Discrete(6)` |
 
 ### Action table
 
 | Index | Meaning |
 | --- | --- |
 | `0` | NOOP |
-| `1` | UP — move paddle up |
-| `2` | DOWN — move paddle down |
+| `1` | FIRE — no effect in Pong |
+| `2` | RIGHT → move paddle **up** |
+| `3` | LEFT → move paddle **down** |
+| `4` | RIGHTFIRE → move paddle **up** (same as RIGHT) |
+| `5` | LEFTFIRE → move paddle **down** (same as LEFT) |
 
 ## Reward
 
