@@ -25,6 +25,12 @@ rewards and done flags should broadly match for the same game events.  Ball
 angle at each serve is randomised by independent PRNGs, so minor divergence in
 reward timing is expected.
 
+ALE starts from the ROM power-on state, which may include title screens and
+startup animations before the game is playable.  Use ``--ale-offset N`` (default
+60) to burn through N silent NOOP steps on the ALE side before the comparison
+sequence begins, so both environments start from an equivalent game-ready state.
+Our JAX env resets directly to game-ready state and needs no offset.
+
 Requires `ale-py` to be installed for the ALE side:
     uv add ale-py
 
@@ -33,6 +39,7 @@ Usage
     uv run benchmarks/check_parity.py
     uv run benchmarks/check_parity.py --game pong --steps 500
     uv run benchmarks/check_parity.py --game breakout --steps 1000 --seed 7
+    uv run benchmarks/check_parity.py --game breakout --ale-offset 0
 """
 
 import argparse
@@ -44,9 +51,15 @@ from ale_py import ALEInterface
 from ale_py.roms import get_rom_path
 from tqdm import tqdm
 
-from atarax.env import make
-from atarax.env._compile import DEFAULT_CACHE_DIR, _live_bar
-from atarax.env.atari_env import EnvParams
+from atarax import make
+from atarax._compile import DEFAULT_CACHE_DIR, _live_bar
+from atarax.base import EnvParams
+
+# Maps ALE action indices to JAX-env action indices.
+# ALE action sets differ from the minimal 0-indexed sets our games use.
+_ALE_TO_JAX: dict[str, dict[int, int]] = {
+    "breakout": {0: 0, 1: 1, 3: 2, 4: 3},
+}
 
 
 def _run_jax(game: str, actions: list[int], seed: int) -> dict:
@@ -70,8 +83,10 @@ def _run_jax(game: str, actions: list[int], seed: int) -> dict:
 
     rewards, dones, screens = [], [], []
 
+    action_map = _ALE_TO_JAX.get(game, {})
     for a in actions:
-        obs, state, reward, done, _ = env.step(state, jnp.int32(a))
+        jax_action = action_map.get(a, a)
+        obs, state, reward, done, _ = env.step(state, jnp.int32(jax_action))
         rewards.append(float(reward))
         dones.append(bool(done))
         screens.append(np.asarray(obs))
@@ -81,13 +96,30 @@ def _run_jax(game: str, actions: list[int], seed: int) -> dict:
     return {"rewards": rewards, "dones": dones, "screens": screens}
 
 
-def _run_ale(ale_name: str, actions: list[int], seed: int) -> dict:
-    """Run the ALE reference implementation for the given action sequence."""
+def _run_ale(ale_name: str, actions: list[int], seed: int, ale_offset: int) -> dict:
+    """Run the ALE reference implementation for the given action sequence.
+
+    Parameters
+    ----------
+    ale_name : str
+        ALE ROM name (e.g. ``"breakout"``).
+    actions : list[int]
+        Sequence of action indices to execute after the warm-up.
+    seed : int
+        Random seed passed to the ALE interface.
+    ale_offset : int
+        Number of silent NOOP steps to execute before the comparison sequence,
+        burning through any ROM startup / title-screen frames so that the ALE
+        state is comparable to our JAX env's clean game-ready reset.
+    """
     ale = ALEInterface()
     ale.setInt("random_seed", seed)
     ale.setFloat("repeat_action_probability", 0.0)
     ale.setBool("display_screen", False)
     ale.loadROM(get_rom_path(ale_name))
+
+    for _ in range(ale_offset):
+        ale.act(0)  # NOOP — burns through title/startup frames
 
     rewards, dones, screens = [], [], []
 
@@ -178,23 +210,32 @@ def main() -> None:
     parser.add_argument("--game", default="breakout", help="Registered game name")
     parser.add_argument("--steps", type=int, default=300, help="Number of steps")
     parser.add_argument("--seed", type=int, default=0, help="Random seed")
+    parser.add_argument(
+        "--ale-offset",
+        type=int,
+        default=60,
+        dest="ale_offset",
+        help="Silent NOOP steps to run on the ALE side before the comparison "
+        "sequence, burning through ROM startup/title frames (default: 60)",
+    )
     args = parser.parse_args()
 
     # Fixed repeating action sequence: FIRE to start, then LEFT/RIGHT/NOOP
     pattern = [1, 4, 4, 3, 3, 0, 0]  # FIRE, LEFT, LEFT, RIGHT, RIGHT, NOOP, NOOP
     actions = (pattern * (args.steps // len(pattern) + 1))[: args.steps]
 
-    print(f"Game    : {args.game}")
-    print(f"Steps   : {args.steps}")
-    print(f"Seed    : {args.seed}")
-    print(f"Actions : pattern {pattern!r} repeated")
+    print(f"Game       : {args.game}")
+    print(f"Steps      : {args.steps}")
+    print(f"Seed       : {args.seed}")
+    print(f"ALE offset : {args.ale_offset} NOOP frames")
+    print(f"Actions    : pattern {pattern!r} repeated")
 
     print("\n[JAX] Running...")
     jax_data = _run_jax(args.game, actions, args.seed)
     print("[JAX] Done.")
 
     print("\n[ALE] Running...")
-    ale_data = _run_ale(args.game, actions, args.seed)
+    ale_data = _run_ale(args.game, actions, args.seed, args.ale_offset)
     print("[ALE] Done.")
 
     _compare(jax_data, ale_data, args.steps)

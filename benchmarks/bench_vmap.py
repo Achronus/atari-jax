@@ -32,8 +32,8 @@ import time
 import jax
 import jax.numpy as jnp
 
-from atarax.env import make_vec
-from atarax.env._compile import DEFAULT_CACHE_DIR
+from atarax import make_vec
+from atarax._compile import DEFAULT_CACHE_DIR
 
 
 def run(game: str, n_envs: int, n_steps: int, n_warmup: int) -> None:
