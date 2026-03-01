@@ -16,7 +16,7 @@
 """Parametrised smoke-tests covering every registered Atari-JAX game.
 
 Each test verifies that a game satisfies the ``AtaraxGame`` contract without
-testing game-specific mechanics.  Tests are parameterised over all entries
+testing game-specific mechanics.  Tests are parametrised over all entries
 in the ``GAMES`` registry so adding a new game automatically includes it.
 
 Run all games::
@@ -38,15 +38,19 @@ from atarax.games import GAMES
 from atarax.state import AtariState
 
 _KEY = jax.random.PRNGKey(0)
-_PARAMS = AtaraxParams(noop_max=0)  # disable NOOP starts in tests for reproducibility
+_PARAMS = AtaraxParams(noop_max=0)  # disable NOOP starts for reproducibility
+
+# ---------------------------------------------------------------------------
+# Dynamic parametrisation — expands automatically as GAMES grows.
+# Each pytest.param carries the game *class* and is named by the registry key.
+# ---------------------------------------------------------------------------
+_GAME_IDS = sorted(GAMES.keys())
+_GAME_PARAMS = [pytest.param(GAMES[k], id=k) for k in _GAME_IDS]
 
 
-@pytest.fixture(scope="module", params=sorted(GAMES.keys()))
-def game(request):
-    return GAMES[request.param]()
-
-
-def test_reset(game):
+@pytest.mark.parametrize("game_cls", _GAME_PARAMS)
+def test_reset(game_cls):
+    game = game_cls()
     _, state = game.reset(_KEY, _PARAMS)
     assert isinstance(state, AtariState)
     assert int(state.score) == 0
@@ -59,14 +63,18 @@ def test_reset(game):
     assert state.level.dtype == jnp.int32
 
 
-def test_reset_deterministic(game):
+@pytest.mark.parametrize("game_cls", _GAME_PARAMS)
+def test_reset_deterministic(game_cls):
+    game = game_cls()
     _, s1 = game.reset(jax.random.PRNGKey(7), _PARAMS)
     _, s2 = game.reset(jax.random.PRNGKey(7), _PARAMS)
     assert int(s1.score) == int(s2.score)
     assert bool(s1.done) == bool(s2.done)
 
 
-def test_step(game):
+@pytest.mark.parametrize("game_cls", _GAME_PARAMS)
+def test_step(game_cls):
+    game = game_cls()
     _, state = game.reset(_KEY, _PARAMS)
     _, new_state, reward, done, info = game.step(_KEY, state, jnp.int32(0), _PARAMS)
     assert isinstance(new_state, AtariState)
@@ -78,14 +86,18 @@ def test_step(game):
     assert set(info.keys()) >= {"lives", "score", "level", "episode_step", "truncated"}
 
 
-def test_render(game):
+@pytest.mark.parametrize("game_cls", _GAME_PARAMS)
+def test_render(game_cls):
+    game = game_cls()
     _, state = game.reset(_KEY, _PARAMS)
     frame = game.render(state)
     chex.assert_shape(frame, (210, 160, 3))
     assert frame.dtype == jnp.uint8
 
 
-def test_vmap(game):
+@pytest.mark.parametrize("game_cls", _GAME_PARAMS)
+def test_vmap(game_cls):
+    game = game_cls()
     keys = jax.random.split(_KEY, 4)
     obs_batch, states = jax.vmap(game.reset, in_axes=(0, None))(keys, _PARAMS)
     chex.assert_shape(obs_batch, (4, 210, 160, 3))
@@ -93,7 +105,9 @@ def test_vmap(game):
     chex.assert_shape(states.lives, (4,))
 
 
-def test_jit(game):
+@pytest.mark.parametrize("game_cls", _GAME_PARAMS)
+def test_jit(game_cls):
+    game = game_cls()
     _, state = game.reset(_KEY, _PARAMS)
     step_fn = jax.jit(game.step)
     _, new_state, reward, done, _ = step_fn(_KEY, state, jnp.int32(0), _PARAMS)
@@ -102,7 +116,9 @@ def test_jit(game):
     assert done.dtype == jnp.bool_
 
 
-def test_pytree(game):
+@pytest.mark.parametrize("game_cls", _GAME_PARAMS)
+def test_pytree(game_cls):
+    game = game_cls()
     _, state = game.reset(_KEY, _PARAMS)
     flat, treedef = jax.tree_util.tree_flatten(state)
     assert len(flat) > 0

@@ -33,3 +33,6 @@ exclude-dependencies = ["uvloop"]
 testpaths = ["tests"]
 norecursedirs = [".venv"]
 addopts = "-n auto"
+markers = [
+    "slow: marks tests as slow — run explicitly with -m slow",
+]
