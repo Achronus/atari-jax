@@ -60,7 +60,7 @@ _BALL_SIZE: int = 2
 _FRAME_SKIP: int = 4
 
 # Ball speed tiers (px/emulated frame). Tier rises on upper-row hits + board clears.
-_SPEED_TIERS = jnp.array([2.0, 3.0, 4.0, 5.0], dtype=jnp.float32)
+_SPEED_TIERS = jnp.array([1.0, 2.0, 3.0, 4.0], dtype=jnp.float32)
 
 # Row point values (row 0 = top/hardest → highest score)
 _ROW_SCORES = jnp.array([7, 7, 4, 4, 1, 1], dtype=jnp.float32)
