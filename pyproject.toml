@@ -5,7 +5,7 @@ description = "JAX-native implementations of all 57 Atari 2600 games — jit, vm
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.13"
-dependencies = ["chex>=0.1.91", "envrax==0.1.0", "jax>=0.9.0.1", "tqdm>=4.67.3"]
+dependencies = ["chex>=0.1.91", "envrax==0.1.1", "jax>=0.9.0.1", "tqdm>=4.67.3"]
 
 [dependency-groups]
 test = [
