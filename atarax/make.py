@@ -75,8 +75,7 @@ def make(
     if wrappers is not None and preset:
         raise ValueError("Provide either `wrappers` or `preset`, not both.")
 
-    spec = EnvSpec.parse(game_id)
-    game_cls = get_game(spec.env_name)
+    game_cls = get_game(game_id)
     env = game_cls()
     params = params or AtaraxParams()
 

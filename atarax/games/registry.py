@@ -31,13 +31,13 @@ GAMES: Dict[str, Type[AtaraxGame]] = {
 GAME_SPECS: List[EnvSpec] = [EnvSpec.parse(name) for name in ATARI_57.all_names()]
 
 
-def get_game(env_id: str) -> Type[AtaraxGame]:
+def get_game(env_id: str | EnvSpec) -> Type[AtaraxGame]:
     """
     Return the registered game class for *env_id*.
 
     Parameters
     ----------
-    env_id : str
+    env_id : str | EnvSpec
         Environment ID in `"atari/{name}-v0"` format.
 
     Returns
@@ -50,10 +50,12 @@ def get_game(env_id: str) -> Type[AtaraxGame]:
         If *env_id* is not yet implemented.
     """
     spec = EnvSpec.parse(env_id)
+
     if spec.env_name not in GAMES:
         available = sorted(GAMES)
         raise ValueError(
             f"Unknown game {spec.env_name!r}: not yet implemented. "
             f"Available: {available}"
         )
+
     return GAMES[spec.env_name]
