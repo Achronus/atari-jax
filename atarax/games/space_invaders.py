@@ -15,8 +15,7 @@
 
 """Space Invaders — JAX-native game implementation.
 
-Mechanics implemented directly in JAX with no hardware emulation.
-All conditionals use `jnp.where`; the step loop uses `jax.lax.fori_loop`.
+All conditionals use `jnp.where`; the 4-frame skip uses `jax.lax.fori_loop`.
 
 Screen geometry (pixels, y=0 at top):
     Playfield    : x ∈ [8, 152),  y ∈ [30, 185)
@@ -39,12 +38,10 @@ import chex
 import jax
 import jax.numpy as jnp
 
-from atarax.env.atari_env import AtariEnv
-from atarax.games._base import AtariState
+from atarax.game import AtaraxGame, AtaraxParams
+from atarax.state import AtariState
 
-# ---------------------------------------------------------------------------
 # Geometry constants
-# ---------------------------------------------------------------------------
 _PLAY_LEFT: int = 8
 _PLAY_RIGHT: int = 152
 _PLAY_TOP: int = 30
@@ -93,13 +90,13 @@ _ALIEN_COLORS = jnp.array(
     dtype=jnp.uint8,
 )
 
-# Precomputed index arrays for branch-free rendering
-_ROW_IDX = jnp.arange(210)[:, None]  # [210, 1]
-_COL_IDX = jnp.arange(160)[None, :]  # [1, 160]
+# Precomputed scanline arrays for branch-free rendering
+_ROW_IDX = jnp.arange(210)[:, None]  # (210, 1)
+_COL_IDX = jnp.arange(160)[None, :]  # (1, 160)
 
 # Precomputed alien grid offsets (float32 for arithmetic)
-_ALIEN_COL_OFFSETS = jnp.arange(_ALIEN_COLS, dtype=jnp.float32) * _COL_STEP  # [11]
-_ALIEN_ROW_OFFSETS = jnp.arange(_ALIEN_ROWS, dtype=jnp.float32) * _ROW_STEP  # [5]
+_ALIEN_COL_OFFSETS = jnp.arange(_ALIEN_COLS, dtype=jnp.float32) * _COL_STEP  # (11,)
+_ALIEN_ROW_OFFSETS = jnp.arange(_ALIEN_ROWS, dtype=jnp.float32) * _ROW_STEP  # (5,)
 
 
 @chex.dataclass
@@ -108,12 +105,15 @@ class SpaceInvadersState(AtariState):
     Complete Space Invaders game state — a JAX pytree.
 
     Inherits `reward`, `done`, `step`, `episode_step` from `GameState` and
-    `lives`, `score` from `AtariState`.
+    `lives`, `score`, `level`, `key` from `AtariState`.
+
+    `level` increments each time the alien grid is cleared; `key` is evolved
+    each emulated frame for randomised alien firing.
 
     Parameters
     ----------
     aliens : jax.Array
-        bool[5, 11] — Active aliens.  `True` = alien present.
+        bool[5, 11] — Active-alien mask.  `True` = alien present.
     alien_x : jax.Array
         float32 — Left edge of column 0 of the alien formation.
     alien_y : jax.Array
@@ -138,8 +138,6 @@ class SpaceInvadersState(AtariState):
         int32 — Sub-steps until the next alien formation move.
     fire_timer : jax.Array
         int32 — Sub-steps until the aliens fire next.
-    key : jax.Array
-        uint32[2] — PRNG key evolved each frame for stochastic alien AI.
     """
 
     aliens: jax.Array
@@ -155,12 +153,11 @@ class SpaceInvadersState(AtariState):
     alien_bullet_active: jax.Array
     move_timer: jax.Array
     fire_timer: jax.Array
-    key: jax.Array
 
 
-class SpaceInvaders(AtariEnv):
+class SpaceInvaders(AtaraxGame):
     """
-    Space Invaders implemented as a pure JAX function suite.
+    Space Invaders implemented as a pure-JAX function suite.
 
     No hardware emulation — game physics are computed directly using
     `jnp.where` for all conditionals and `jax.lax.fori_loop` for the
@@ -172,20 +169,20 @@ class SpaceInvaders(AtariEnv):
 
     num_actions: int = 6
 
-    def _reset(self, key: jax.Array) -> SpaceInvadersState:
+    def _reset(self, key: chex.PRNGKey) -> SpaceInvadersState:
         """
         Return the canonical initial game state.
 
         Parameters
         ----------
-        key : jax.Array
-            uint32[2] — JAX PRNG key.
+        key : chex.PRNGKey
+            JAX PRNG key.
 
         Returns
         -------
         state : SpaceInvadersState
-            Full 5×11 alien grid, cannon centred, no bullets in flight,
-            3 lives, scores zero.
+            Full 5×11 alien grid active, cannon centred, no bullets in flight,
+            3 lives, score zero.
         """
         cannon_x = jnp.float32((_PLAY_LEFT + _PLAY_RIGHT - _CANNON_W) / 2)
 
@@ -205,6 +202,7 @@ class SpaceInvaders(AtariEnv):
             fire_timer=jnp.int32(_ALIEN_FIRE_INTERVAL),
             lives=jnp.int32(_INIT_LIVES),
             score=jnp.int32(0),
+            level=jnp.int32(0),
             reward=jnp.float32(0.0),
             done=jnp.bool_(False),
             step=jnp.int32(0),
@@ -229,7 +227,8 @@ class SpaceInvaders(AtariEnv):
         Returns
         -------
         new_state : SpaceInvadersState
-            State after one emulated frame.
+            State after one emulated frame. `episode_step` is NOT incremented
+            here — it is incremented once per agent step in `_step`.
         """
         key, subkey = jax.random.split(state.key)
 
@@ -266,7 +265,7 @@ class SpaceInvaders(AtariEnv):
         )
         player_bullet_active = state.player_bullet_active | fire
 
-        # --- Move player bullet (upward) ---
+        # --- Move player bullet upward ---
         new_pby = jnp.where(
             player_bullet_active,
             new_pby - jnp.float32(_PLAYER_BULLET_SPEED),
@@ -275,7 +274,7 @@ class SpaceInvaders(AtariEnv):
         pb_oob = player_bullet_active & (new_pby < jnp.float32(_PLAY_TOP))
         player_bullet_active = player_bullet_active & ~pb_oob
 
-        # --- Move alien bullet (downward) ---
+        # --- Move alien bullet downward ---
         new_aby = jnp.where(
             state.alien_bullet_active,
             state.alien_bullet_y + jnp.float32(_ALIEN_BULLET_SPEED),
@@ -288,8 +287,8 @@ class SpaceInvaders(AtariEnv):
         alien_bullet_active = alien_bullet_active & ~ab_oob
 
         # --- Player bullet vs alien collision ---
-        alien_lefts = state.alien_x + _ALIEN_COL_OFFSETS[None, :]  # [1, 11]
-        alien_tops = state.alien_y + _ALIEN_ROW_OFFSETS[:, None]  # [5, 1]
+        alien_lefts = state.alien_x + _ALIEN_COL_OFFSETS[None, :]  # (1, 11)
+        alien_tops = state.alien_y + _ALIEN_ROW_OFFSETS[:, None]  # (5, 1)
         hit_mask = (
             (new_pbx + jnp.float32(_BULLET_W) > alien_lefts)
             & (new_pbx < alien_lefts + jnp.float32(_ALIEN_W))
@@ -388,6 +387,7 @@ class SpaceInvaders(AtariEnv):
         )
         aliens_at_ground = formation_bottom >= jnp.float32(_GROUND_Y)
         done = all_dead | aliens_at_ground | (new_lives <= jnp.int32(0))
+        new_level = state.level + jnp.where(all_dead, jnp.int32(1), jnp.int32(0))
 
         return SpaceInvadersState(
             aliens=new_aliens,
@@ -405,38 +405,49 @@ class SpaceInvaders(AtariEnv):
             fire_timer=new_fire_timer,
             lives=new_lives,
             score=state.score + jnp.int32(step_reward),
+            level=new_level,
             reward=state.reward + step_reward,
             done=done,
             step=state.step + jnp.int32(1),
-            episode_step=state.episode_step + jnp.int32(1),
+            episode_step=state.episode_step,  # incremented once in _step
             key=key,
         )
 
-    def _step(self, state: SpaceInvadersState, action: jax.Array) -> SpaceInvadersState:
+    def _step(
+        self,
+        rng: chex.PRNGKey,
+        state: SpaceInvadersState,
+        action: jax.Array,
+        params: AtaraxParams,
+    ) -> SpaceInvadersState:
         """
         Advance the game by one agent step (4 emulated frames).
 
-        The reward is accumulated across all 4 frames, matching the ALE
-        frame-skip convention.
-
         Parameters
         ----------
+        rng : chex.PRNGKey
+            JAX PRNG key for in-step randomness.
         state : SpaceInvadersState
             Current game state.
         action : jax.Array
             int32 — Action index (0–5).
+        params : AtaraxParams
+            Static environment parameters (unused in physics, consumed by
+            `AtaraxGame.step` for truncation).
 
         Returns
         -------
         new_state : SpaceInvadersState
-            State after 4 emulated frames.
+            State after 4 emulated frames with `episode_step` incremented once.
         """
-        state = state.__replace__(reward=jnp.float32(0.0))
-
-        def body(i: jax.Array, s: SpaceInvadersState) -> SpaceInvadersState:
-            return self._step_physics(s, action)
-
-        return jax.lax.fori_loop(0, _FRAME_SKIP, body, state)
+        state = state.__replace__(reward=jnp.float32(0.0), key=rng)
+        new_state = jax.lax.fori_loop(
+            0,
+            _FRAME_SKIP,
+            lambda _i, s: self._step_physics(s, action),
+            state,
+        )
+        return new_state.__replace__(episode_step=state.episode_step + jnp.int32(1))
 
     def render(self, state: SpaceInvadersState) -> jax.Array:
         """
@@ -462,29 +473,29 @@ class SpaceInvaders(AtariEnv):
 
         # --- Alien grid ---
         # For each pixel, determine which alien cell it falls into and
-        # whether that alien is alive.  This avoids loops entirely.
+        # whether that alien is alive — no loops required.
         ax = jnp.int32(state.alien_x)
         ay = jnp.int32(state.alien_y)
-        dy = _ROW_IDX - ay  # [210, 1]
-        dx = _COL_IDX - ax  # [1, 160]
+        dy = _ROW_IDX - ay  # (210, 1)
+        dx = _COL_IDX - ax  # (1, 160)
 
         in_bounds_y = (dy >= 0) & (dy < jnp.int32(_ALIEN_ROWS * _ROW_STEP))
         in_bounds_x = (dx >= 0) & (dx < jnp.int32(_ALIEN_COLS * _COL_STEP))
 
-        alien_row_idx = jnp.clip(dy // _ROW_STEP, 0, _ALIEN_ROWS - 1)  # [210, 1]
-        alien_col_idx = jnp.clip(dx // _COL_STEP, 0, _ALIEN_COLS - 1)  # [1, 160]
+        alien_row_idx = jnp.clip(dy // _ROW_STEP, 0, _ALIEN_ROWS - 1)  # (210, 1)
+        alien_col_idx = jnp.clip(dx // _COL_STEP, 0, _ALIEN_COLS - 1)  # (1, 160)
 
-        in_cell_y = (dy % _ROW_STEP) < _ALIEN_H  # [210, 1]
-        in_cell_x = (dx % _COL_STEP) < _ALIEN_W  # [1, 160]
+        in_cell_y = (dy % _ROW_STEP) < _ALIEN_H  # (210, 1)
+        in_cell_x = (dx % _COL_STEP) < _ALIEN_W  # (1, 160)
 
-        # Advanced gather: aliens[[210,1], [1,160]] → [210, 160]
+        # Gather alive flag for every pixel: aliens[row_idx, col_idx] → (210, 160)
         alien_alive = state.aliens[alien_row_idx, alien_col_idx]
         alien_pixel_mask = (
             in_bounds_y & in_bounds_x & in_cell_y & in_cell_x & alien_alive
         )
 
         # Per-row colour lookup
-        alien_row_color = _ALIEN_COLORS[alien_row_idx[:, 0], :]  # [210, 3]
+        alien_row_color = _ALIEN_COLORS[alien_row_idx[:, 0], :]  # (210, 3)
         frame = jnp.where(
             alien_pixel_mask[:, :, None], alien_row_color[:, None, :], frame
         )
@@ -511,7 +522,7 @@ class SpaceInvaders(AtariEnv):
         )
         frame = jnp.where(pb_mask[:, :, None], jnp.uint8(255), frame)
 
-        # --- Alien bullet (red-tinted) ---
+        # --- Alien bullet (red) ---
         abx_int = jnp.int32(state.alien_bullet_x)
         aby_int = jnp.int32(state.alien_bullet_y)
         ab_mask = (
@@ -521,8 +532,11 @@ class SpaceInvaders(AtariEnv):
             & (_COL_IDX >= abx_int)
             & (_COL_IDX < abx_int + _BULLET_W)
         )
-        alien_bullet_color = jnp.array([255, 80, 80], dtype=jnp.uint8)
-        frame = jnp.where(ab_mask[:, :, None], alien_bullet_color, frame)
+        frame = jnp.where(
+            ab_mask[:, :, None],
+            jnp.array([255, 80, 80], dtype=jnp.uint8),
+            frame,
+        )
 
         return frame
 
