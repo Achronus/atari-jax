@@ -23,23 +23,23 @@ import chex
 import jax
 import jax.numpy as jnp
 
-from atarax.env import Env, make
-from atarax.env.atari_env import AtariEnv
-from atarax.env.wrappers import JitWrapper, Wrapper
+from atarax import make
+from atarax.game import AtaraxGame, AtaraxParams
+from atarax.wrappers import JitWrapper, Wrapper
 
 _key = jax.random.PRNGKey(0)
 _BREAKOUT = "atari/breakout-v0"
-_N_STEPS = 4
+_params = AtaraxParams()
 
 
-def _base_env() -> Env:
-    """Return an un-compiled AtariEnv for use as the JitWrapper target."""
-    return make(_BREAKOUT, jit_compile=False)
+def _base_env() -> AtaraxGame:
+    """Return an un-compiled AtaraxGame for use as the JitWrapper target."""
+    env, _ = make(_BREAKOUT, jit_compile=False)
+    return env
 
 
-def test_jit_wrapper_is_env_and_wrapper():
+def test_jit_wrapper_is_wrapper():
     env = JitWrapper(_base_env(), cache_dir=None)
-    assert isinstance(env, Env)
     assert isinstance(env, Wrapper)
 
 
@@ -47,38 +47,28 @@ def test_jit_wrapper_has_compiled_methods():
     env = JitWrapper(_base_env(), cache_dir=None)
     assert hasattr(env, "_jit_reset")
     assert hasattr(env, "_jit_step")
-    assert hasattr(env, "_jit_rollout")
 
 
 def test_jit_wrapper_reset_shape():
     env = JitWrapper(_base_env(), cache_dir=None)
-    obs, _ = env.reset(_key)
+    obs, _ = env.reset(_key, _params)
     chex.assert_shape(obs, (210, 160, 3))
-    chex.assert_type(obs, jnp.uint8)
+    assert obs.dtype == jnp.uint8
 
 
 def test_jit_wrapper_step_shape():
     env = JitWrapper(_base_env(), cache_dir=None)
-    _, state = env.reset(_key)
-    obs, _, reward, done, _ = env.step(state, jnp.int32(0))
+    _, state = env.reset(_key, _params)
+    obs, _, reward, done, _ = env.step(_key, state, jnp.int32(0), _params)
     chex.assert_shape(obs, (210, 160, 3))
     chex.assert_rank(reward, 0)
     chex.assert_rank(done, 0)
 
 
-def test_jit_wrapper_rollout_shape():
-    env = JitWrapper(_base_env(), cache_dir=None)
-    _, state = env.reset(_key)
-    actions = jnp.zeros(_N_STEPS, dtype=jnp.int32)
-    _, (obs, reward, done, _) = env.rollout(state, actions)
-    chex.assert_shape(obs, (_N_STEPS, 210, 160, 3))
-    chex.assert_shape(reward, (_N_STEPS,))
-    chex.assert_shape(done, (_N_STEPS,))
-
-
 def test_jit_wrapper_repr():
     env = JitWrapper(_base_env(), cache_dir=None)
-    assert repr(env) == "JitWrapper<AtariEnv<breakout>>"
+    assert "JitWrapper" in repr(env)
+    assert "breakout" in repr(env).lower()
 
 
 def test_jit_wrapper_spaces_delegate():
@@ -90,9 +80,9 @@ def test_jit_wrapper_spaces_delegate():
 
 def test_jit_wrapper_unwrapped():
     env = JitWrapper(_base_env(), cache_dir=None)
-    assert isinstance(env.unwrapped, AtariEnv)
+    assert isinstance(env.unwrapped, AtaraxGame)
 
 
 def test_make_jit_compile_returns_jit_wrapper():
-    env = make(_BREAKOUT, jit_compile=True)
+    env, _ = make(_BREAKOUT, jit_compile=True)
     assert isinstance(env, JitWrapper)

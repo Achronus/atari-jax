@@ -21,8 +21,8 @@ Run with:
 
 import pytest
 
-from atarax.env.atari_env import AtariEnv
-from atarax.env.spec import EnvSpec
+from atarax.game import AtaraxGame
+from atarax.spec import EnvSpec
 from atarax.games.registry import GAME_GROUPS, GAME_SPECS, GAMES, get_game
 
 
@@ -34,9 +34,9 @@ def test_games_contains_breakout():
     assert "breakout" in GAMES
 
 
-def test_games_values_are_atari_env_types():
+def test_games_values_are_atarax_game_types():
     for cls in GAMES.values():
-        assert issubclass(cls, AtariEnv)
+        assert issubclass(cls, AtaraxGame)
 
 
 def test_game_specs_is_list():
@@ -90,9 +90,9 @@ def test_game_groups_breakout_in_all():
         assert "breakout" in games, f"breakout missing from {name}"
 
 
-def test_get_game_returns_atari_env_type():
+def test_get_game_returns_atarax_game_type():
     cls = get_game("breakout")
-    assert issubclass(cls, AtariEnv)
+    assert issubclass(cls, AtaraxGame)
 
 
 def test_get_game_case_insensitive():

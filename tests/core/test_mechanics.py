@@ -22,7 +22,7 @@ Run with:
 import chex
 import jax.numpy as jnp
 
-from atarax.core.mechanics import aabb_overlap, clamp, grid_hit_test, reflect_axis, wrap_position
+from atarax.mechanics import aabb_overlap, clamp, grid_hit_test, reflect_axis, wrap_position
 
 
 # ---------------------------------------------------------------------------
@@ -36,7 +36,7 @@ def test_aabb_overlap_hit():
     pos_b = jnp.array([7.0, 7.0])
     size_b = jnp.array([4.0, 4.0])
     result = aabb_overlap(pos_a, size_a, pos_b, size_b)
-    chex.assert_type(result, jnp.bool_)
+    assert result.dtype == jnp.bool_
     assert bool(result)
 
 

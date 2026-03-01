@@ -21,7 +21,7 @@ Run with:
 
 import pytest
 
-from atarax.env.spec import EnvSpec
+from atarax.spec import EnvSpec
 
 
 def test_parse_string():

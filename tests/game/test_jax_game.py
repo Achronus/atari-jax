@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Tests for the AtariEnv ABC contract — applicable to all game implementations.
+"""Tests for the AtaraxGame ABC contract — applicable to all game implementations.
 
 Run with:
     pytest tests/game/test_jax_game.py -v
@@ -24,12 +24,12 @@ import jax
 import jax.numpy as jnp
 import pytest
 
-from atarax.env._base import Env
-from atarax.env.atari_env import AtariEnv
-from atarax.games._base import AtariState, GameState
+from atarax.game import AtaraxGame, AtaraxParams
+from atarax.state import AtariState, GameState
 from atarax.games.breakout import Breakout
 
 _key = jax.random.PRNGKey(0)
+_params = AtaraxParams()
 
 
 @pytest.fixture
@@ -37,12 +37,8 @@ def game():
     return Breakout()
 
 
-def test_game_is_atari_env(game):
-    assert isinstance(game, AtariEnv)
-
-
-def test_game_is_env(game):
-    assert isinstance(game, Env)
+def test_game_is_atarax_game(game):
+    assert isinstance(game, AtaraxGame)
 
 
 def test_num_actions_positive(game):
@@ -51,31 +47,31 @@ def test_num_actions_positive(game):
 
 
 def test_reset_returns_obs_and_state(game):
-    result = game.reset(_key)
+    result = game.reset(_key, _params)
     assert isinstance(result, tuple)
     assert len(result) == 2
 
 
 def test_reset_obs_shape(game):
-    obs, _ = game.reset(_key)
+    obs, _ = game.reset(_key, _params)
     chex.assert_shape(obs, (210, 160, 3))
-    chex.assert_type(obs, jnp.uint8)
+    assert obs.dtype == jnp.uint8
 
 
 def test_reset_returns_atari_state(game):
-    _, state = game.reset(_key)
+    _, state = game.reset(_key, _params)
     assert isinstance(state, AtariState)
     assert isinstance(state, GameState)
 
 
 def test_reset_returns_pytree(game):
-    _, state = game.reset(_key)
+    _, state = game.reset(_key, _params)
     flat, _ = jax.tree_util.tree_flatten(state)
     assert len(flat) > 0
 
 
 def test_state_has_required_fields(game):
-    _, state = game.reset(_key)
+    _, state = game.reset(_key, _params)
     assert hasattr(state, "reward")
     assert hasattr(state, "done")
     assert hasattr(state, "lives")
@@ -85,25 +81,25 @@ def test_state_has_required_fields(game):
 
 
 def test_state_field_dtypes(game):
-    _, state = game.reset(_key)
-    chex.assert_type(state.reward, jnp.float32)
-    chex.assert_type(state.done, jnp.bool_)
-    chex.assert_type(state.lives, jnp.int32)
-    chex.assert_type(state.score, jnp.int32)
-    chex.assert_type(state.step, jnp.int32)
-    chex.assert_type(state.episode_step, jnp.int32)
+    _, state = game.reset(_key, _params)
+    assert state.reward.dtype == jnp.float32
+    assert state.done.dtype == jnp.bool_
+    assert state.lives.dtype == jnp.int32
+    assert state.score.dtype == jnp.int32
+    assert state.step.dtype == jnp.int32
+    assert state.episode_step.dtype == jnp.int32
 
 
 def test_step_returns_five_tuple(game):
-    _, state = game.reset(_key)
-    result = game.step(state, jnp.int32(0))
+    _, state = game.reset(_key, _params)
+    result = game.step(_key, state, jnp.int32(0), _params)
     assert isinstance(result, tuple)
     assert len(result) == 5
 
 
 def test_step_returns_same_state_structure(game):
-    _, state = game.reset(_key)
-    _, new_state, _, _, _ = game.step(state, jnp.int32(0))
+    _, state = game.reset(_key, _params)
+    _, new_state, _, _, _ = game.step(_key, state, jnp.int32(0), _params)
     flat_old, treedef_old = jax.tree_util.tree_flatten(state)
     flat_new, treedef_new = jax.tree_util.tree_flatten(new_state)
     assert treedef_old == treedef_new
@@ -111,30 +107,21 @@ def test_step_returns_same_state_structure(game):
 
 
 def test_render_returns_rgb_frame(game):
-    _, state = game.reset(_key)
+    _, state = game.reset(_key, _params)
     frame = game.render(state)
     chex.assert_shape(frame, (210, 160, 3))
-    chex.assert_type(frame, jnp.uint8)
+    assert frame.dtype == jnp.uint8
 
 
 def test_vmap_reset(game):
     keys = jax.random.split(_key, 4)
-    obs_batch, states = jax.vmap(game.reset)(keys)
+    obs_batch, states = jax.vmap(game.reset, in_axes=(0, None))(keys, _params)
     chex.assert_shape(obs_batch, (4, 210, 160, 3))
     chex.assert_shape(states.lives, (4,))
 
 
 def test_jit_step(game):
-    _, state = game.reset(_key)
+    _, state = game.reset(_key, _params)
     step_fn = jax.jit(game.step)
-    _, new_state, _, _, _ = step_fn(state, jnp.int32(0))
+    _, new_state, _, _, _ = step_fn(_key, state, jnp.int32(0), _params)
     assert hasattr(new_state, "done")
-
-
-def test_scan_rollout(game):
-    _, state = game.reset(_key)
-    actions = jnp.zeros(10, dtype=jnp.int32)
-    _, (obs_seq, rew_seq, done_seq, _) = game.rollout(state, actions)
-    chex.assert_shape(obs_seq, (10, 210, 160, 3))
-    chex.assert_shape(rew_seq, (10,))
-    chex.assert_shape(done_seq, (10,))

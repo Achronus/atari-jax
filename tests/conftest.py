@@ -15,16 +15,15 @@
 
 """pytest session configuration and shared fixtures.
 
-FakeEnv is a dependency-free environment that mirrors the Env/Wrapper interface;
-it is available to all test subdirectories.
+FakeEnv is a dependency-free environment that mirrors the JaxEnv/Wrapper
+interface; it is available to all test subdirectories.
 """
 
 import chex
-import jax
 import jax.numpy as jnp
 import pytest
 
-from atarax.env.spaces import Box, Discrete
+from envrax.spaces import Box, Discrete
 
 
 @chex.dataclass
@@ -47,14 +46,14 @@ def _make_fake_state() -> FakeState:
 
 
 class FakeEnv:
-    """Minimal env that mirrors the Env/Wrapper interface for wrapper tests."""
+    """Minimal env that mirrors the JaxEnv/Wrapper interface for wrapper tests."""
 
-    def reset(self, key):
+    def reset(self, _rng, _params):
         state = _make_fake_state()
         obs = jnp.zeros((210, 160, 3), dtype=jnp.uint8)
         return obs, state
 
-    def step(self, state, action):
+    def step(self, _rng, state, _action, _params):
         new_state = state.__replace__(
             episode_step=(state.episode_step + jnp.int32(1)).astype(jnp.int32),
             reward=jnp.float32(1.0),
@@ -69,9 +68,6 @@ class FakeEnv:
             "truncated": jnp.bool_(False),
         }
         return obs, new_state, new_state.reward, done, info
-
-    def sample(self, key):
-        return jax.random.randint(key, shape=(), minval=0, maxval=18, dtype=jnp.int32)
 
     @property
     def observation_space(self):

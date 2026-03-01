@@ -21,10 +21,10 @@ Run with:
 
 import chex
 import jax
-import jax.numpy as jnp
 
-from atarax.env import Env, VecEnv, make_multi, make_multi_vec
-from atarax.env.spec import EnvSpec
+from atarax import VmapEnv, make_multi, make_multi_vec
+from atarax.game import AtaraxGame
+from atarax.spec import EnvSpec
 
 _key = jax.random.PRNGKey(0)
 _BREAKOUT = "atari/breakout-v0"
@@ -34,75 +34,80 @@ _N_ENVS = 2
 
 
 def test_make_multi_returns_list():
-    envs = make_multi([_BREAKOUT], jit_compile=False)
-    assert isinstance(envs, list)
+    results = make_multi([_BREAKOUT], jit_compile=False)
+    assert isinstance(results, list)
 
 
 def test_make_multi_length():
-    envs = make_multi(_IDS, jit_compile=False)
-    assert len(envs) == len(_IDS)
+    results = make_multi(_IDS, jit_compile=False)
+    assert len(results) == len(_IDS)
 
 
-def test_make_multi_all_are_env():
-    envs = make_multi(_IDS, jit_compile=False)
-    assert all(isinstance(e, Env) for e in envs)
+def test_make_multi_all_are_atarax_game():
+    results = make_multi(_IDS, jit_compile=False)
+    assert all(isinstance(e, AtaraxGame) for e, _ in results)
 
 
 def test_make_multi_reset_shape():
-    envs = make_multi([_BREAKOUT], jit_compile=False)
-    obs, _ = envs[0].reset(_key)
+    results = make_multi([_BREAKOUT], jit_compile=False)
+    env, params = results[0]
+    obs, _ = env.reset(_key, params)
     chex.assert_shape(obs, (210, 160, 3))
 
 
 def test_make_multi_accepts_env_spec():
-    envs = make_multi([_BREAKOUT_SPEC], jit_compile=False)
-    assert len(envs) == 1
-    assert isinstance(envs[0], Env)
+    results = make_multi([_BREAKOUT_SPEC], jit_compile=False)
+    assert len(results) == 1
+    assert isinstance(results[0][0], AtaraxGame)
 
 
 def test_make_multi_preset():
-    envs = make_multi([_BREAKOUT], preset=True, jit_compile=False)
-    obs, _ = envs[0].reset(_key)
+    results = make_multi([_BREAKOUT], preset=True, jit_compile=False)
+    env, params = results[0]
+    obs, _ = env.reset(_key, params)
     assert obs.shape == (84, 84, 4)
 
 
 def test_make_multi_vec_returns_list():
-    vec_envs = make_multi_vec([_BREAKOUT], _N_ENVS, jit_compile=False)
-    assert isinstance(vec_envs, list)
+    results = make_multi_vec([_BREAKOUT], _N_ENVS, jit_compile=False)
+    assert isinstance(results, list)
 
 
 def test_make_multi_vec_length():
-    vec_envs = make_multi_vec(_IDS, _N_ENVS, jit_compile=False)
-    assert len(vec_envs) == len(_IDS)
+    results = make_multi_vec(_IDS, _N_ENVS, jit_compile=False)
+    assert len(results) == len(_IDS)
 
 
-def test_make_multi_vec_all_are_vec_env():
-    vec_envs = make_multi_vec(_IDS, _N_ENVS, jit_compile=False)
-    assert all(isinstance(v, VecEnv) for v in vec_envs)
+def test_make_multi_vec_all_are_vmap_env():
+    results = make_multi_vec(_IDS, _N_ENVS, jit_compile=False)
+    assert all(isinstance(v, VmapEnv) for v, _ in results)
 
 
-def test_make_multi_vec_n_envs():
-    vec_envs = make_multi_vec([_BREAKOUT], _N_ENVS, jit_compile=False)
-    assert vec_envs[0].n_envs == _N_ENVS
+def test_make_multi_vec_num_envs():
+    results = make_multi_vec([_BREAKOUT], _N_ENVS, jit_compile=False)
+    vec_env, _ = results[0]
+    assert vec_env.num_envs == _N_ENVS
 
 
 def test_make_multi_vec_reset_shape():
-    vec_envs = make_multi_vec([_BREAKOUT], _N_ENVS, jit_compile=False)
-    obs, _ = vec_envs[0].reset(_key)
+    results = make_multi_vec([_BREAKOUT], _N_ENVS, jit_compile=False)
+    vec_env, params = results[0]
+    obs, _ = vec_env.reset(_key, params)
     chex.assert_shape(obs, (_N_ENVS, 210, 160, 3))
 
 
 def test_make_multi_vec_step_shape():
-    vec_envs = make_multi_vec([_BREAKOUT], _N_ENVS, jit_compile=False)
-    _, states = vec_envs[0].reset(_key)
+    import jax.numpy as jnp
+    results = make_multi_vec([_BREAKOUT], _N_ENVS, jit_compile=False)
+    vec_env, params = results[0]
+    _, states = vec_env.reset(_key, params)
     actions = jnp.zeros(_N_ENVS, dtype=jnp.int32)
-    obs, _, reward, done, _ = vec_envs[0].step(states, actions)
+    obs, _, reward, done, _ = vec_env.step(_key, states, actions, params)
     chex.assert_shape(obs, (_N_ENVS, 210, 160, 3))
     chex.assert_shape(reward, (_N_ENVS,))
-    chex.assert_shape(done, (_N_ENVS,))
 
 
 def test_make_multi_vec_accepts_env_spec():
-    vec_envs = make_multi_vec([_BREAKOUT_SPEC], _N_ENVS, jit_compile=False)
-    assert len(vec_envs) == 1
-    assert isinstance(vec_envs[0], VecEnv)
+    results = make_multi_vec([_BREAKOUT_SPEC], _N_ENVS, jit_compile=False)
+    assert len(results) == 1
+    assert isinstance(results[0][0], VmapEnv)

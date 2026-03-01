@@ -13,125 +13,141 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Unit tests for atarax.games.breakout — BreakoutState and game logic.
+"""Breakout-specific unit tests (physics and state contract).
 
-Run with:
-    pytest tests/game/test_breakout.py -v
+Call ``game._reset(key)`` directly throughout to bypass the NOOP warmup in
+``AtariEnv.reset()``.  This gives the canonical deterministic initial state.
 """
 
 import chex
 import jax
 import jax.numpy as jnp
+import pytest
 
-from atarax.games._base import AtariState
 from atarax.games.breakout import Breakout, BreakoutState
 
-_key = jax.random.PRNGKey(0)
+_KEY = jax.random.PRNGKey(0)
+_NOOP = jnp.int32(0)
+_FIRE = jnp.int32(1)
 
-game = Breakout()
+_BRICK_ROWS = 6
+_BRICK_COLS = 18
 
 
-def test_reset_returns_breakout_state():
-    _, state = game.reset(_key)
+@pytest.fixture(scope="module")
+def game():
+    return Breakout()
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _empty_bricks() -> jax.Array:
+    """All-False brick grid."""
+    return jnp.zeros((_BRICK_ROWS, _BRICK_COLS), dtype=jnp.bool_)
+
+
+def _only_brick(row: int, col: int) -> jax.Array:
+    """Brick grid with a single brick at (row, col)."""
+    return _empty_bricks().at[row, col].set(True)
+
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+def test_initial_state(game):
+    state = game._reset(_KEY)
     assert isinstance(state, BreakoutState)
-    assert isinstance(state, AtariState)
-
-
-def test_reset_bricks_shape():
-    _, state = game.reset(_key)
-    chex.assert_shape(state.bricks, (6, 18))
-
-
-def test_reset_all_bricks_active():
-    _, state = game.reset(_key)
-    assert bool(jnp.all(state.bricks))
-
-
-def test_reset_lives():
-    _, state = game.reset(_key)
-    chex.assert_rank(state.lives, 0)
+    assert int(state.level) == 0
+    assert int(state.speed_tier) == 0
     assert int(state.lives) == 5
+    assert bool(jnp.all(state.bricks)), "All bricks should be active on reset"
+    assert not bool(state.ball_active), "Ball should be inactive until FIRE"
+    assert state.level.dtype == jnp.int32
+    assert state.speed_tier.dtype == jnp.int32
 
 
-def test_reset_score_zero():
-    _, state = game.reset(_key)
-    assert int(state.score) == 0
+def test_speed_tier_upgrades_on_upper_row_hit(game):
+    # Place a single brick in row 0 and position the ball directly on it.
+    # Row 0 spans y ∈ [57, 63), col 0 spans x ∈ [8, 16).
+    base = game._reset(_KEY)
+    state = base.__replace__(
+        bricks=_only_brick(0, 0),
+        ball_x=jnp.float32(8.0),
+        ball_y=jnp.float32(58.0),
+        ball_dx=jnp.float32(0.0),
+        ball_dy=jnp.float32(-2.0),
+        ball_active=jnp.bool_(True),
+        speed_tier=jnp.int32(0),
+    )
+    new_state = game._step_physics(state, _NOOP)
+    assert int(new_state.speed_tier) >= 1, (
+        "Speed tier should rise to at least 1 after hitting a row-0 brick"
+    )
 
 
-def test_reset_done_false():
-    _, state = game.reset(_key)
-    assert not bool(state.done)
+def test_level_and_speed_tier_on_board_clear(game):
+    # One yellow brick (row 4, col 9) remains — hitting it clears the board.
+    # Row 4 spans y ∈ [81, 87), col 9 spans x ∈ [8 + 9*8, 8 + 10*8) = [80, 88).
+    base = game._reset(_KEY)
+    state = base.__replace__(
+        bricks=_only_brick(4, 9),
+        ball_x=jnp.float32(80.0),
+        ball_y=jnp.float32(82.0),
+        ball_dx=jnp.float32(0.0),
+        ball_dy=jnp.float32(-2.0),
+        ball_active=jnp.bool_(True),
+        speed_tier=jnp.int32(0),
+        level=jnp.int32(0),
+    )
+    new_state = game._step_physics(state, _NOOP)
+    assert int(new_state.level) == 1, "Level should increment on board clear"
+    assert int(new_state.speed_tier) > int(state.speed_tier), (
+        "Speed tier should increment on board clear"
+    )
+    assert bool(jnp.all(new_state.bricks)), "Bricks should reset after board clear"
 
 
-def test_reset_reward_zero():
-    _, state = game.reset(_key)
-    assert float(state.reward) == 0.0
+def test_ball_velocity_scales_with_tier(game):
+    # Start tier 0, ball moving straight up at (0, -2).
+    # A row-0 brick collision raises tier to 1, scaling |dy| by 3.0/2.0.
+    # Keep a second brick in row 5 so the board-clear path does NOT fire
+    # (board-clear would raise the tier a second time in the same step).
+    base = game._reset(_KEY)
+    bricks = _empty_bricks().at[0, 0].set(True).at[5, 0].set(True)
+    state = base.__replace__(
+        bricks=bricks,
+        ball_x=jnp.float32(8.0),
+        ball_y=jnp.float32(58.0),
+        ball_dx=jnp.float32(0.0),
+        ball_dy=jnp.float32(-2.0),
+        ball_active=jnp.bool_(True),
+        speed_tier=jnp.int32(0),
+    )
+    new_state = game._step_physics(state, _NOOP)
+
+    expected_scale = 3.0 / 2.0  # tier-1 speed / tier-0 speed
+    original_speed = float(jnp.abs(state.ball_dy))
+    new_speed = float(jnp.abs(new_state.ball_dy))
+    assert abs(new_speed / original_speed - expected_scale) < 0.01, (
+        f"Velocity magnitude should scale by {expected_scale}; "
+        f"got {new_speed / original_speed:.3f}"
+    )
 
 
-def test_reset_deterministic():
-    _, s1 = game.reset(jax.random.PRNGKey(42))
-    _, s2 = game.reset(jax.random.PRNGKey(42))
-    assert bool(jnp.all(s1.bricks == s2.bricks))
-    assert float(s1.ball_x) == float(s2.ball_x)
-    assert float(s1.paddle_x) == float(s2.paddle_x)
-
-
-def test_reset_different_keys_same_bricks():
-    _, s1 = game.reset(jax.random.PRNGKey(0))
-    _, s2 = game.reset(jax.random.PRNGKey(99))
-    assert bool(jnp.all(s1.bricks == s2.bricks))
-
-
-def test_step_returns_breakout_state():
-    _, state = game.reset(_key)
-    _, new_state, _, _, _ = game.step(state, jnp.int32(0))
-    assert isinstance(new_state, BreakoutState)
-
-
-def test_step_reward_type():
-    _, state = game.reset(_key)
-    _, new_state, reward, _, _ = game.step(state, jnp.int32(0))
-    chex.assert_rank(reward, 0)
-    chex.assert_type(reward, jnp.float32)
-
-
-def test_step_done_type():
-    _, state = game.reset(_key)
-    _, _, _, done, _ = game.step(state, jnp.int32(0))
-    chex.assert_rank(done, 0)
-    chex.assert_type(done, jnp.bool_)
-
-
-def test_step_episode_step_increments():
-    _, state = game.reset(_key)
-    _, new_state, _, _, _ = game.step(state, jnp.int32(0))
-    assert int(new_state.episode_step) > int(state.episode_step)
-
-
-def test_render_shape():
-    _, state = game.reset(_key)
-    frame = game.render(state)
-    chex.assert_shape(frame, (210, 160, 3))
-    chex.assert_type(frame, jnp.uint8)
-
-
-def test_vmap_reset():
-    keys = jax.random.split(_key, 8)
-    obs_batch, states = jax.vmap(game.reset)(keys)
-    chex.assert_shape(states.bricks, (8, 6, 18))
-    chex.assert_shape(states.ball_x, (8,))
-
-
-def test_jit_step():
-    _, state = game.reset(_key)
-    step_jit = jax.jit(game.step)
-    _, new_state, _, _, _ = step_jit(state, jnp.int32(0))
-    assert isinstance(new_state, BreakoutState)
-
-
-def test_pytree_flatten():
-    _, state = game.reset(_key)
-    flat, treedef = jax.tree_util.tree_flatten(state)
-    assert len(flat) > 0
-    restored = jax.tree_util.tree_unflatten(treedef, flat)
-    assert bool(jnp.all(restored.bricks == state.bricks))
+def test_done_on_last_life_lost(game):
+    # One life left; ball is moving down and will go out of bounds this frame.
+    base = game._reset(_KEY)
+    state = base.__replace__(
+        lives=jnp.int32(1),
+        ball_x=jnp.float32(80.0),
+        ball_y=jnp.float32(200.0),
+        ball_dx=jnp.float32(0.0),
+        ball_dy=jnp.float32(10.0),
+        ball_active=jnp.bool_(True),
+    )
+    new_state = game._step_physics(state, _NOOP)
+    assert int(new_state.lives) == 0
+    assert bool(new_state.done), "Episode should end when last life is lost"
