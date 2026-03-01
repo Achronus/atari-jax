@@ -1,19 +1,23 @@
 [project]
 name = "atarax"
 version = "0.1.0"
-description = "Add your description here"
+description = "JAX-native implementations of all 57 Atari 2600 games — jit, vmap, and lax.scan ready."
 readme = "README.md"
+license = "Apache-2.0"
 requires-python = ">=3.13"
-dependencies = [
-    "chex>=0.1.91",
-    "jax>=0.9.0.1",
-    "ale-py>=0.11.2",
-    "gymnasium>=1.2.3",
-    "tqdm>=4.67.3",
-]
+dependencies = ["chex>=0.1.91", "envrax==0.1.0", "jax>=0.9.0.1", "tqdm>=4.67.3"]
 
 [dependency-groups]
-test = ["pygame>=2.6.1", "pytest>=9.0.2", "pytest-xdist>=3.8.0"]
+test = [
+    "pygame>=2.6.1",
+    "pytest>=9.0.2",
+    "pytest-xdist>=3.8.0",
+    "ale-py>=0.11.2",
+    "gymnasium>=1.2.3",
+    "imageio>=2.37.2",
+    "imageio-ffmpeg>=0.6.0",
+    "pillow>=12.1.1",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -29,7 +33,3 @@ exclude-dependencies = ["uvloop"]
 testpaths = ["tests"]
 norecursedirs = [".venv"]
 addopts = "-n auto"
-filterwarnings = [
-    "ignore::UserWarning:jax",
-    "ignore::UserWarning:jaxlib",
-]
