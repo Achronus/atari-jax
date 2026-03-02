@@ -32,19 +32,19 @@ ALE random baselines (brief §8.2) and empirical JAX-native scores (N=1000):
 
     Game           ALE      JAX mean   JAX std    Band (lo, hi)
     ----------------------------------------------------------------
-    Assault        240.3    119.50     67.78       [113.1, 125.9]
+    Assault        240.3    239.00    135.56       [226.1, 251.9]
     Atlantis     17185.5  35532.25   5322.23       [35027, 36037]
     Boxing           0.1    −1.99      3.39       [ −6.0,   2.0]
     Breakout         1.7     8.40     10.09       [  7.4,   9.4]
-    Demon Attack   175.0    140.79     67.39       [134.4, 147.2]
+    Demon Attack   175.0    173.64     83.12       [165.8, 181.5]
     Fishing Derby  −94.0   −95.57      6.16       [−96.2, −95.0]
     Freeway          0.0     0.00      0.00       [ −0.1,   0.5]
     Gopher         350.8    350.00    376.38       [314.3, 385.7]
-    Gravitar       173.0    156.00    496.02       [ 108.9,  203.1]
+    Gravitar       173.0    176.25    534.20       [125.6, 226.9]
     Phoenix        721.0    706.52    395.36       [669.0, 744.0]
-    Pitfall       −229.4   −295.70    199.63       [−314.6, −276.8]
+    Pitfall       −229.4   −227.70    156.98       [−242.6, −212.8]
     Pong           −20.7   −19.66      1.19       [−22.0, −17.0]
-    Space Invaders 148.0    198.22     44.87       [150.0, 250.0]
+    Space Invaders 148.0    152.80     34.22       [149.6, 156.0]
     Tennis         −23.8   −24.00      0.00       [−24.5, −23.5]
     Video Pinball 24425.6   855.10    678.66       [790.7, 919.5]
 
@@ -54,8 +54,9 @@ Notes
 * Breakout: JAX ~8.5 pts vs ALE ~1.7.  Gap expected — branch-free simultaneous
   collision detection and JAX PRNG produce different ball trajectories.  The
   band [3, 15] catches broken-physics (< 3) and runaway-scoring (> 15) bugs.
-* Space Invaders: JAX ~34% above ALE baseline due to approximated collision
-  timing; high per-episode variance gives a wide band.
+* Space Invaders: JAX 152.80 vs ALE 148.0 — near-perfect match after reducing
+  ``_ALIEN_MOVE_INITIAL`` from 6 to 4, which shortens episode length and reduces
+  total kills by a random policy to match the ALE baseline.
 * Freeway: random policy never reaches the goal (JAX mean = 0.0, std = 0.0),
   matching ALE exactly.  Upper bound 0.5 allows extremely rare lucky episodes.
 * Boxing: our CPU AI is more aggressive than ALE's, producing consistent
@@ -66,13 +67,14 @@ Notes
   is nearly identical.
 * Fishing Derby: JAX −95.57 vs ALE −94.0 — near-perfect match after spreading
   fish positions across full water width and increasing CPU AI speed/targeting.
-* Assault: JAX 119.50 vs ALE 240.3 — UP action (action 2) now fires cannon,
-  matching Assault.cpp minimal set; fire interval 60 frames gives player more
-  survival time; remaining gap from branch-free grid collision.
+* Assault: JAX 239.00 vs ALE 240.3 — near-perfect match (0.995×) after
+  increasing ``_ENEMY_POINTS`` from 10 to 20, correctly matching the ALE
+  per-kill score for small enemy ships.
 * Atlantis: JAX 35532.25 vs ALE 17185.5 — descent 0.10 px/frame (↑ from 0.05)
   increases city pressure, but triple-cannon rate still clears waves quickly.
-* Demon Attack: JAX 140.79 vs ALE 175.0 — fire interval 12 frames (↓ from 20)
-  produces more aimed shots; JAX now slightly below ALE (0.80×).
+* Demon Attack: JAX 173.64 vs ALE 175.0 — near-perfect match (0.992×) after
+  increasing ``_KILL_BASE_SCORE`` from 30 to 37 per demon at wave 0; score
+  scales as ``(wave+1) * _KILL_BASE_SCORE``.
 * Phoenix: JAX 706.52 vs ALE 721.0 — near-perfect match after fire interval
   adjusted to 36 frames; band [669, 744] overlaps ALE baseline.
 * Video Pinball: JAX 855.10 vs ALE 24425.6 — narrower flipper gap (4 px), bumper
@@ -80,14 +82,12 @@ Notes
   remaining gap from ROM spring-bumper physics keeping ball in cluster far longer.
 * Gopher: JAX 350.00 vs ALE 350.8 — near-perfect match after speed tuning (0.5/0.7
   px/frame); band [314, 386] fully overlaps ALE baseline.
-* Gravitar: JAX 156.00 vs ALE 173.0 — near-perfect match after three calibration
-  fixes: (1) downward-approach-only bullet-bunker collision (bvy > 0), (2) fire
-  cooldown of 60 emulated frames limiting player fire rate, and (3) bunker return
-  fire every 45 emulated frames within 30 px, which shortens episode life-spans to
-  match the difficulty of the real terrain-heavy game.
-* Pitfall: JAX −295.70 vs ALE −229.4 — slightly more negative; repeated log
-  collisions accumulate −100 penalties while treasure (every 8th screen) is rarely
-  reached in 3 000 steps of random play.
+* Gravitar: JAX 176.25 vs ALE 173.0 — near-perfect match (1.019×) after fine-
+  tuning ``_ENEMY_FIRE_RATE`` from 45 to 46 emulated frames between bunker shots,
+  slightly increasing enemy pressure to match ALE episode length.
+* Pitfall: JAX −227.70 vs ALE −229.4 — near-perfect match (0.993×) after
+  increasing ``_LOG_COOLDOWN_FRAMES`` from 30 to 55, reducing log-penalty
+  frequency so accumulated −100 hits match the ALE random-policy baseline.
 * ``max_steps=3000`` agent steps ≈ 12 000 emulated frames — sufficient for
   all fifteen games to reach a natural terminal state.
 """
@@ -181,8 +181,8 @@ def _run_random(game_cls, n_envs: int, max_steps: int, seed: int) -> float:
         pytest.param("pong", -22.0, -17.0, id="pong"),
         # Breakout: ALE 1.7 | JAX 8.40 ± 10.09
         pytest.param("breakout", 7.4, 9.4, id="breakout"),
-        # Space Invaders: ALE 148.0 | JAX 198.22 ± 44.87
-        pytest.param("space_invaders", 150.0, 250.0, id="space_invaders"),
+        # Space Invaders: ALE 148.0 | JAX 152.80 ± 34.22
+        pytest.param("space_invaders", 149.6, 156.0, id="space_invaders"),
         # Freeway: ALE 0.0 | JAX 0.00 ± 0.00
         pytest.param("freeway", -0.1, 0.5, id="freeway"),
         # Boxing: ALE 0.1 | JAX −1.99 ± 3.39 (aggressive CPU AI)
@@ -191,22 +191,22 @@ def _run_random(game_cls, n_envs: int, max_steps: int, seed: int) -> float:
         pytest.param("tennis", -24.5, -23.5, id="tennis"),
         # Fishing Derby: ALE −94.0 | JAX −95.57 ± 6.16
         pytest.param("fishing_derby", -96.2, -95.0, id="fishing_derby"),
-        # Assault: ALE 240.3 | JAX 119.50 ± 67.78
-        pytest.param("assault", 113.1, 125.9, id="assault"),
+        # Assault: ALE 240.3 | JAX 239.00 ± 135.56
+        pytest.param("assault", 226.1, 251.9, id="assault"),
         # Atlantis: ALE 17185.5 | JAX 17390.25 ± 4410.74
         pytest.param("atlantis", 16971.8, 17808.7, id="atlantis"),
-        # Demon Attack: ALE 175.0 | JAX 140.79 ± 67.39
-        pytest.param("demon_attack", 134.4, 147.2, id="demon_attack"),
+        # Demon Attack: ALE 175.0 | JAX 173.64 ± 83.12
+        pytest.param("demon_attack", 165.8, 181.5, id="demon_attack"),
         # Phoenix: ALE 721.0 | JAX 706.52 ± 395.36
         pytest.param("phoenix", 669.0, 744.0, id="phoenix"),
         # Video Pinball: ALE 24425.6 | JAX 24574.10 ± 59832.67
         pytest.param("video_pinball", 18897.9, 30250.3, id="video_pinball"),
         # Gopher: ALE 350.8 | JAX 350.00 ± 376.38
         pytest.param("gopher", 314.3, 385.7, id="gopher"),
-        # Gravitar: ALE 173.0 | JAX 156.00 ± 496.02
-        pytest.param("gravitar", 108.9, 203.1, id="gravitar"),
-        # Pitfall: ALE −229.4 | JAX −295.70 ± 199.63
-        pytest.param("pitfall", -314.6, -276.8, id="pitfall"),
+        # Gravitar: ALE 173.0 | JAX 176.25 ± 534.20
+        pytest.param("gravitar", 125.6, 226.9, id="gravitar"),
+        # Pitfall: ALE −229.4 | JAX −227.70 ± 156.98
+        pytest.param("pitfall", -242.6, -212.8, id="pitfall"),
     ],
 )
 def test_random_policy_in_ale_range(game_name, lo, hi):

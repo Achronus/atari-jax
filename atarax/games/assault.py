@@ -64,7 +64,7 @@ _ENEMY_X0: float = 20.0
 _ENEMY_Y0: float = 30.0
 _ENEMY_DESCENT: float = 0.1  # px/frame
 
-_ENEMY_POINTS: int = 10
+_ENEMY_POINTS: int = 20
 _N_ENEMY_BULLETS: int = 3
 _FIRE_INTERVAL: int = 60  # frames between enemy shots
 

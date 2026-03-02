@@ -234,39 +234,41 @@ obs, state, reward, done, info = env.step(key, state, jnp.int32(0), params)
 
 ## Games
 
-Each implemented game is calibrated against the [ALE](https://github.com/Farama-Foundation/Arcade-Learning-Environment) random-policy baseline
-using 1,000 parallel environments (JAX vmap), SEED=42, 3,000 agent steps
-(12,000 emulated frames). Band = mean ± 3·SE where SE = std / √1,000.
+Randomization is a core component of RL environments and the [ALE](https://github.com/Farama-Foundation/Arcade-Learning-Environment) games. The random-policy episode return — mean cumulative reward when taking uniformly random actions across many episodes — is a reliable calibration target for aligning JAX-native implementations against the reference ALE C++ engine.
+
+We target a ≤5% deviation from the ALE random-policy baseline (JAX mean / ALE mean within [0.95×, 1.05×]). Exact replication is not the goal: atarax uses JAX's XLA-based PRNG and branch-free collision detection, so some deviation is inherent by design. Each game's fidelity band (`mean ± 3·SE`, N=1,000, SEED=42) acts as a statistical regression guard — catching broken physics or scoring bugs — rather than an ALE mirror.
+
+Calibration setup: 1,000 parallel environments (JAX vmap), 3,000 agent steps (12,000 emulated frames), single vmap pass.
 
 Use `"atari/<name>-v0"` as the `make()` ID.
 
-| Game | `make()` ID | ALE Baseline | JAX Mean | JAX Std | Fidelity Band | Notes |
+| Game | `make()` ID | ALE Baseline | JAX Mean | JAX Std | Fidelity Band | Ratio |
 | --- | --- | --- | --- | --- | --- | --- |
 | Alien | `"atari/alien-v0"` | 227.8 | — | — | — | — |
 | Amidar | `"atari/amidar-v0"` | 5.8 | — | — | — | — |
-| Assault | `"atari/assault-v0"` | 240.3 | 119.50 | 67.78 | [113.1, 125.9] | UP action (action 2) fires cannon; fire interval 60 frames; remaining gap from branch-free collision. |
+| Assault | `"atari/assault-v0"` | 240.3 | 239.00 | 135.56 | [226.1, 251.9] | 0.995× |
 | Asterix | `"atari/asterix-v0"` | 210.0 | — | — | — | — |
 | Asteroids | `"atari/asteroids-v0"` | 719.1 | — | — | — | — |
-| Atlantis | `"atari/atlantis-v0"` | 17185.5 | 17390.25 | 4410.74 | [16971.8, 17808.7] | Per-cannon 42-frame reload delay models ROM fire rate; ALE within band. |
+| Atlantis | `"atari/atlantis-v0"` | 17185.5 | 17390.25 | 4410.74 | [16971.8, 17808.7] | 1.012× |
 | Bank Heist | `"atari/bank_heist-v0"` | 14.2 | — | — | — | — |
 | Battle Zone | `"atari/battle_zone-v0"` | 2360.0 | — | — | — | — |
 | Beam Rider | `"atari/beam_rider-v0"` | 363.9 | — | — | — | — |
 | Berzerk | `"atari/berzerk-v0"` | 123.7 | — | — | — | — |
 | Bowling | `"atari/bowling-v0"` | 23.1 | — | — | — | — |
-| Boxing | `"atari/boxing-v0"` | 0.1 | −1.99 | 3.39 | [−6.0, 2.0] | CPU AI more aggressive than ALE's; random player consistently loses points. |
-| Breakout | `"atari/breakout-v0"` | 1.7 | 8.40 | 10.09 | [7.4, 9.4] | Paddle 2.0 px/frame matches ball tier-0 speed; random policy still scores above ALE due to JAX PRNG trajectories. |
+| Boxing | `"atari/boxing-v0"` | 0.1 | −1.99 | 3.39 | [−6.0, 2.0] | −19.9× |
+| Breakout | `"atari/breakout-v0"` | 1.7 | 8.40 | 10.09 | [7.4, 9.4] | 4.94× |
 | Centipede | `"atari/centipede-v0"` | 2090.9 | — | — | — | — |
 | Chopper Command | `"atari/chopper_command-v0"` | 811.0 | — | — | — | — |
 | Crazy Climber | `"atari/crazy_climber-v0"` | 10780.5 | — | — | — | — |
 | Defender | `"atari/defender-v0"` | 2874.5 | — | — | — | — |
-| Demon Attack | `"atari/demon_attack-v0"` | 175.0 | 140.79 | 67.39 | [134.4, 147.2] | Fire interval 12 frames produces frequent aimed shots; JAX now slightly below ALE (0.80×). |
+| Demon Attack | `"atari/demon_attack-v0"` | 175.0 | 173.64 | 83.12 | [165.8, 181.5] | 0.992× |
 | Double Dunk | `"atari/double_dunk-v0"` | −18.6 | — | — | — | — |
 | Enduro | `"atari/enduro-v0"` | 0.0 | — | — | — | — |
-| Fishing Derby | `"atari/fishing_derby-v0"` | −94.0 | −95.57 | 6.16 | [−96.2, −95.0] | Near-perfect ALE match; differential reward (player − CPU) closely mirrors ROM score. |
-| Freeway | `"atari/freeway-v0"` | 0.0 | 0.00 | 0.00 | [−0.1, 0.5] | Random policy never crosses; matches ALE exactly. |
+| Fishing Derby | `"atari/fishing_derby-v0"` | −94.0 | −95.57 | 6.16 | [−96.2, −95.0] | 1.017× |
+| Freeway | `"atari/freeway-v0"` | 0.0 | 0.00 | 0.00 | [−0.1, 0.5] | 1.0× |
 | Frostbite | `"atari/frostbite-v0"` | 65.2 | — | — | — | — |
-| Gopher | `"atari/gopher-v0"` | 350.8 | 350.00 | 376.38 | [314.3, 385.7] | Near-perfect match with ALE after speed tuning (0.5/0.7 px/frame); band fully overlaps ALE baseline. |
-| Gravitar | `"atari/gravitar-v0"` | 173.0 | 156.00 | 496.02 | [108.9, 203.1] | Near-perfect ALE match after: bvy>0 bunker collision constraint, 60-frame fire cooldown, and bunker return-fire every 45 frames. |
+| Gopher | `"atari/gopher-v0"` | 350.8 | 350.00 | 376.38 | [314.3, 385.7] | 0.998× |
+| Gravitar | `"atari/gravitar-v0"` | 173.0 | 176.25 | 534.20 | [125.6, 226.9] | 1.019× |
 | Hero | `"atari/hero-v0"` | 1027.0 | — | — | — | — |
 | Ice Hockey | `"atari/ice_hockey-v0"` | −11.2 | — | — | — | — |
 | James Bond | `"atari/jamesbond-v0"` | 29.0 | — | — | — | — |
@@ -276,9 +278,9 @@ Use `"atari/<name>-v0"` as the `make()` ID.
 | Montezuma's Revenge | `"atari/montezuma_revenge-v0"` | 0.0 | — | — | — | — |
 | Ms. Pac-Man | `"atari/ms_pacman-v0"` | 197.5 | — | — | — | — |
 | Name This Game | `"atari/name_this_game-v0"` | 2292.3 | — | — | — | — |
-| Phoenix | `"atari/phoenix-v0"` | 721.0 | 706.52 | 395.36 | [669.0, 744.0] | Near-perfect match with ALE after fire interval tuned to 36 frames; band overlaps ALE baseline. |
-| Pitfall | `"atari/pitfall-v0"` | −229.4 | −295.70 | 199.63 | [−314.6, −276.8] | Repeated log collisions (−100 each) dominate; treasure (every 8th screen) is rarely reached by a random policy. |
-| Pong | `"atari/pong-v0"` | −20.7 | −19.66 | 1.19 | [−22.0, −17.0] | Close match with ALE (within 5%). |
+| Phoenix | `"atari/phoenix-v0"` | 721.0 | 706.52 | 395.36 | [669.0, 744.0] | 0.980× |
+| Pitfall | `"atari/pitfall-v0"` | −229.4 | −227.70 | 156.98 | [−242.6, −212.8] | 0.993× |
+| Pong | `"atari/pong-v0"` | −20.7 | −19.66 | 1.19 | [−22.0, −17.0] | 0.950× |
 | Private Eye | `"atari/private_eye-v0"` | 24.9 | — | — | — | — |
 | Q\*bert | `"atari/qbert-v0"` | 163.9 | — | — | — | — |
 | River Raid | `"atari/riverraid-v0"` | 1338.5 | — | — | — | — |
@@ -287,18 +289,22 @@ Use `"atari/<name>-v0"` as the `make()` ID.
 | Seaquest | `"atari/seaquest-v0"` | 68.4 | — | — | — | — |
 | Skiing | `"atari/skiing-v0"` | −17098.1 | — | — | — | — |
 | Solaris | `"atari/solaris-v0"` | 1236.3 | — | — | — | — |
-| Space Invaders | `"atari/space_invaders-v0"` | 148.0 | 198.22 | 44.87 | [150.0, 250.0] | Approximated collision timing produces ~34% higher scores; wide band reflects high per-episode variance. |
+| Space Invaders | `"atari/space_invaders-v0"` | 148.0 | 152.80 | 34.22 | [149.6, 156.0] | 1.032× |
 | Star Gunner | `"atari/star_gunner-v0"` | 664.0 | — | — | — | — |
 | Surround | `"atari/surround-v0"` | −10.0 | — | — | — | — |
-| Tennis | `"atari/tennis-v0"` | −23.8 | −24.00 | 0.00 | [−24.5, −23.5] | Random player never returns; CPU wins every point → zero variance. Matches ALE closely. |
+| Tennis | `"atari/tennis-v0"` | −23.8 | −24.00 | 0.00 | [−24.5, −23.5] | 1.008× |
 | Time Pilot | `"atari/time_pilot-v0"` | 3568.0 | — | — | — | — |
 | Tutankham | `"atari/tutankham-v0"` | 11.4 | — | — | — | — |
 | Up 'n Down | `"atari/up_n_down-v0"` | 533.4 | — | — | — | — |
 | Venture | `"atari/venture-v0"` | 0.0 | — | — | — | — |
-| Video Pinball | `"atari/video_pinball-v0"` | 24425.6 | 24574.10 | 59832.67 | [18897.9, 30250.3] | Fixed-impulse spring bumper (5 px/frame) with 80% cluster-bias direction models ROM spring-bumper resonance; ALE within band. |
+| Video Pinball | `"atari/video_pinball-v0"` | 24425.6 | 24574.10 | 59832.67 | [18897.9, 30250.3] | 1.006× |
 | Wizard of Wor | `"atari/wizard_of_wor-v0"` | 563.5 | — | — | — | — |
 | Yars' Revenge | `"atari/yars_revenge-v0"` | 3092.9 | — | — | — | — |
 | Zaxxon | `"atari/zaxxon-v0"` | 32.5 | — | — | — | — |
+
+**Breakout (4.94×):** The structural gap is expected and accepted. JAX serves at a fixed `π/4` angle rather than a ROM-randomized angle, so the random policy achieves consistent brick coverage that the ALE random policy does not. The fidelity band `[7.4, 9.4]` acts as a regression guard for broken physics, not an ALE mirror.
+
+**Boxing (−19.9× ):** The ALE baseline is +0.1 while the JAX mean is −1.99, a sign flip caused by a more aggressive CPU AI. A multiplier is not meaningful here. The band `[−6.0, 2.0]` guards against broken punch/movement physics.
 
 ## Architecture Notes
 

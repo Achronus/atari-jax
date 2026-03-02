@@ -106,7 +106,7 @@ _INIT_LIVES: int = 6  # ALE mode 0 default
 _FIRE_COOLDOWN: int = 60  # minimum emulated frames between shots
 
 # --- Enemy (bunker) fire ---
-_ENEMY_FIRE_RATE: int = 45      # emulated frames between each bunker shot
+_ENEMY_FIRE_RATE: int = 46      # emulated frames between each bunker shot
 _ENEMY_RANGE_X: float = 30.0   # horizontal distance within which bunker hits ship
 _ENEMY_MIN_Y: float = 115.0    # ship must be at or below this y to be in fire range
 

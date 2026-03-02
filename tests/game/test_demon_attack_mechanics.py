@@ -83,8 +83,8 @@ def test_fire_spawns_bullet():
     assert bool(new_state.bullet_active)
 
 
-def test_bullet_kills_wave0_demon_scores_30():
-    """Wave 0: bullet hitting demon → score += 30."""
+def test_bullet_kills_wave0_demon_scores_37():
+    """Wave 0: bullet hitting demon → score += 37 (_KILL_BASE_SCORE)."""
     ex = float(_DEMON_INIT_X[0])
     ey = float(_DEMON_INIT_Y[0])
     # After move: new_by = initial_by - BULLET_SPEED; need new_by + BULLET_H > ey (strictly)
@@ -98,13 +98,13 @@ def test_bullet_kills_wave0_demon_scores_30():
         reward=jnp.float32(0.0),
     )
     new_state = _GAME._step_physics(state, jnp.int32(0))  # NOOP
-    assert int(new_state.score) == 30, (
-        f"Expected score 30 on wave 0, got {int(new_state.score)}"
+    assert int(new_state.score) == 37, (
+        f"Expected score 37 on wave 0, got {int(new_state.score)}"
     )
 
 
-def test_bullet_kills_wave1_demon_scores_60():
-    """Wave 1: bullet hitting demon → score += 60."""
+def test_bullet_kills_wave1_demon_scores_74():
+    """Wave 1: bullet hitting demon → score += 74 (2 * _KILL_BASE_SCORE)."""
     ex = float(_DEMON_INIT_X[0])
     ey = float(_DEMON_INIT_Y[0])
     # After move: new_by = initial_by - BULLET_SPEED; need new_by + BULLET_H > ey (strictly)
@@ -118,8 +118,8 @@ def test_bullet_kills_wave1_demon_scores_60():
         reward=jnp.float32(0.0),
     )
     new_state = _GAME._step_physics(state, jnp.int32(0))  # NOOP
-    assert int(new_state.score) == 60, (
-        f"Expected score 60 on wave 1, got {int(new_state.score)}"
+    assert int(new_state.score) == 74, (
+        f"Expected score 74 on wave 1, got {int(new_state.score)}"
     )
 
 

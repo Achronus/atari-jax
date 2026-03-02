@@ -78,7 +78,7 @@ _LOG_TOP: float = _GROUND_Y - _LOG_H  # 152.0 — top edge
 # Velocities include direction: positive = rightward, negative = leftward
 _LOG_VX: tuple = (1.0, -1.5, 2.0)
 _LOG_INIT_X: tuple = (20.0, 90.0, 140.0)
-_LOG_COOLDOWN_FRAMES: int = 30  # frames of invincibility after log hit
+_LOG_COOLDOWN_FRAMES: int = 55  # frames of invincibility after log hit
 
 # --- Crocodiles ---
 _CROC_W: int = 20

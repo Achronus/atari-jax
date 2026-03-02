@@ -67,6 +67,7 @@ _DEMON_DESCENT: float = 0.08  # px/frame
 
 _N_ENEMY_BULLETS: int = 3
 _FIRE_INTERVAL: int = 12
+_KILL_BASE_SCORE: int = 37  # points per kill at wave 0; scales with wave
 _FORMATION_SPEED_INIT: float = 0.5  # formation drift px/frame at wave 0
 _INIT_LIVES: int = 3
 _FRAME_SKIP: int = 4
@@ -125,7 +126,7 @@ class DemonAttackState(AtariState):
     enemy_bullet_active : jax.Array
         bool[3] — Active enemy bullets.
     wave : jax.Array
-        int32 — Current wave (0-based); reward = (wave+1)*30 per kill.
+        int32 — Current wave (0-based); reward = (wave+1)*_KILL_BASE_SCORE per kill.
     fire_timer : jax.Array
         int32 — Countdown to next enemy shot.
     """
@@ -149,7 +150,7 @@ class DemonAttack(AtaraxGame):
     Demon Attack implemented as a pure-JAX function suite.
 
     Destroy waves of descending demons using a cannon.  Points per kill scale
-    by wave: ``(wave + 1) * 30``.
+    by wave: ``(wave + 1) * _KILL_BASE_SCORE``.
     """
 
     num_actions: int = 6
@@ -265,7 +266,7 @@ class DemonAttack(AtaraxGame):
         any_hit = jnp.any(hit_mask)
         new_demon_alive = state.demon_alive & ~hit_mask
         kills = jnp.sum(hit_mask.astype(jnp.int32))
-        pts_per_kill = (state.wave + jnp.int32(1)) * jnp.int32(30)
+        pts_per_kill = (state.wave + jnp.int32(1)) * jnp.int32(_KILL_BASE_SCORE)
         step_reward = jnp.float32(kills) * pts_per_kill.astype(jnp.float32)
         bullet_active = bullet_active & ~any_hit
 

@@ -151,7 +151,7 @@ def test_formation_drops_and_reverses_on_edge(edge, alien_x, alien_dx):
 @pytest.mark.parametrize(
     "n_alive,expected_interval",
     [
-        pytest.param(55, 6, id="full_55"),
+        pytest.param(55, max(1, 55 * _ALIEN_MOVE_INITIAL // (_ALIEN_ROWS * _ALIEN_COLS)), id="full_55"),
         pytest.param(27, max(1, 27 * _ALIEN_MOVE_INITIAL // (_ALIEN_ROWS * _ALIEN_COLS)), id="half_27"),
         pytest.param(11, max(1, 11 * _ALIEN_MOVE_INITIAL // (_ALIEN_ROWS * _ALIEN_COLS)), id="low_11"),
         pytest.param(1, 1, id="last_1"),

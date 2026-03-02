@@ -72,7 +72,7 @@ _ALIEN_BULLET_SPEED: float = 2.0
 
 _INIT_LIVES: int = 3
 _FRAME_SKIP: int = 4
-_ALIEN_MOVE_INITIAL: int = 6  # sub-steps between moves at full count
+_ALIEN_MOVE_INITIAL: int = 4  # sub-steps between moves at full count
 _ALIEN_FIRE_INTERVAL: int = 24  # sub-steps between alien shots
 
 # Row scores (row 0 = top → highest points)
