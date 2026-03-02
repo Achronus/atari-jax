@@ -11,7 +11,7 @@ Clear all birds to advance to the next wave.
 | | Value |
 | --- | --- |
 | **Observation** | `Box(uint8, shape=(210, 160, 3))` |
-| **Actions** | `Discrete(6)` |
+| **Actions** | `Discrete(8)` |
 
 ### Action table
 
@@ -21,8 +21,10 @@ Clear all birds to advance to the next wave.
 | `1` | FIRE |
 | `2` | RIGHT |
 | `3` | LEFT |
-| `4` | SHIELD |
-| `5` | FIRE + RIGHT |
+| `4` | DOWN (shield) |
+| `5` | RIGHTFIRE |
+| `6` | LEFTFIRE |
+| `7` | DOWNFIRE (shield + fire) |
 
 ## Reward
 

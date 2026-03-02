@@ -21,9 +21,9 @@ dodge or be destroyed.
 | `1` | FIRE |
 | `2` | UP — thrust / move forward |
 | `3` | RIGHT |
-| `4` | DOWN |
-| `5` | LEFT |
-| `6` | UP + FIRE |
+| `4` | LEFT |
+| `5` | RIGHTFIRE |
+| `6` | LEFTFIRE |
 
 ## Reward
 
@@ -65,6 +65,5 @@ play("atari/assault-v0", scale=2, fps=30)
 | `Space` | Fire |
 | `↑` / `W` | Move / thrust |
 | `→` / `D` | Move right |
-| `↓` / `S` | Move down |
 | `←` / `A` | Move left |
 | `Esc` / close window | Quit |

@@ -19,9 +19,9 @@ destroyed.
 | Index | Meaning |
 | --- | --- |
 | `0` | NOOP |
-| `1` | FIRE LEFT — diagonal left shot |
-| `2` | FIRE CENTRE — vertical shot |
-| `3` | FIRE RIGHT — diagonal right shot |
+| `1` | FIRE CENTRE — vertical shot |
+| `2` | FIRE RIGHT — diagonal right shot |
+| `3` | FIRE LEFT — diagonal left shot |
 
 ## Reward
 
@@ -63,7 +63,7 @@ play("atari/atlantis-v0", scale=2, fps=30)
 
 | Key | Action |
 | --- | --- |
-| `←` / `A` | Fire left cannon |
 | `Space` | Fire centre cannon |
 | `→` / `D` | Fire right cannon |
+| `←` / `A` | Fire left cannon |
 | `Esc` / close window | Quit |

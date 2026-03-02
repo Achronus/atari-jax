@@ -232,85 +232,73 @@ obs, state, reward, done, info = env.step(key, state, jnp.int32(0), params)
 # info["episode"]["l"]    → episode length (non-zero at episode end)
 ```
 
-## ALE Fidelity
+## Games
 
-Each game is calibrated against the ALE random-policy baseline using 1,000
-parallel environments (JAX vmap), SEED=42, 3,000 agent steps (12,000 emulated
-frames). Band = mean ± 3·SE where SE = std / √1,000.
+Each implemented game is calibrated against the ALE random-policy baseline
+using 1,000 parallel environments (JAX vmap), SEED=42, 3,000 agent steps
+(12,000 emulated frames). Band = mean ± 3·SE where SE = std / √1,000.
 
-| Game | ALE Baseline | JAX Mean | JAX Std | Fidelity Band | Notes |
-| --- | --- | --- | --- | --- | --- |
-| Pong | −20.7 | −19.66 | 1.19 | [−22.0, −17.0] | Close match (< 5% gap) |
-| Breakout | 1.7 | 8.52 | 7.30 | [3.0, 15.0] | JAX ~5× higher; branch-free collision + JAX PRNG differ |
-| Space Invaders | 148.0 | 198.22 | 44.87 | [150.0, 250.0] | JAX ~34% higher; approximated simultaneous collision timing |
-| Freeway | 0.0 | 0.00 | 0.00 | [−0.1, 0.5] | Exact match; random agent never crosses the road |
-| Boxing | 0.1 | −1.99 | 3.39 | [−6.0, 2.0] | JAX CPU AI more aggressive than ALE's; net reward is negative |
-| Tennis | −23.8 | −24.00 | 0.00 | [−24.5, −23.5] | Close match; random player never returns, CPU wins 6×4 points |
+Use `"atari/<name>-v0"` as the `make()` ID.
 
-## Supported Games
-
-Use `"atari/<name>-v0"` as the `make()` ID (underscores become hyphens):
-`"atari/space_invaders-v0"`, `"atari/ms_pacman-v0"`, etc.
-
-| Game | `make()` ID |
-| --- | --- |
-| Alien | `"atari/alien-v0"` |
-| Amidar | `"atari/amidar-v0"` |
-| Assault | `"atari/assault-v0"` |
-| Asterix | `"atari/asterix-v0"` |
-| Asteroids | `"atari/asteroids-v0"` |
-| Atlantis | `"atari/atlantis-v0"` |
-| Bank Heist | `"atari/bank_heist-v0"` |
-| Battle Zone | `"atari/battle_zone-v0"` |
-| Beam Rider | `"atari/beam_rider-v0"` |
-| Berzerk | `"atari/berzerk-v0"` |
-| Bowling | `"atari/bowling-v0"` |
-| Boxing | `"atari/boxing-v0"` |
-| Breakout | `"atari/breakout-v0"` |
-| Centipede | `"atari/centipede-v0"` |
-| Chopper Command | `"atari/chopper_command-v0"` |
-| Crazy Climber | `"atari/crazy_climber-v0"` |
-| Defender | `"atari/defender-v0"` |
-| Demon Attack | `"atari/demon_attack-v0"` |
-| Double Dunk | `"atari/double_dunk-v0"` |
-| Enduro | `"atari/enduro-v0"` |
-| Fishing Derby | `"atari/fishing_derby-v0"` |
-| Freeway | `"atari/freeway-v0"` |
-| Frostbite | `"atari/frostbite-v0"` |
-| Gopher | `"atari/gopher-v0"` |
-| Gravitar | `"atari/gravitar-v0"` |
-| Hero | `"atari/hero-v0"` |
-| Ice Hockey | `"atari/ice_hockey-v0"` |
-| James Bond | `"atari/jamesbond-v0"` |
-| Kangaroo | `"atari/kangaroo-v0"` |
-| Krull | `"atari/krull-v0"` |
-| Kung Fu Master | `"atari/kung_fu_master-v0"` |
-| Montezuma's Revenge | `"atari/montezuma_revenge-v0"` |
-| Ms. Pac-Man | `"atari/ms_pacman-v0"` |
-| Name This Game | `"atari/name_this_game-v0"` |
-| Phoenix | `"atari/phoenix-v0"` |
-| Pitfall | `"atari/pitfall-v0"` |
-| Pong | `"atari/pong-v0"` |
-| Private Eye | `"atari/private_eye-v0"` |
-| Q*bert | `"atari/qbert-v0"` |
-| River Raid | `"atari/riverraid-v0"` |
-| Road Runner | `"atari/road_runner-v0"` |
-| Robotank | `"atari/robotank-v0"` |
-| Seaquest | `"atari/seaquest-v0"` |
-| Skiing | `"atari/skiing-v0"` |
-| Solaris | `"atari/solaris-v0"` |
-| Space Invaders | `"atari/space_invaders-v0"` |
-| Star Gunner | `"atari/star_gunner-v0"` |
-| Surround | `"atari/surround-v0"` |
-| Tennis | `"atari/tennis-v0"` |
-| Time Pilot | `"atari/time_pilot-v0"` |
-| Tutankham | `"atari/tutankham-v0"` |
-| Up 'n Down | `"atari/up_n_down-v0"` |
-| Venture | `"atari/venture-v0"` |
-| Video Pinball | `"atari/video_pinball-v0"` |
-| Wizard of Wor | `"atari/wizard_of_wor-v0"` |
-| Yars' Revenge | `"atari/yars_revenge-v0"` |
-| Zaxxon | `"atari/zaxxon-v0"` |
+| Game | `make()` ID | ALE Baseline | JAX Mean | JAX Std | Fidelity Band | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| Alien | `"atari/alien-v0"` | 227.8 | — | — | — | — |
+| Amidar | `"atari/amidar-v0"` | 5.8 | — | — | — | — |
+| Assault | `"atari/assault-v0"` | 240.3 | 90.50 | 42.48 | [86.5, 94.5] | Branch-free grid; fewer simultaneous enemies active → lower per-episode scores than ALE. |
+| Asterix | `"atari/asterix-v0"` | 210.0 | — | — | — | — |
+| Asteroids | `"atari/asteroids-v0"` | 719.1 | — | — | — | — |
+| Atlantis | `"atari/atlantis-v0"` | 17185.5 | 39445.50 | 3271.26 | [39135, 39756] | Immediate alien respawn gives the random policy continuous scoring opportunities → much higher than ALE. |
+| Bank Heist | `"atari/bank_heist-v0"` | 14.2 | — | — | — | — |
+| Battle Zone | `"atari/battle_zone-v0"` | 2360.0 | — | — | — | — |
+| Beam Rider | `"atari/beam_rider-v0"` | 363.9 | — | — | — | — |
+| Berzerk | `"atari/berzerk-v0"` | 123.7 | — | — | — | — |
+| Bowling | `"atari/bowling-v0"` | 23.1 | — | — | — | — |
+| Boxing | `"atari/boxing-v0"` | 0.1 | −1.99 | 3.39 | [−6.0, 2.0] | CPU AI more aggressive than ALE's; random player consistently loses points. |
+| Breakout | `"atari/breakout-v0"` | 1.7 | 8.52 | 7.30 | [3.0, 15.0] | Branch-free simultaneous collision detection and JAX PRNG produce different ball trajectories → higher than ALE. |
+| Centipede | `"atari/centipede-v0"` | 2090.9 | — | — | — | — |
+| Chopper Command | `"atari/chopper_command-v0"` | 811.0 | — | — | — | — |
+| Crazy Climber | `"atari/crazy_climber-v0"` | 10780.5 | — | — | — | — |
+| Defender | `"atari/defender-v0"` | 2874.5 | — | — | — | — |
+| Demon Attack | `"atari/demon_attack-v0"` | 175.0 | 391.17 | 200.82 | [372.1, 410.2] | Simplified enemy AI and descent speed give slightly higher scores than ALE. |
+| Double Dunk | `"atari/double_dunk-v0"` | −18.6 | — | — | — | — |
+| Enduro | `"atari/enduro-v0"` | 0.0 | — | — | — | — |
+| Fishing Derby | `"atari/fishing_derby-v0"` | −94.0 | −20.46 | 53.08 | [−25.5, −15.4] | Simplified CPU AI and differential reward (player − CPU) produces a higher mean than ALE's absolute score. |
+| Freeway | `"atari/freeway-v0"` | 0.0 | 0.00 | 0.00 | [−0.1, 0.5] | Random policy never crosses; matches ALE exactly. |
+| Frostbite | `"atari/frostbite-v0"` | 65.2 | — | — | — | — |
+| Gopher | `"atari/gopher-v0"` | 350.8 | 103.20 | 164.65 | [87.6, 118.8] | Simplified gopher AI steals carrots faster, ending episodes sooner with fewer scoring opportunities. |
+| Gravitar | `"atari/gravitar-v0"` | 173.0 | — | — | — | — |
+| Hero | `"atari/hero-v0"` | 1027.0 | — | — | — | — |
+| Ice Hockey | `"atari/ice_hockey-v0"` | −11.2 | — | — | — | — |
+| James Bond | `"atari/jamesbond-v0"` | 29.0 | — | — | — | — |
+| Kangaroo | `"atari/kangaroo-v0"` | 52.0 | — | — | — | — |
+| Krull | `"atari/krull-v0"` | 1598.0 | — | — | — | — |
+| Kung Fu Master | `"atari/kung_fu_master-v0"` | 258.5 | — | — | — | — |
+| Montezuma's Revenge | `"atari/montezuma_revenge-v0"` | 0.0 | — | — | — | — |
+| Ms. Pac-Man | `"atari/ms_pacman-v0"` | 197.5 | — | — | — | — |
+| Name This Game | `"atari/name_this_game-v0"` | 2292.3 | — | — | — | — |
+| Phoenix | `"atari/phoenix-v0"` | 721.0 | 598.02 | 343.53 | [565.4, 630.6] | Close match; shield unused by random policy. |
+| Pitfall | `"atari/pitfall-v0"` | −229.4 | — | — | — | — |
+| Pong | `"atari/pong-v0"` | −20.7 | −19.66 | 1.19 | [−22.0, −17.0] | Close match with ALE (within 5%). |
+| Private Eye | `"atari/private_eye-v0"` | 24.9 | — | — | — | — |
+| Q\*bert | `"atari/qbert-v0"` | 163.9 | — | — | — | — |
+| River Raid | `"atari/riverraid-v0"` | 1338.5 | — | — | — | — |
+| Road Runner | `"atari/road_runner-v0"` | 11.5 | — | — | — | — |
+| Robotank | `"atari/robotank-v0"` | 2.2 | — | — | — | — |
+| Seaquest | `"atari/seaquest-v0"` | 68.4 | — | — | — | — |
+| Skiing | `"atari/skiing-v0"` | −17098.1 | — | — | — | — |
+| Solaris | `"atari/solaris-v0"` | 1236.3 | — | — | — | — |
+| Space Invaders | `"atari/space_invaders-v0"` | 148.0 | 198.22 | 44.87 | [150.0, 250.0] | Approximated collision timing produces ~34% higher scores; wide band reflects high per-episode variance. |
+| Star Gunner | `"atari/star_gunner-v0"` | 664.0 | — | — | — | — |
+| Surround | `"atari/surround-v0"` | −10.0 | — | — | — | — |
+| Tennis | `"atari/tennis-v0"` | −23.8 | −24.00 | 0.00 | [−24.5, −23.5] | Random player never returns; CPU wins every point → zero variance. Matches ALE closely. |
+| Time Pilot | `"atari/time_pilot-v0"` | 3568.0 | — | — | — | — |
+| Tutankham | `"atari/tutankham-v0"` | 11.4 | — | — | — | — |
+| Up 'n Down | `"atari/up_n_down-v0"` | 533.4 | — | — | — | — |
+| Venture | `"atari/venture-v0"` | 0.0 | — | — | — | — |
+| Video Pinball | `"atari/video_pinball-v0"` | 24425.6 | 531.00 | 560.53 | [477.8, 584.2] | Simplified bumper/target physics and no plunger charging by random policy → much lower than ALE. |
+| Wizard of Wor | `"atari/wizard_of_wor-v0"` | 563.5 | — | — | — | — |
+| Yars' Revenge | `"atari/yars_revenge-v0"` | 3092.9 | — | — | — | — |
+| Zaxxon | `"atari/zaxxon-v0"` | 32.5 | — | — | — | — |
 
 ## Architecture Notes
 

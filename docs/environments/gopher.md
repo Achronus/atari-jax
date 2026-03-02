@@ -9,7 +9,7 @@ Protect three carrots from a tunnelling gopher. The gopher emerges from a tunnel
 | | Value |
 | --- | --- |
 | **Observation** | `Box(uint8, shape=(210, 160, 3))` |
-| **Actions** | `Discrete(6)` |
+| **Actions** | `Discrete(8)` |
 
 ### Action table
 
@@ -17,10 +17,12 @@ Protect three carrots from a tunnelling gopher. The gopher emerges from a tunnel
 | --- | --- |
 | `0` | NOOP |
 | `1` | FIRE (shoot) |
-| `2` | UP (dig filler / move up) |
+| `2` | UP |
 | `3` | RIGHT |
-| `4` | DOWN |
-| `5` | LEFT |
+| `4` | LEFT |
+| `5` | UPFIRE |
+| `6` | RIGHTFIRE |
+| `7` | LEFTFIRE |
 
 ## Reward
 

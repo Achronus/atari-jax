@@ -9,7 +9,7 @@ Classic pinball. Use left and right flippers to keep the ball in play and score 
 | | Value |
 | --- | --- |
 | **Observation** | `Box(uint8, shape=(210, 160, 3))` |
-| **Actions** | `Discrete(6)` |
+| **Actions** | `Discrete(9)` |
 
 ### Action table
 
@@ -17,10 +17,13 @@ Classic pinball. Use left and right flippers to keep the ball in play and score 
 | --- | --- |
 | `0` | NOOP |
 | `1` | FIRE (plunger — launch ball) |
-| `2` | LEFT FLIPPER |
-| `3` | RIGHT FLIPPER |
-| `4` | LEFT FLIPPER + NUDGE |
-| `5` | RIGHT FLIPPER + NUDGE |
+| `2` | UP |
+| `3` | RIGHT (right flipper) |
+| `4` | LEFT (left flipper) |
+| `5` | DOWN |
+| `6` | UPFIRE |
+| `7` | RIGHTFIRE |
+| `8` | LEFTFIRE |
 
 ## Reward
 

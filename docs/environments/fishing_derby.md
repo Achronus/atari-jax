@@ -9,7 +9,7 @@ Compete against a CPU angler to catch the most valuable fish before either playe
 | | Value |
 | --- | --- |
 | **Observation** | `Box(uint8, shape=(210, 160, 3))` |
-| **Actions** | `Discrete(6)` |
+| **Actions** | `Discrete(18)` |
 
 ### Action table
 
@@ -18,9 +18,21 @@ Compete against a CPU angler to catch the most valuable fish before either playe
 | `0` | NOOP |
 | `1` | FIRE (reel in / cast) |
 | `2` | UP (raise line) |
-| `3` | RIGHT (move along dock) |
-| `4` | DOWN (lower line) |
-| `5` | LEFT (move along dock) |
+| `3` | RIGHT (move dock right) |
+| `4` | LEFT (move dock left) |
+| `5` | DOWN (lower line) |
+| `6` | UPRIGHT |
+| `7` | UPLEFT |
+| `8` | DOWNRIGHT |
+| `9` | DOWNLEFT |
+| `10` | UPFIRE |
+| `11` | RIGHTFIRE |
+| `12` | LEFTFIRE |
+| `13` | DOWNFIRE |
+| `14` | UPRIGHTFIRE |
+| `15` | UPLEFTFIRE |
+| `16` | DOWNRIGHTFIRE |
+| `17` | DOWNLEFTFIRE |
 
 ## Reward
 

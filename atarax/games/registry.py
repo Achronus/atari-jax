@@ -17,21 +17,35 @@ from typing import Dict, List, Type
 
 from atarax.envs import ATARI_57
 from atarax.game import AtaraxGame
+from atarax.games.assault import Assault
+from atarax.games.atlantis import Atlantis
 from atarax.games.boxing import Boxing
 from atarax.games.breakout import Breakout
+from atarax.games.demon_attack import DemonAttack
+from atarax.games.fishing_derby import FishingDerby
 from atarax.games.freeway import Freeway
+from atarax.games.gopher import Gopher
+from atarax.games.phoenix import Phoenix
 from atarax.games.pong import Pong
 from atarax.games.space_invaders import SpaceInvaders
 from atarax.games.tennis import Tennis
+from atarax.games.video_pinball import VideoPinball
 from atarax.spec import EnvSpec
 
 GAMES: Dict[str, Type[AtaraxGame]] = {
+    "assault": Assault,
+    "atlantis": Atlantis,
     "boxing": Boxing,
     "breakout": Breakout,
+    "demon_attack": DemonAttack,
+    "fishing_derby": FishingDerby,
     "freeway": Freeway,
+    "gopher": Gopher,
+    "phoenix": Phoenix,
     "pong": Pong,
     "space_invaders": SpaceInvaders,
     "tennis": Tennis,
+    "video_pinball": VideoPinball,
 }
 
 GAME_SPECS: List[EnvSpec] = [EnvSpec.parse(name) for name in ATARI_57.all_names()]
