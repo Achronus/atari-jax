@@ -28,8 +28,9 @@ Part of the [Envrax suite](https://github.com/Achronus/envrax) — installs
 - **`make_multi()` / `make_multi_vec()`** — convenience variants for creating
   one environment per game from a list of IDs; useful for multi-game training
   loops.
-- **Composable wrappers** — three Atari-specific wrappers plus nine generic
-  wrappers from `envrax`. See the [Wrappers](#wrappers) table below.
+- **Composable wrappers** — three Atari-native wrappers (`AtariPreprocessing`,
+  `EpisodicLife`, `JitWrapper`) plus additional generic wrappers from `envrax`.
+  See the [Wrappers](#wrappers) section below.
 - **Rendering + interactive play** — single-frame rendering and a
   keyboard-driven `env.play()` loop backed by pygame.
 - **All 57 Mnih et al. (2015) games** — every game passes the full smoke
@@ -193,20 +194,13 @@ interface.
 | Wrapper | Input | Output | Description | Extra state |
 | --- | --- | --- | --- | --- |
 | `AtariPreprocessing` | `uint8[210, 160, 3]` | `uint8[84, 84, 4]` | Full DQN stack (grayscale → resize → frame-stack → clip reward → record stats + episodic life) | `EpisodeStatisticsState` |
-| `GrayscaleObservation` | `uint8[H, W, 3]` | `uint8[H, W]` | NTSC luminance conversion | — |
-| `ResizeObservation(h, w)` | `uint8[H, W]` | `uint8[h, w]` | Bilinear resize (default 84×84) | — |
-| `NormalizeObservation` | `uint8[...]` | `float32[...]` in `[0, 1]` | Divide by 255 | — |
-| `FrameStackObservation(n_stack)` | `uint8[H, W]` | `uint8[H, W, n_stack]` | Rolling frame buffer (default 4) | `FrameStackState` |
-| `ClipReward` | any reward | `float32 ∈ {−1, 0, +1}` | Sign clipping | — |
-| `ExpandDims` | any env | same obs | Adds a trailing `1` dim to `reward` and `done` | — |
-| `EpisodeDiscount` | any env | same obs | Converts `done` bool to float32 discount (`1.0` continues, `0.0` terminated) | — |
 | `EpisodicLife` | any env | same obs | Terminal on every life loss | `EpisodicLifeState` |
-| `RecordEpisodeStatistics` | any env | same obs | Tracks episode return + length in `info["episode"]` | `EpisodeStatisticsState` |
 | `JitWrapper` | any env | same obs | JIT-compiles `reset` + `step` with a warmup pass; applied automatically by `make()` when `jit_compile=True` | — |
 
-Stateless wrappers pass the inner state through unchanged. Stateful wrappers
-return a `chex.dataclass` pytree that carries extra data alongside the inner
-state — both are fully compatible with `jit`, `vmap`, and `lax.scan`.
+Additional generic wrappers (grayscale, resize, normalize, frame-stack, clip
+reward, episode statistics, and more) are available via the
+[`envrax`](https://github.com/Achronus/envrax) package and re-exported through
+`atarax.wrappers`.
 
 `JitWrapper` can also be used standalone to eagerly compile any env:
 

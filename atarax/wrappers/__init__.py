@@ -13,13 +13,23 @@
 # limitations under the License.
 # ==============================================================================
 
-from envrax.wrappers import (ClipReward, EpisodeDiscount,
-                             EpisodeStatisticsState, ExpandDims,
-                             FrameStackObservation, FrameStackState,
-                             GrayscaleObservation, NormalizeObservation,
-                             RecordEpisodeStatistics, RecordVideo,
-                             ResizeObservation, VmapEnv, Wrapper,
-                             _WrapperFactory, to_gray)
+from envrax.wrappers import (
+    ClipReward,
+    EpisodeDiscount,
+    EpisodeStatisticsState,
+    ExpandDims,
+    FrameStackObservation,
+    FrameStackState,
+    GrayscaleObservation,
+    NormalizeObservation,
+    RecordEpisodeStatistics,
+    RecordVideo,
+    ResizeObservation,
+    VmapEnv,
+    Wrapper,
+    _WrapperFactory,
+    to_gray,
+)
 
 from atarax.wrappers.atari_preprocessing import AtariPreprocessing
 from atarax.wrappers.episodic_life import EpisodicLife, EpisodicLifeState
