@@ -9,7 +9,7 @@ Navigate a gravity-filled star system, rescuing astronauts from planet surfaces 
 | | Value |
 | --- | --- |
 | **Observation** | `Box(uint8, shape=(210, 160, 3))` |
-| **Actions** | `Discrete(7)` |
+| **Actions** | `Discrete(18)` |
 
 ### Action table
 
@@ -17,11 +17,22 @@ Navigate a gravity-filled star system, rescuing astronauts from planet surfaces 
 | --- | --- |
 | `0` | NOOP |
 | `1` | FIRE |
-| `2` | THRUST |
-| `3` | RIGHT (rotate clockwise) |
-| `4` | LEFT (rotate counter-clockwise) |
-| `5` | SHIELD |
-| `6` | THRUST + FIRE |
+| `2` | UP — thrust |
+| `3` | RIGHT — rotate clockwise |
+| `4` | LEFT — rotate counter-clockwise |
+| `5` | DOWN — shield |
+| `6` | UPRIGHT — thrust + rotate CW |
+| `7` | UPLEFT — thrust + rotate CCW |
+| `8` | DOWNRIGHT — shield + rotate CW |
+| `9` | DOWNLEFT — shield + rotate CCW |
+| `10` | UPFIRE — thrust + fire |
+| `11` | RIGHTFIRE — rotate CW + fire |
+| `12` | LEFTFIRE — rotate CCW + fire |
+| `13` | DOWNFIRE — shield + fire |
+| `14` | UPRIGHTFIRE — thrust + rotate CW + fire |
+| `15` | UPLEFTFIRE — thrust + rotate CCW + fire |
+| `16` | DOWNRIGHTFIRE — shield + rotate CW + fire |
+| `17` | DOWNLEFTFIRE — shield + rotate CCW + fire |
 
 ## Reward
 
@@ -37,7 +48,7 @@ The episode ends when all lives are lost. A life is lost by crashing into the gr
 
 ## Lives
 
-The player starts with 3 lives.
+The player starts with 6 lives.
 
 ## Screen Geometry
 

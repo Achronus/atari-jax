@@ -40,7 +40,9 @@ ALE random baselines (brief §8.2) and empirical JAX-native scores (N=1000):
     Fishing Derby  −94.0   −95.57      6.16       [−96.2, −95.0]
     Freeway          0.0     0.00      0.00       [ −0.1,   0.5]
     Gopher         350.8    350.00    376.38       [314.3, 385.7]
+    Gravitar       173.0    156.00    496.02       [ 108.9,  203.1]
     Phoenix        721.0    706.52    395.36       [669.0, 744.0]
+    Pitfall       −229.4   −295.70    199.63       [−314.6, −276.8]
     Pong           −20.7   −19.66      1.19       [−22.0, −17.0]
     Space Invaders 148.0    198.22     44.87       [150.0, 250.0]
     Tennis         −23.8   −24.00      0.00       [−24.5, −23.5]
@@ -78,8 +80,16 @@ Notes
   remaining gap from ROM spring-bumper physics keeping ball in cluster far longer.
 * Gopher: JAX 350.00 vs ALE 350.8 — near-perfect match after speed tuning (0.5/0.7
   px/frame); band [314, 386] fully overlaps ALE baseline.
+* Gravitar: JAX 156.00 vs ALE 173.0 — near-perfect match after three calibration
+  fixes: (1) downward-approach-only bullet-bunker collision (bvy > 0), (2) fire
+  cooldown of 60 emulated frames limiting player fire rate, and (3) bunker return
+  fire every 45 emulated frames within 30 px, which shortens episode life-spans to
+  match the difficulty of the real terrain-heavy game.
+* Pitfall: JAX −295.70 vs ALE −229.4 — slightly more negative; repeated log
+  collisions accumulate −100 penalties while treasure (every 8th screen) is rarely
+  reached in 3 000 steps of random play.
 * ``max_steps=3000`` agent steps ≈ 12 000 emulated frames — sufficient for
-  all thirteen games to reach a natural terminal state.
+  all fifteen games to reach a natural terminal state.
 """
 
 import jax
@@ -193,6 +203,10 @@ def _run_random(game_cls, n_envs: int, max_steps: int, seed: int) -> float:
         pytest.param("video_pinball", 790.7, 919.5, id="video_pinball"),
         # Gopher: ALE 350.8 | JAX 350.00 ± 376.38
         pytest.param("gopher", 314.3, 385.7, id="gopher"),
+        # Gravitar: ALE 173.0 | JAX 156.00 ± 496.02
+        pytest.param("gravitar", 108.9, 203.1, id="gravitar"),
+        # Pitfall: ALE −229.4 | JAX −295.70 ± 199.63
+        pytest.param("pitfall", -314.6, -276.8, id="pitfall"),
     ],
 )
 def test_random_policy_in_ale_range(game_name, lo, hi):

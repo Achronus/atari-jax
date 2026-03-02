@@ -234,7 +234,7 @@ obs, state, reward, done, info = env.step(key, state, jnp.int32(0), params)
 
 ## Games
 
-Each implemented game is calibrated against the ALE random-policy baseline
+Each implemented game is calibrated against the [ALE](https://github.com/Farama-Foundation/Arcade-Learning-Environment) random-policy baseline
 using 1,000 parallel environments (JAX vmap), SEED=42, 3,000 agent steps
 (12,000 emulated frames). Band = mean ± 3·SE where SE = std / √1,000.
 
@@ -244,7 +244,7 @@ Use `"atari/<name>-v0"` as the `make()` ID.
 | --- | --- | --- | --- | --- | --- | --- |
 | Alien | `"atari/alien-v0"` | 227.8 | — | — | — | — |
 | Amidar | `"atari/amidar-v0"` | 5.8 | — | — | — | — |
-| Assault | `"atari/assault-v0"` | 240.3 | 119.50 | 67.78 | [113.1, 125.9] | UP action (action 2) fires cannon (confirmed via ALE Assault.cpp); fire interval 60 frames; remaining gap from branch-free collision. |
+| Assault | `"atari/assault-v0"` | 240.3 | 119.50 | 67.78 | [113.1, 125.9] | UP action (action 2) fires cannon; fire interval 60 frames; remaining gap from branch-free collision. |
 | Asterix | `"atari/asterix-v0"` | 210.0 | — | — | — | — |
 | Asteroids | `"atari/asteroids-v0"` | 719.1 | — | — | — | — |
 | Atlantis | `"atari/atlantis-v0"` | 17185.5 | 35532.25 | 5322.23 | [35027, 36037] | Descent 0.10 px/frame increases city pressure; triple-cannon rate still clears waves quickly → higher than ALE. |
@@ -266,7 +266,7 @@ Use `"atari/<name>-v0"` as the `make()` ID.
 | Freeway | `"atari/freeway-v0"` | 0.0 | 0.00 | 0.00 | [−0.1, 0.5] | Random policy never crosses; matches ALE exactly. |
 | Frostbite | `"atari/frostbite-v0"` | 65.2 | — | — | — | — |
 | Gopher | `"atari/gopher-v0"` | 350.8 | 350.00 | 376.38 | [314.3, 385.7] | Near-perfect match with ALE after speed tuning (0.5/0.7 px/frame); band fully overlaps ALE baseline. |
-| Gravitar | `"atari/gravitar-v0"` | 173.0 | — | — | — | — |
+| Gravitar | `"atari/gravitar-v0"` | 173.0 | 156.00 | 496.02 | [108.9, 203.1] | Near-perfect ALE match after: bvy>0 bunker collision constraint, 60-frame fire cooldown, and bunker return-fire every 45 frames. |
 | Hero | `"atari/hero-v0"` | 1027.0 | — | — | — | — |
 | Ice Hockey | `"atari/ice_hockey-v0"` | −11.2 | — | — | — | — |
 | James Bond | `"atari/jamesbond-v0"` | 29.0 | — | — | — | — |
@@ -277,7 +277,7 @@ Use `"atari/<name>-v0"` as the `make()` ID.
 | Ms. Pac-Man | `"atari/ms_pacman-v0"` | 197.5 | — | — | — | — |
 | Name This Game | `"atari/name_this_game-v0"` | 2292.3 | — | — | — | — |
 | Phoenix | `"atari/phoenix-v0"` | 721.0 | 706.52 | 395.36 | [669.0, 744.0] | Near-perfect match with ALE after fire interval tuned to 36 frames; band overlaps ALE baseline. |
-| Pitfall | `"atari/pitfall-v0"` | −229.4 | — | — | — | — |
+| Pitfall | `"atari/pitfall-v0"` | −229.4 | −295.70 | 199.63 | [−314.6, −276.8] | Repeated log collisions (−100 each) dominate; treasure (every 8th screen) is rarely reached by a random policy. |
 | Pong | `"atari/pong-v0"` | −20.7 | −19.66 | 1.19 | [−22.0, −17.0] | Close match with ALE (within 5%). |
 | Private Eye | `"atari/private_eye-v0"` | 24.9 | — | — | — | — |
 | Q\*bert | `"atari/qbert-v0"` | 163.9 | — | — | — | — |
@@ -295,7 +295,7 @@ Use `"atari/<name>-v0"` as the `make()` ID.
 | Tutankham | `"atari/tutankham-v0"` | 11.4 | — | — | — | — |
 | Up 'n Down | `"atari/up_n_down-v0"` | 533.4 | — | — | — | — |
 | Venture | `"atari/venture-v0"` | 0.0 | — | — | — | — |
-| Video Pinball | `"atari/video_pinball-v0"` | 24425.6 | 855.10 | 678.66 | [790.7, 919.5] | Narrower flipper gap (4 px), bumper 1.3× speed boost, extra-ball mechanic (ROM RAM[0xA8]); remaining gap from ROM spring-bumper cluster physics. |
+| Video Pinball | `"atari/video_pinball-v0"` | 24425.6 | 855.10 | 678.66 | [790.7, 919.5] | Narrower flipper gap (4 px), bumper 1.3× speed boost, extra-ball mechanic; remaining gap from ROM spring-bumper cluster physics. |
 | Wizard of Wor | `"atari/wizard_of_wor-v0"` | 563.5 | — | — | — | — |
 | Yars' Revenge | `"atari/yars_revenge-v0"` | 3092.9 | — | — | — | — |
 | Zaxxon | `"atari/zaxxon-v0"` | 32.5 | — | — | — | — |

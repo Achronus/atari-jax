@@ -25,7 +25,9 @@ from atarax.games.demon_attack import DemonAttack
 from atarax.games.fishing_derby import FishingDerby
 from atarax.games.freeway import Freeway
 from atarax.games.gopher import Gopher
+from atarax.games.gravitar import Gravitar
 from atarax.games.phoenix import Phoenix
+from atarax.games.pitfall import Pitfall
 from atarax.games.pong import Pong
 from atarax.games.space_invaders import SpaceInvaders
 from atarax.games.tennis import Tennis
@@ -41,7 +43,9 @@ GAMES: Dict[str, Type[AtaraxGame]] = {
     "fishing_derby": FishingDerby,
     "freeway": Freeway,
     "gopher": Gopher,
+    "gravitar": Gravitar,
     "phoenix": Phoenix,
+    "pitfall": Pitfall,
     "pong": Pong,
     "space_invaders": SpaceInvaders,
     "tennis": Tennis,

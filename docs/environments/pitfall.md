@@ -11,7 +11,7 @@ tar pits.  Navigate above ground or descend to underground tunnels.
 | | Value |
 | --- | --- |
 | **Observation** | `Box(uint8, shape=(210, 160, 3))` |
-| **Actions** | `Discrete(6)` |
+| **Actions** | `Discrete(18)` |
 
 ### Action table
 
@@ -20,9 +20,21 @@ tar pits.  Navigate above ground or descend to underground tunnels.
 | `0` | NOOP |
 | `1` | FIRE — unused |
 | `2` | UP — jump / exit underground |
-| `3` | RIGHT — run right / advance screen |
-| `4` | DOWN — enter underground |
-| `5` | LEFT — run left / reverse screen |
+| `3` | RIGHT — run right |
+| `4` | LEFT — run left |
+| `5` | DOWN — enter underground |
+| `6` | UPRIGHT — jump right |
+| `7` | UPLEFT — jump left |
+| `8` | DOWNRIGHT — enter underground + right |
+| `9` | DOWNLEFT — enter underground + left |
+| `10` | UPFIRE — jump |
+| `11` | RIGHTFIRE — run right |
+| `12` | LEFTFIRE — run left |
+| `13` | DOWNFIRE — enter underground |
+| `14` | UPRIGHTFIRE — jump right |
+| `15` | UPLEFTFIRE — jump left |
+| `16` | DOWNRIGHTFIRE — enter underground + right |
+| `17` | DOWNLEFTFIRE — enter underground + left |
 
 ## Reward
 
