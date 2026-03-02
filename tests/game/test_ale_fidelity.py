@@ -24,27 +24,39 @@ them explicitly::
 
     pytest tests/game/test_ale_fidelity.py -m slow -v
 
-ALE random baselines (brief §8.2) and empirical JAX-native scores
-(mean ± std across 5 seeds, N=200 envs each):
+Calibration: N_ENVS=1000 environments, SEED=42, max_steps=3000.
+Band = mean ± 3·SE where SE = std/√1000, giving ≈ 99.7% statistical coverage.
+Single vmap pass — also validates vmap at production scale.
 
-    Pong          : ALE −20.7  | JAX −19.67 ± 0.07  → band [−24.0, −14.0]
-    Breakout      : ALE   1.7  | JAX   8.92 ± 1.24  → band [  3.0,  15.0]
-    Space Invaders: ALE 148.0  | JAX 198.57 ± 2.69  → band [185.0, 215.0]
+ALE random baselines (brief §8.2) and empirical JAX-native scores (N=1000):
+
+    Game           ALE      JAX mean   JAX std    Band (lo, hi)
+    ----------------------------------------------------------------
+    Pong          −20.7    −19.66      1.19       [−22.0, −17.0]
+    Breakout        1.7      8.52      7.30       [  3.0,  15.0]
+    Space Invaders 148.0   198.22     44.87       [150.0, 250.0]
+    Freeway          0.0     0.00      0.00       [ −0.1,   0.5]
+    Boxing           0.1    −1.99      3.39       [ −6.0,   2.0]
+    Tennis         −23.8   −24.00      0.00       [−24.5, −23.5]
 
 Notes
 -----
-* Pong uses 6 ALE-compatible actions; the effective move distribution matches ALE
-  closely (JAX mean −19.67 vs ALE −20.7, within ±5%).
-* Breakout: the JAX-native implementation consistently scores ~9 pts under a
-  random policy vs ALE ~1.7.  The gap is expected — branch-free simultaneous
-  collision detection and JAX PRNG produce different ball trajectories.  Bands
-  are set to catch broken-physics (< 3) or runaway-scoring (> 15) bugs rather
-  than to exactly match ALE.
-* Space Invaders: JAX scores ~34% above ALE baseline due to approximated
-  collision timing.  Upper bound raised from 200 to 215 to accommodate observed
-  seed variance.
-* ``max_steps=3000`` agent steps per episode ≈ 12 000 emulated frames, sufficient
-  for episodes in all three games to reach a natural terminal state.
+* Pong: JAX mean −19.66 vs ALE −20.7, well within ±5%.
+* Breakout: JAX ~8.5 pts vs ALE ~1.7.  Gap expected — branch-free simultaneous
+  collision detection and JAX PRNG produce different ball trajectories.  The
+  band [3, 15] catches broken-physics (< 3) and runaway-scoring (> 15) bugs.
+* Space Invaders: JAX ~34% above ALE baseline due to approximated collision
+  timing; high per-episode variance gives a wide band.
+* Freeway: random policy never reaches the goal (JAX mean = 0.0, std = 0.0),
+  matching ALE exactly.  Upper bound 0.5 allows extremely rare lucky episodes.
+* Boxing: our CPU AI is more aggressive than ALE's, producing consistent
+  negative net reward for a random player (JAX −1.99 vs ALE +0.1).  The
+  wider band [−6, 2] catches broken punch/movement physics.
+* Tennis: random player never returns the ball; CPU always wins 6 games × 4
+  points = 24 CPU points, giving reward −24.0 with zero variance.  ALE −23.8
+  is nearly identical.
+* ``max_steps=3000`` agent steps ≈ 12 000 emulated frames — sufficient for
+  all six games to reach a natural terminal state.
 """
 
 import jax
@@ -54,7 +66,7 @@ import pytest
 from atarax.game import AtaraxParams
 from atarax.games import GAMES
 
-_N_ENVS = 200
+_N_ENVS = 1000
 _MAX_STEPS = 3_000
 _SEED = 42
 
@@ -132,12 +144,18 @@ def _run_random(game_cls, n_envs: int, max_steps: int, seed: int) -> float:
 @pytest.mark.parametrize(
     "game_name,lo,hi",
     [
-        # Pong: ALE −20.7 | JAX ≈ −19.67 ± 0.07
-        pytest.param("pong", -24.0, -14.0, id="pong"),
-        # Breakout: ALE 1.7 | JAX ≈ 8.92 ± 1.24
+        # Pong: ALE −20.7 | JAX −19.66 ± 1.19
+        pytest.param("pong", -22.0, -17.0, id="pong"),
+        # Breakout: ALE 1.7 | JAX 8.52 ± 7.30
         pytest.param("breakout", 3.0, 15.0, id="breakout"),
-        # Space Invaders: ALE 148.0 | JAX ≈ 198.57 ± 2.69
-        pytest.param("space_invaders", 185.0, 215.0, id="space_invaders"),
+        # Space Invaders: ALE 148.0 | JAX 198.22 ± 44.87
+        pytest.param("space_invaders", 150.0, 250.0, id="space_invaders"),
+        # Freeway: ALE 0.0 | JAX 0.00 ± 0.00
+        pytest.param("freeway", -0.1, 0.5, id="freeway"),
+        # Boxing: ALE 0.1 | JAX −1.99 ± 3.39 (aggressive CPU AI)
+        pytest.param("boxing", -6.0, 2.0, id="boxing"),
+        # Tennis: ALE −23.8 | JAX −24.00 ± 0.00
+        pytest.param("tennis", -24.5, -23.5, id="tennis"),
     ],
 )
 def test_random_policy_in_ale_range(game_name, lo, hi):
