@@ -157,19 +157,10 @@ vec_results = make_multi_vec(["atari/breakout-v0"], n_envs=16)
 vec_env, params = vec_results[0]
 obs, states = vec_env.reset(key, params)     # obs: uint8[16, 210, 160, 3]
 
-# Use a predefined group
-from atarax.games.registry import GAME_GROUPS
-results = make_multi(GAME_GROUPS["atari5"], preset=True)
+# List all registered games
+from atarax.games import GAMES
+print(sorted(GAMES))
 ```
-
-Predefined groups:
-
-| Group | Size | Games |
-| --- | --- | --- |
-| `"atari5"` | 5 | `breakout`, `ms_pacman`, `pong`, `qbert`, `space_invaders` |
-| `"atari10"` | 10 | `alien`, `beam_rider`, `breakout`, `enduro`, `montezuma_revenge`, … |
-| `"atari26"` | 26 | Standard Mnih 26-game subset |
-| `"atari57"` | 57 | Full Mnih et al. (2015) benchmark suite |
 
 ### Rendering and Interactive Play
 
@@ -247,10 +238,24 @@ obs, state, reward, done, info = env.step(key, state, jnp.int32(0), params)
 # info["episode"]["l"]    → episode length (non-zero at episode end)
 ```
 
+## ALE Fidelity
+
+Each game is calibrated against the ALE random-policy baseline using 1,000
+parallel environments (JAX vmap), SEED=42, 3,000 agent steps (12,000 emulated
+frames). Band = mean ± 3·SE where SE = std / √1,000.
+
+| Game | ALE Baseline | JAX Mean | JAX Std | Fidelity Band | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Pong | −20.7 | −19.66 | 1.19 | [−22.0, −17.0] | Close match (< 5% gap) |
+| Breakout | 1.7 | 8.52 | 7.30 | [3.0, 15.0] | JAX ~5× higher; branch-free collision + JAX PRNG differ |
+| Space Invaders | 148.0 | 198.22 | 44.87 | [150.0, 250.0] | JAX ~34% higher; approximated simultaneous collision timing |
+| Freeway | 0.0 | 0.00 | 0.00 | [−0.1, 0.5] | Exact match; random agent never crosses the road |
+| Boxing | 0.1 | −1.99 | 3.39 | [−6.0, 2.0] | JAX CPU AI more aggressive than ALE's; net reward is negative |
+| Tennis | −23.8 | −24.00 | 0.00 | [−24.5, −23.5] | Close match; random player never returns, CPU wins 6×4 points |
+
 ## Supported Games
 
-All 57 Mnih et al. (2015) Atari environments are implemented. Use
-`"atari/<name>-v0"` as the `make()` ID (underscores become hyphens):
+Use `"atari/<name>-v0"` as the `make()` ID (underscores become hyphens):
 `"atari/space_invaders-v0"`, `"atari/ms_pacman-v0"`, etc.
 
 | Game | `make()` ID |
@@ -292,7 +297,6 @@ All 57 Mnih et al. (2015) Atari environments are implemented. Use
 | Phoenix | `"atari/phoenix-v0"` |
 | Pitfall | `"atari/pitfall-v0"` |
 | Pong | `"atari/pong-v0"` |
-| Pooyan | `"atari/pooyan-v0"` |
 | Private Eye | `"atari/private_eye-v0"` |
 | Q*bert | `"atari/qbert-v0"` |
 | River Raid | `"atari/riverraid-v0"` |
@@ -303,6 +307,7 @@ All 57 Mnih et al. (2015) Atari environments are implemented. Use
 | Solaris | `"atari/solaris-v0"` |
 | Space Invaders | `"atari/space_invaders-v0"` |
 | Star Gunner | `"atari/star_gunner-v0"` |
+| Surround | `"atari/surround-v0"` |
 | Tennis | `"atari/tennis-v0"` |
 | Time Pilot | `"atari/time_pilot-v0"` |
 | Tutankham | `"atari/tutankham-v0"` |
