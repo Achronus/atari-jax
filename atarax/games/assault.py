@@ -25,7 +25,7 @@ Screen geometry (pixels, y=0 at top):
 Action space (7 actions — ALE minimal set):
     0  NOOP
     1  FIRE
-    2  UP
+    2  UP          (fires cannon — confirmed from ALE Assault.cpp)
     3  RIGHT
     4  LEFT
     5  RIGHTFIRE
@@ -66,7 +66,7 @@ _ENEMY_DESCENT: float = 0.1  # px/frame
 
 _ENEMY_POINTS: int = 10
 _N_ENEMY_BULLETS: int = 3
-_FIRE_INTERVAL: int = 24  # frames between enemy shots
+_FIRE_INTERVAL: int = 60  # frames between enemy shots
 
 _INIT_LIVES: int = 4
 _FRAME_SKIP: int = 4
@@ -199,7 +199,7 @@ class Assault(AtaraxGame):
         # --- Action decode ---
         move_right = (action == 3) | (action == 5)
         move_left = (action == 4) | (action == 6)
-        has_fire = (action == 1) | (action == 5) | (action == 6)
+        has_fire = (action == 1) | (action == 2) | (action == 5) | (action == 6)
 
         # --- Player movement ---
         dx = jnp.where(

@@ -66,7 +66,7 @@ _DEMON_Y0: float = 30.0
 _DEMON_DESCENT: float = 0.08  # px/frame
 
 _N_ENEMY_BULLETS: int = 3
-_FIRE_INTERVAL: int = 20
+_FIRE_INTERVAL: int = 12
 _FORMATION_SPEED_INIT: float = 0.5  # formation drift px/frame at wave 0
 _INIT_LIVES: int = 3
 _FRAME_SKIP: int = 4

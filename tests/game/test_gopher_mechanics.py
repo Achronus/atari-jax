@@ -38,6 +38,7 @@ from atarax.games.gopher import (
     _GOPHER_ABOVE_Y,
     _GOPHER_H,
     _GOPHER_POINTS,
+    _GOPHER_SPEED_Y,
     _GOPHER_W,
     _N_CARROTS,
     _PLAYER_SPEED,
@@ -110,7 +111,7 @@ def test_gopher_steals_carrot_decrements_lives():
     # Gopher targeting carrot 1 (middle, x=80), already at carrot x, just above carrot y
     carrot_idx = 1
     gx = float(_CARROT_X[carrot_idx])
-    gy = float(_CARROT_Y) - 1.0  # will cross _CARROT_Y after descent
+    gy = float(_CARROT_Y) - float(_GOPHER_SPEED_Y) + 0.1  # will cross _CARROT_Y after descent
     state = _state(
         gopher_x=jnp.float32(gx),
         gopher_y=jnp.float32(gy),
@@ -138,7 +139,7 @@ def test_episode_ends_when_all_carrots_stolen():
     # One carrot left, gopher about to steal it
     carrot_alive = jnp.zeros(_N_CARROTS, dtype=jnp.bool_).at[0].set(jnp.bool_(True))
     gx = float(_CARROT_X[0])
-    gy = float(_CARROT_Y) - 1.0
+    gy = float(_CARROT_Y) - float(_GOPHER_SPEED_Y) + 0.1
     state = _state(
         gopher_x=jnp.float32(gx),
         gopher_y=jnp.float32(gy),

@@ -22,8 +22,8 @@ Screen geometry (pixels, y=0 at top):
     Table right wall : x = 145
     Table top        : y = 20
     Table bottom     : y = 195
-    Left flipper     : x ∈ [40, 65], y = 185
-    Right flipper    : x ∈ [95, 120], y = 185
+    Left flipper     : x ∈ [40, 78], y = 185
+    Right flipper    : x ∈ [82, 120], y = 185
     Bumpers (4)      : (50,80), (80,60), (110,80), (80,110)
     Targets (3)      : (30,40), (80,40), (130,40)
 
@@ -56,8 +56,8 @@ _TABLE_BOTTOM: float = 195.0
 _FLIPPER_Y: float = 185.0
 _FLIPPER_H: float = 6.0
 _LEFT_FLIPPER_X0: float = 40.0
-_LEFT_FLIPPER_X1: float = 65.0
-_RIGHT_FLIPPER_X0: float = 95.0
+_LEFT_FLIPPER_X1: float = 78.0
+_RIGHT_FLIPPER_X0: float = 82.0
 _RIGHT_FLIPPER_X1: float = 120.0
 _FLIPPER_KICK: float = 6.0
 
@@ -135,6 +135,9 @@ class VideoPinballState(AtariState):
         bool[3] — Which targets have been hit.
     plunger_power : jax.Array
         float32 — Charges while FIRE is held.
+    extra_ball_awarded : jax.Array
+        bool — True once the one-time bonus ball has been granted
+        (mirrors ROM RAM[0xA8] & 0x1 tracked in VideoPinball.cpp).
     """
 
     ball_x: chex.Array
@@ -147,6 +150,7 @@ class VideoPinballState(AtariState):
     bumper_active: chex.Array
     target_hit: chex.Array
     plunger_power: chex.Array
+    extra_ball_awarded: chex.Array
 
 
 class VideoPinball(AtaraxGame):
@@ -173,6 +177,7 @@ class VideoPinball(AtaraxGame):
             bumper_active=jnp.ones(_N_BUMPERS, dtype=jnp.bool_),
             target_hit=jnp.zeros(_N_TARGETS, dtype=jnp.bool_),
             plunger_power=jnp.float32(0.0),
+            extra_ball_awarded=jnp.bool_(False),
             lives=jnp.int32(_INIT_LIVES),
             score=jnp.int32(0),
             level=jnp.int32(0),
@@ -297,8 +302,10 @@ class VideoPinball(AtaraxGame):
             nx_n = nx / norm
             ny_n = ny / norm
             dot = ball_dx * nx_n + ball_dy * ny_n
-            ball_dx = jnp.where(hit, ball_dx - 2.0 * dot * nx_n, ball_dx)
-            ball_dy = jnp.where(hit, ball_dy - 2.0 * dot * ny_n, ball_dy)
+            reflected_dx = ball_dx - 2.0 * dot * nx_n
+            reflected_dy = ball_dy - 2.0 * dot * ny_n
+            ball_dx = jnp.where(hit, reflected_dx * jnp.float32(1.3), ball_dx)
+            ball_dy = jnp.where(hit, reflected_dy * jnp.float32(1.3), ball_dy)
             step_reward = step_reward + jnp.where(
                 hit, jnp.float32(_BUMPER_POINTS), jnp.float32(0.0)
             )
@@ -330,9 +337,17 @@ class VideoPinball(AtaraxGame):
             all_targets_hit, jnp.ones(_N_BUMPERS, dtype=jnp.bool_), new_bumper_active
         )
 
+        # --- Extra ball (ROM: RAM[0xA8] & 0x1) — awarded once on first target clear ---
+        award_extra = all_targets_hit & ~state.extra_ball_awarded
+        new_extra_ball_awarded = state.extra_ball_awarded | award_extra
+
         # --- Ball drain ---
         drained = ball_active & (ball_y + _BALL_R > _TABLE_BOTTOM)
-        new_lives = state.lives - jnp.where(drained, jnp.int32(1), jnp.int32(0))
+        new_lives = (
+            state.lives
+            + jnp.where(award_extra, jnp.int32(1), jnp.int32(0))
+            - jnp.where(drained, jnp.int32(1), jnp.int32(0))
+        )
         ball_active = ball_active & ~drained
         ball_x = jnp.where(drained, jnp.float32(_BALL_LAUNCH_X), ball_x)
         ball_y = jnp.where(drained, jnp.float32(_BALL_LAUNCH_Y), ball_y)
@@ -352,6 +367,7 @@ class VideoPinball(AtaraxGame):
             bumper_active=new_bumper_active,
             target_hit=new_target_hit,
             plunger_power=new_plunger,
+            extra_ball_awarded=new_extra_ball_awarded,
             lives=new_lives,
             score=state.score + jnp.int32(step_reward),
             reward=state.reward + step_reward,

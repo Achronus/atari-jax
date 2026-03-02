@@ -244,28 +244,28 @@ Use `"atari/<name>-v0"` as the `make()` ID.
 | --- | --- | --- | --- | --- | --- | --- |
 | Alien | `"atari/alien-v0"` | 227.8 | — | — | — | — |
 | Amidar | `"atari/amidar-v0"` | 5.8 | — | — | — | — |
-| Assault | `"atari/assault-v0"` | 240.3 | 90.50 | 42.48 | [86.5, 94.5] | Branch-free grid; fewer simultaneous enemies active → lower per-episode scores than ALE. |
+| Assault | `"atari/assault-v0"` | 240.3 | 119.50 | 67.78 | [113.1, 125.9] | UP action (action 2) fires cannon (confirmed via ALE Assault.cpp); fire interval 60 frames; remaining gap from branch-free collision. |
 | Asterix | `"atari/asterix-v0"` | 210.0 | — | — | — | — |
 | Asteroids | `"atari/asteroids-v0"` | 719.1 | — | — | — | — |
-| Atlantis | `"atari/atlantis-v0"` | 17185.5 | 39445.50 | 3271.26 | [39135, 39756] | Immediate alien respawn gives the random policy continuous scoring opportunities → much higher than ALE. |
+| Atlantis | `"atari/atlantis-v0"` | 17185.5 | 35532.25 | 5322.23 | [35027, 36037] | Descent 0.10 px/frame increases city pressure; triple-cannon rate still clears waves quickly → higher than ALE. |
 | Bank Heist | `"atari/bank_heist-v0"` | 14.2 | — | — | — | — |
 | Battle Zone | `"atari/battle_zone-v0"` | 2360.0 | — | — | — | — |
 | Beam Rider | `"atari/beam_rider-v0"` | 363.9 | — | — | — | — |
 | Berzerk | `"atari/berzerk-v0"` | 123.7 | — | — | — | — |
 | Bowling | `"atari/bowling-v0"` | 23.1 | — | — | — | — |
 | Boxing | `"atari/boxing-v0"` | 0.1 | −1.99 | 3.39 | [−6.0, 2.0] | CPU AI more aggressive than ALE's; random player consistently loses points. |
-| Breakout | `"atari/breakout-v0"` | 1.7 | 8.52 | 7.30 | [3.0, 15.0] | Branch-free simultaneous collision detection and JAX PRNG produce different ball trajectories → higher than ALE. |
+| Breakout | `"atari/breakout-v0"` | 1.7 | 8.40 | 10.09 | [7.4, 9.4] | Paddle 2.0 px/frame matches ball tier-0 speed; random policy still scores above ALE due to JAX PRNG trajectories. |
 | Centipede | `"atari/centipede-v0"` | 2090.9 | — | — | — | — |
 | Chopper Command | `"atari/chopper_command-v0"` | 811.0 | — | — | — | — |
 | Crazy Climber | `"atari/crazy_climber-v0"` | 10780.5 | — | — | — | — |
 | Defender | `"atari/defender-v0"` | 2874.5 | — | — | — | — |
-| Demon Attack | `"atari/demon_attack-v0"` | 175.0 | 391.17 | 200.82 | [372.1, 410.2] | Simplified enemy AI and descent speed give slightly higher scores than ALE. |
+| Demon Attack | `"atari/demon_attack-v0"` | 175.0 | 140.79 | 67.39 | [134.4, 147.2] | Fire interval 12 frames produces frequent aimed shots; JAX now slightly below ALE (0.80×). |
 | Double Dunk | `"atari/double_dunk-v0"` | −18.6 | — | — | — | — |
 | Enduro | `"atari/enduro-v0"` | 0.0 | — | — | — | — |
 | Fishing Derby | `"atari/fishing_derby-v0"` | −94.0 | −20.46 | 53.08 | [−25.5, −15.4] | Simplified CPU AI and differential reward (player − CPU) produces a higher mean than ALE's absolute score. |
 | Freeway | `"atari/freeway-v0"` | 0.0 | 0.00 | 0.00 | [−0.1, 0.5] | Random policy never crosses; matches ALE exactly. |
 | Frostbite | `"atari/frostbite-v0"` | 65.2 | — | — | — | — |
-| Gopher | `"atari/gopher-v0"` | 350.8 | 103.20 | 164.65 | [87.6, 118.8] | Simplified gopher AI steals carrots faster, ending episodes sooner with fewer scoring opportunities. |
+| Gopher | `"atari/gopher-v0"` | 350.8 | 350.00 | 376.38 | [314.3, 385.7] | Near-perfect match with ALE after speed tuning (0.5/0.7 px/frame); band fully overlaps ALE baseline. |
 | Gravitar | `"atari/gravitar-v0"` | 173.0 | — | — | — | — |
 | Hero | `"atari/hero-v0"` | 1027.0 | — | — | — | — |
 | Ice Hockey | `"atari/ice_hockey-v0"` | −11.2 | — | — | — | — |
@@ -276,7 +276,7 @@ Use `"atari/<name>-v0"` as the `make()` ID.
 | Montezuma's Revenge | `"atari/montezuma_revenge-v0"` | 0.0 | — | — | — | — |
 | Ms. Pac-Man | `"atari/ms_pacman-v0"` | 197.5 | — | — | — | — |
 | Name This Game | `"atari/name_this_game-v0"` | 2292.3 | — | — | — | — |
-| Phoenix | `"atari/phoenix-v0"` | 721.0 | 598.02 | 343.53 | [565.4, 630.6] | Close match; shield unused by random policy. |
+| Phoenix | `"atari/phoenix-v0"` | 721.0 | 706.52 | 395.36 | [669.0, 744.0] | Near-perfect match with ALE after fire interval tuned to 36 frames; band overlaps ALE baseline. |
 | Pitfall | `"atari/pitfall-v0"` | −229.4 | — | — | — | — |
 | Pong | `"atari/pong-v0"` | −20.7 | −19.66 | 1.19 | [−22.0, −17.0] | Close match with ALE (within 5%). |
 | Private Eye | `"atari/private_eye-v0"` | 24.9 | — | — | — | — |
@@ -295,7 +295,7 @@ Use `"atari/<name>-v0"` as the `make()` ID.
 | Tutankham | `"atari/tutankham-v0"` | 11.4 | — | — | — | — |
 | Up 'n Down | `"atari/up_n_down-v0"` | 533.4 | — | — | — | — |
 | Venture | `"atari/venture-v0"` | 0.0 | — | — | — | — |
-| Video Pinball | `"atari/video_pinball-v0"` | 24425.6 | 531.00 | 560.53 | [477.8, 584.2] | Simplified bumper/target physics and no plunger charging by random policy → much lower than ALE. |
+| Video Pinball | `"atari/video_pinball-v0"` | 24425.6 | 855.10 | 678.66 | [790.7, 919.5] | Narrower flipper gap (4 px), bumper 1.3× speed boost, extra-ball mechanic (ROM RAM[0xA8]); remaining gap from ROM spring-bumper cluster physics. |
 | Wizard of Wor | `"atari/wizard_of_wor-v0"` | 563.5 | — | — | — | — |
 | Yars' Revenge | `"atari/yars_revenge-v0"` | 3092.9 | — | — | — | — |
 | Zaxxon | `"atari/zaxxon-v0"` | 32.5 | — | — | — | — |

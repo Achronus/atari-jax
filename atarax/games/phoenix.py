@@ -72,7 +72,7 @@ _BIRD_DRIFT_X: float = 0.5
 _BIRD_DESCENT: float = 0.03  # slow descent per frame
 
 _N_ENEMY_BULLETS: int = 4
-_FIRE_INTERVAL: int = 30
+_FIRE_INTERVAL: int = 36
 _INIT_LIVES: int = 3
 _FRAME_SKIP: int = 4
 _PLAY_TOP: int = 15

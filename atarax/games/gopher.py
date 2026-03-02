@@ -65,8 +65,8 @@ _CARROT_X = jnp.array([40.0, 80.0, 120.0], dtype=jnp.float32)
 # Gopher
 _GOPHER_W: int = 12
 _GOPHER_H: int = 10
-_GOPHER_SPEED_X: float = 1.5
-_GOPHER_SPEED_Y: float = 2.0
+_GOPHER_SPEED_X: float = 0.5
+_GOPHER_SPEED_Y: float = 0.7
 _GOPHER_POINTS: int = 200
 _GOPHER_START_X: float = 5.0
 _GOPHER_START_Y: float = 50.0  # above ground
