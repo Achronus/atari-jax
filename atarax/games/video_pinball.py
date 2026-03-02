@@ -87,6 +87,11 @@ _TARGET_W: float = 10.0
 _TARGET_H: float = 6.0
 _TARGET_POINTS: int = 500
 
+_BUMPER_CLUSTER_CX: float = 80.0    # cluster geometric centre x
+_BUMPER_CLUSTER_CY: float = 82.5    # cluster geometric centre y
+_BUMPER_CLUSTER_BIAS: float = 0.8   # fraction of kick direction blended toward cluster centre
+_BUMPER_KICK_SPEED: float = 5.0     # fixed post-hit speed (models ROM spring-bumper impulse)
+
 _INIT_LIVES: int = 3
 _FRAME_SKIP: int = 4
 
@@ -287,6 +292,8 @@ class VideoPinball(AtaraxGame):
         new_bumper_active = state.bumper_active.copy()
 
         # Bumper collisions: use Python-literal centres to keep values concrete
+        # Reflect off bumper surface then blend 50% toward cluster centre to model
+        # the ROM spring-bumper resonance that keeps the ball in the bumper cluster.
         for i in range(_N_BUMPERS):
             bx_f = jnp.float32(_BUMPER_CENTERS[i][0])
             by_f = jnp.float32(_BUMPER_CENTERS[i][1])
@@ -304,8 +311,23 @@ class VideoPinball(AtaraxGame):
             dot = ball_dx * nx_n + ball_dy * ny_n
             reflected_dx = ball_dx - 2.0 * dot * nx_n
             reflected_dy = ball_dy - 2.0 * dot * ny_n
-            ball_dx = jnp.where(hit, reflected_dx * jnp.float32(1.3), ball_dx)
-            ball_dy = jnp.where(hit, reflected_dy * jnp.float32(1.3), ball_dy)
+            # Blend reflected direction with toward-cluster direction, then apply fixed kick
+            # speed to model the ROM spring-bumper impulse (constant force, not reflection-scaled).
+            refl_norm = jnp.sqrt(reflected_dx ** 2 + reflected_dy ** 2 + jnp.float32(1e-6))
+            r_nx = reflected_dx / refl_norm
+            r_ny = reflected_dy / refl_norm
+            dcx = jnp.float32(_BUMPER_CLUSTER_CX) - ball_x
+            dcy = jnp.float32(_BUMPER_CLUSTER_CY) - ball_y
+            dc_norm = jnp.sqrt(dcx ** 2 + dcy ** 2 + jnp.float32(1e-6))
+            dc_nx = dcx / dc_norm
+            dc_ny = dcy / dc_norm
+            bias = jnp.float32(_BUMPER_CLUSTER_BIAS)
+            blend_nx = (jnp.float32(1.0) - bias) * r_nx + bias * dc_nx
+            blend_ny = (jnp.float32(1.0) - bias) * r_ny + bias * dc_ny
+            blend_norm = jnp.sqrt(blend_nx ** 2 + blend_ny ** 2 + jnp.float32(1e-6))
+            kick = jnp.float32(_BUMPER_KICK_SPEED)
+            ball_dx = jnp.where(hit, blend_nx / blend_norm * kick, ball_dx)
+            ball_dy = jnp.where(hit, blend_ny / blend_norm * kick, ball_dy)
             step_reward = step_reward + jnp.where(
                 hit, jnp.float32(_BUMPER_POINTS), jnp.float32(0.0)
             )

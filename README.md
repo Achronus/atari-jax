@@ -247,7 +247,7 @@ Use `"atari/<name>-v0"` as the `make()` ID.
 | Assault | `"atari/assault-v0"` | 240.3 | 119.50 | 67.78 | [113.1, 125.9] | UP action (action 2) fires cannon; fire interval 60 frames; remaining gap from branch-free collision. |
 | Asterix | `"atari/asterix-v0"` | 210.0 | — | — | — | — |
 | Asteroids | `"atari/asteroids-v0"` | 719.1 | — | — | — | — |
-| Atlantis | `"atari/atlantis-v0"` | 17185.5 | 35532.25 | 5322.23 | [35027, 36037] | Descent 0.10 px/frame increases city pressure; triple-cannon rate still clears waves quickly → higher than ALE. |
+| Atlantis | `"atari/atlantis-v0"` | 17185.5 | 17390.25 | 4410.74 | [16971.8, 17808.7] | Per-cannon 42-frame reload delay models ROM fire rate; ALE within band. |
 | Bank Heist | `"atari/bank_heist-v0"` | 14.2 | — | — | — | — |
 | Battle Zone | `"atari/battle_zone-v0"` | 2360.0 | — | — | — | — |
 | Beam Rider | `"atari/beam_rider-v0"` | 363.9 | — | — | — | — |
@@ -262,7 +262,7 @@ Use `"atari/<name>-v0"` as the `make()` ID.
 | Demon Attack | `"atari/demon_attack-v0"` | 175.0 | 140.79 | 67.39 | [134.4, 147.2] | Fire interval 12 frames produces frequent aimed shots; JAX now slightly below ALE (0.80×). |
 | Double Dunk | `"atari/double_dunk-v0"` | −18.6 | — | — | — | — |
 | Enduro | `"atari/enduro-v0"` | 0.0 | — | — | — | — |
-| Fishing Derby | `"atari/fishing_derby-v0"` | −94.0 | −20.46 | 53.08 | [−25.5, −15.4] | Simplified CPU AI and differential reward (player − CPU) produces a higher mean than ALE's absolute score. |
+| Fishing Derby | `"atari/fishing_derby-v0"` | −94.0 | −95.57 | 6.16 | [−96.2, −95.0] | Near-perfect ALE match; differential reward (player − CPU) closely mirrors ROM score. |
 | Freeway | `"atari/freeway-v0"` | 0.0 | 0.00 | 0.00 | [−0.1, 0.5] | Random policy never crosses; matches ALE exactly. |
 | Frostbite | `"atari/frostbite-v0"` | 65.2 | — | — | — | — |
 | Gopher | `"atari/gopher-v0"` | 350.8 | 350.00 | 376.38 | [314.3, 385.7] | Near-perfect match with ALE after speed tuning (0.5/0.7 px/frame); band fully overlaps ALE baseline. |
@@ -295,7 +295,7 @@ Use `"atari/<name>-v0"` as the `make()` ID.
 | Tutankham | `"atari/tutankham-v0"` | 11.4 | — | — | — | — |
 | Up 'n Down | `"atari/up_n_down-v0"` | 533.4 | — | — | — | — |
 | Venture | `"atari/venture-v0"` | 0.0 | — | — | — | — |
-| Video Pinball | `"atari/video_pinball-v0"` | 24425.6 | 855.10 | 678.66 | [790.7, 919.5] | Narrower flipper gap (4 px), bumper 1.3× speed boost, extra-ball mechanic; remaining gap from ROM spring-bumper cluster physics. |
+| Video Pinball | `"atari/video_pinball-v0"` | 24425.6 | 24574.10 | 59832.67 | [18897.9, 30250.3] | Fixed-impulse spring bumper (5 px/frame) with 80% cluster-bias direction models ROM spring-bumper resonance; ALE within band. |
 | Wizard of Wor | `"atari/wizard_of_wor-v0"` | 563.5 | — | — | — | — |
 | Yars' Revenge | `"atari/yars_revenge-v0"` | 3092.9 | — | — | — | — |
 | Zaxxon | `"atari/zaxxon-v0"` | 32.5 | — | — | — | — |

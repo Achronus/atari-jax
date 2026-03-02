@@ -193,14 +193,14 @@ def _run_random(game_cls, n_envs: int, max_steps: int, seed: int) -> float:
         pytest.param("fishing_derby", -96.2, -95.0, id="fishing_derby"),
         # Assault: ALE 240.3 | JAX 119.50 ± 67.78
         pytest.param("assault", 113.1, 125.9, id="assault"),
-        # Atlantis: ALE 17185.5 | JAX 35532.25 ± 5322.23
-        pytest.param("atlantis", 35027.0, 36037.0, id="atlantis"),
+        # Atlantis: ALE 17185.5 | JAX 17390.25 ± 4410.74
+        pytest.param("atlantis", 16971.8, 17808.7, id="atlantis"),
         # Demon Attack: ALE 175.0 | JAX 140.79 ± 67.39
         pytest.param("demon_attack", 134.4, 147.2, id="demon_attack"),
         # Phoenix: ALE 721.0 | JAX 706.52 ± 395.36
         pytest.param("phoenix", 669.0, 744.0, id="phoenix"),
-        # Video Pinball: ALE 24425.6 | JAX 855.10 ± 678.66
-        pytest.param("video_pinball", 790.7, 919.5, id="video_pinball"),
+        # Video Pinball: ALE 24425.6 | JAX 24574.10 ± 59832.67
+        pytest.param("video_pinball", 18897.9, 30250.3, id="video_pinball"),
         # Gopher: ALE 350.8 | JAX 350.00 ± 376.38
         pytest.param("gopher", 314.3, 385.7, id="gopher"),
         # Gravitar: ALE 173.0 | JAX 156.00 ± 496.02

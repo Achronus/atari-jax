@@ -74,6 +74,8 @@ _ALIEN_INIT_X = jnp.array([10.0, 40.0, 70.0, 90.0, 120.0, 140.0], dtype=jnp.floa
 _ALIEN_INIT_Y = jnp.array([40.0, 60.0, 80.0, 50.0, 70.0, 90.0], dtype=jnp.float32)
 _ALIEN_INIT_DX = jnp.array([0.8, -0.8, 0.8, -0.8, 0.8, -0.8], dtype=jnp.float32)
 
+_FIRE_COOLDOWN: int = 42  # emulated frames between shots per cannon
+
 _FRAME_SKIP: int = 4
 
 # Render
@@ -127,6 +129,8 @@ class AtlantisState(AtariState):
         bool — Right bullet in flight.
     city_alive : jax.Array
         bool[6] — Surviving city sections.
+    fire_cooldown : jax.Array
+        int32[3] — Frames remaining until each cannon [centre, right, left] can fire again.
     """
 
     alien_x: chex.Array
@@ -143,6 +147,7 @@ class AtlantisState(AtariState):
     bullet_right_y: chex.Array
     bullet_right_active: chex.Array
     city_alive: chex.Array
+    fire_cooldown: chex.Array
 
 
 class Atlantis(AtaraxGame):
@@ -172,6 +177,7 @@ class Atlantis(AtaraxGame):
             bullet_right_y=jnp.float32(0.0),
             bullet_right_active=jnp.bool_(False),
             city_alive=jnp.ones(_N_CITY, dtype=jnp.bool_),
+            fire_cooldown=jnp.zeros(3, dtype=jnp.int32),
             lives=jnp.int32(_N_CITY),
             score=jnp.int32(0),
             level=jnp.int32(0),
@@ -200,10 +206,14 @@ class Atlantis(AtaraxGame):
         """
         key, _ = jax.random.split(state.key)
 
-        # --- Fire actions ---
-        fire_centre = (action == 1) & ~state.bullet_centre_active
-        fire_right = (action == 2) & ~state.bullet_right_active
-        fire_left = (action == 3) & ~state.bullet_left_active
+        # --- Fire actions (per-cannon cooldown) ---
+        new_cooldown = jnp.maximum(state.fire_cooldown - jnp.int32(1), jnp.int32(0))
+        fire_centre = (action == jnp.int32(1)) & ~state.bullet_centre_active & (new_cooldown[0] == jnp.int32(0))
+        fire_right = (action == jnp.int32(2)) & ~state.bullet_right_active & (new_cooldown[1] == jnp.int32(0))
+        fire_left = (action == jnp.int32(3)) & ~state.bullet_left_active & (new_cooldown[2] == jnp.int32(0))
+        new_cooldown = new_cooldown.at[0].set(jnp.where(fire_centre, jnp.int32(_FIRE_COOLDOWN), new_cooldown[0]))
+        new_cooldown = new_cooldown.at[1].set(jnp.where(fire_right, jnp.int32(_FIRE_COOLDOWN), new_cooldown[1]))
+        new_cooldown = new_cooldown.at[2].set(jnp.where(fire_left, jnp.int32(_FIRE_COOLDOWN), new_cooldown[2]))
 
         # Spawn bullets at cannon positions
         bcx = jnp.where(
@@ -333,6 +343,7 @@ class Atlantis(AtaraxGame):
             bullet_right_y=bry,
             bullet_right_active=right_active,
             city_alive=new_city_alive,
+            fire_cooldown=new_cooldown,
             lives=new_lives,
             level=new_level,
             score=state.score + jnp.int32(kills * _ALIEN_POINTS),
