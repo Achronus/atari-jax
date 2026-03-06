@@ -16,8 +16,14 @@
 """Ms. Pac-Man — JAX-native SDF game implementation.
 
 Characters move one tile per agent step; no 4-frame skip.
-Maze: 31 rows × 28 cols tile grid, each tile = 5×5 pixels.
-      Centred in the 160×210 frame (x-offset=10, y-offset=27).
+Maze: 45 rows × 40 cols tile grid, each tile = 4×4 pixels.
+      Fills full 160px width; 30px HUD at top → maze y=30..210.
+
+Tile types in the raw map:
+    '#' — wall (impassable, rendered salmon)
+    '_' — pathway (passable, rendered blue, no dot)
+    '.' — dot tile (passable, blue + small white dot)
+    '*' — power pellet (passable, blue + large white dot)
 
 Action space (9 actions, ALE minimal set):
     0 — NOOP (continue current direction)
@@ -52,33 +58,48 @@ from atarax.env.sdf import (
 from atarax.game import AtaraxParams
 
 # ── Maze dimensions
-_ROWS: int = 31
-_COLS: int = 28
-_TILE_W: float = 5.0
-_TILE_H: float = 5.0
-_OFFSET_X: float = 10.0
-_OFFSET_Y: float = 27.0
+# 40 cols × 4px = 160px (exact width), 45 rows × 4px = 180px + 30px HUD = 210px
+_ROWS: int = 45
+_COLS: int = 40
+_TILE_W: float = 4.0
+_TILE_H: float = 4.0
+_OFFSET_X: float = 0.0
+_OFFSET_Y: float = 30.0
+
+# ── Tunnel rows (horizontal wrap allowed only at these rows).
+# Rows where col 0 is '_' (passable) in the tile map — left edge is open,
+# so entities can exit left (col 0 → col 39) or right (col 39 → col 0).
+_TUNNEL_ROWS: tuple = (13, 14, 15, 19, 20, 21, 25, 26, 27)
 
 # ── Start positions
-_PAC_ROW: int = 23
-_PAC_COL: int = 13
+# Pac-Man starts at center of the lower linked corridor (row 26 col 20 = '_')
+_PAC_ROW: int = 26
+_PAC_COL: int = 20
 
-# Ghost start positions: Blinky(red), Pinky(pink), Inky(cyan), Sue(orange)
-_GHOST_ROWS: tuple = (11, 11, 13, 13)
-_GHOST_COLS: tuple = (13, 14, 13, 14)
+# Ghost starting positions (OG-faithful approximation for sealed ghost house):
+#   OG arcade: Blinky outside the house (center above door);
+#              Pinky/Inky/Sue inside, exit in order.
+#   Our ghost house (rows 17-23, cols 17-22) is sealed — all 4 start outside.
+#   Blinky (0): row 14 col 20 — upper linked corridor center (OG "outside house")
+#   Pinky  (1): row 17 col 13 — left entrance corridor, near ghost house
+#   Inky   (2): row 17 col 26 — right entrance corridor, near ghost house
+#   Sue    (3): row 26 col 31 — lower linked corridor, right side
+# Ghosts respawn at their starting positions after being eaten.
+_GHOST_ROWS: tuple = (14, 17, 17, 26)
+_GHOST_COLS: tuple = (20, 13, 26, 31)
 
-# ── Power pellet tile positions (2 in Ms. Pac-Man)
-_POWER_ROWS: tuple = (23, 23)
-_POWER_COLS: tuple = (4, 23)
+# ── Power pellet positions ('*' tiles at rows 5 and 38, cols 2 and 37)
+_POWER_ROWS: tuple = (5, 5, 38, 38)
+_POWER_COLS: tuple = (2, 37, 2, 37)
 
-# ── Fruit
+# ── Fruit (spawns at center of upper linked corridor)
 _FRUIT_ROW: int = 14
-_FRUIT_COL: int = 13
+_FRUIT_COL: int = 20
 _FRUIT_SCORE: int = 100
 
-# ── Ghost scatter corners in frightened mode: Blinky, Pinky, Inky, Sue
-_FRIGHT_TR = jnp.array([0, 0, _ROWS - 1, _ROWS - 1], dtype=jnp.int32)
-_FRIGHT_TC = jnp.array([0, _COLS - 1, 0, _COLS - 1], dtype=jnp.int32)
+# ── Ghost scatter corners in frightened mode (near power pellet corners)
+_FRIGHT_TR = jnp.array([5, 5, 38, 38], dtype=jnp.int32)
+_FRIGHT_TC = jnp.array([0, 39, 0, 39], dtype=jnp.int32)
 
 # ── Direction deltas (0=UP, 1=RIGHT, 2=DOWN, 3=LEFT) — mirrors maze_navigator.py
 _DR = jnp.array([-1, 0, 1, 0], dtype=jnp.int32)
@@ -96,65 +117,92 @@ _GHOST_SCORES = jnp.array([200, 400, 800, 1600], dtype=jnp.int32)
 _DIR_ANGLE = jnp.array([-jnp.pi / 2, 0.0, jnp.pi / 2, jnp.pi], dtype=jnp.float32)
 
 
-# ── Maze layout (0=open, 1=wall)
-def _build_tile_map() -> np.ndarray:
-    rows = [
-        "############################",  # 0
-        "#............##............#",  # 1
-        "#.####.#####.##.#####.####.#",  # 2
-        "#.####.#####.##.#####.####.#",  # 3
-        "#.####.#####.##.#####.####.#",  # 4
-        "#..........................#",  # 5
-        "#.####.##.########.##.####.#",  # 6
-        "#.####.##.########.##.####.#",  # 7
-        "#......##....##....##......#",  # 8
-        "######.#####.##.#####.######",  # 9
-        "######.#####.##.#####.######",  # 10
-        "######.##..........##.######",  # 11  Blinky (col 13), Pinky (col 14)
-        "######.##.###..###.##.######",  # 12  ghost house entrance (cols 13-14 open)
-        "######.##.#......#.##.######",  # 13  ghost house interior: Inky (col 13), Sue (col 14)
-        "######....#......#....######",  # 14  ghost house exit corridor
-        "######.##.########.##.######",  # 15
-        "######.##..........##.######",  # 16
-        "######.##.########.##.######",  # 17
-        "######.#####.##.#####.######",  # 18
-        "#............##............#",  # 19
-        "#.####.#####.##.#####.####.#",  # 20
-        "#.####.#####.##.#####.####.#",  # 21
-        "#.####.#####.##.#####.####.#",  # 22
-        "#..........................#",  # 23  Pac-Man (col 13), power pellets col 4 & 23
-        "###.##.##.########.##.##.###",  # 24
-        "###.##.##.########.##.##.###",  # 25
-        "#......##....##....##......#",  # 26
-        "#.##########.##.##########.#",  # 27
-        "#.##########.##.##########.#",  # 28
-        "#..........................#",  # 29
-        "############################",  # 30
-    ]
+# ── Maze layout
+# '#'=wall(1), '_'=pathway(0), '.'=dot(0), '*'=power pellet(0).
+# Tile map only stores passable(0) vs wall(1); dot/pellet positions are
+# tracked separately in _INIT_COLLECTIBLES via _build_init_collectibles().
+# Tunnel rows: 13,14,15,19,20,21,25,26,27 — col 0/39 wrap L<->R.
+# Power pellets ('*') at: (5,2),(5,37),(38,2),(38,37).
+_RAW_ROWS = [
+    "########################################",  # 0
+    "#_________#__________________#_________#",  # 1  top tunnel start
+    "#_._._._._#_._._._.__._._._._#_._._._._#",  # 2
+    "#_________#__________________#_________#",  # 3  top tunnel end
+    "#___###___#___############___#___###___#",  # 4
+    "#_*_###_._#_._############_._#_._###_*_#",  # 5  Big pellets row
+    "#___###___#___############___#___###___#",  # 6
+    "#______________________________________#",  # 7  tunnel start
+    "#_._._._._._._._._.__._._._._._._._._._#",  # 8
+    "#______________________________________#",  # 9  tunnel end
+    "###___#___###___########___###___#___###",  # 10
+    "###_._#_._###_._########_._###_._#_._###",  # 11
+    "###___#___###___########___###___#___###",  # 12
+    "______#__________________________#______",  # 13 linked corridor start
+    "__._._#_._._._._._.__._._._._._._#_._.__",  # 14
+    "______#__________________________#______",  # 15 linked corridor end
+    "###___#######___########___#######___###",  # 16
+    "###_._#######_._#______#_._#######_._###",  # 17 top of blue center
+    "###___#######___#______#___#######___###",  # 18
+    "__#_____________#______#_____________#__",  # 19 middle blue corridors start
+    "__#_._._._._._._#______#_._._._._._._#__",  # 20
+    "__#_____________#______#_____________#__",  # 21 middle blue corridors end
+    "###___#######___#______#___#######___###",  # 22
+    "###_._#######_._#______#_._#######_._###",  # 23 end of blue center
+    "###___#######___########___#######___###",  # 24
+    "______#__________________________#______",  # 25 linked corridor start
+    "__._._#_._._._._._.__._._._._._._#_._.__",  # 26
+    "______#__________________________#______",  # 27 linked corridor end
+    "###___#___#___#___####___#___#___#___###",  # 28
+    "###_._#_._#_._#_._####_._#_._#_._#_._###",  # 29
+    "###___#___#___#___####___#___#___#___###",  # 30
+    "#_________#___#__________#___#_________#",  # 31
+    "#_._._._._#_._#_._.__._._#_._#_._._._._#",  # 32
+    "#_________#___#__________#___#_________#",  # 33
+    "#___###___#_______####_______#___###___#",  # 34
+    "#_._###_._#_._._._####_._._._#_._###_._#",  # 35
+    "#___###___#_______####_______#___###___#",  # 36
+    "#___###___#####___####___#####___###___#",  # 37
+    "#_*_###_._#####_._####_._#####_._###_*_#",  # 38 big pellets row
+    "#___###___#####___####___#####___###___#",  # 39
+    "#___###___#####___####___#####___###___#",  # 40
+    "#______________________________________#",  # 41 bottom tunnel start
+    "#_._._._._._._._._.__._._._._._._._._._#",  # 42
+    "#______________________________________#",  # 43 bottom tunnel end
+    "########################################",  # 44
+]
+
+
+def _build_tile_map() -> chex.Array:
+    """Build wall map: '#' -> 1 (wall), everything else -> 0 (passable)."""
     m = np.zeros((_ROWS, _COLS), dtype=np.int32)
-    for r, s in enumerate(rows):
+    for r, s in enumerate(_RAW_ROWS):
         for c, ch in enumerate(s):
             m[r, c] = 1 if ch == "#" else 0
-    return m
+    return jnp.array(m, dtype=jnp.int32)
 
 
-_TILE_MAP_NP = _build_tile_map()
-_TILE_MAP = jnp.array(_TILE_MAP_NP, dtype=jnp.int32)
+def _build_init_collectibles() -> chex.Array:
+    """Build dot map: '.' and '*' tiles -> True, everything else -> False."""
+    coll = np.zeros((_ROWS, _COLS), dtype=bool)
+    for r, s in enumerate(_RAW_ROWS):
+        for c, ch in enumerate(s):
+            coll[r, c] = ch in (".", "*")
+    # Exclude Pac-Man start tile (no dot under starting position)
+    coll[_PAC_ROW, _PAC_COL] = False
+    return jnp.array(coll, dtype=jnp.bool_)
 
 
-def _build_init_collectibles() -> np.ndarray:
-    coll = (1 - _TILE_MAP_NP).astype(bool)
-    coll[11:16, :] = False  # ghost house zone
-    coll[_PAC_ROW, _PAC_COL] = False  # Ms. Pac-Man start tile
-    return coll
-
-
-_INIT_COLLECTIBLES_NP = _build_init_collectibles()
-_INIT_COLLECTIBLES = jnp.array(_INIT_COLLECTIBLES_NP, dtype=jnp.bool_)
+_TILE_MAP = _build_tile_map()
+_INIT_COLLECTIBLES = _build_init_collectibles()
 
 # ── Colours (float32 RGB in [0, 1])
 _COL_BG = jnp.array([0.0, 0.0, 0.0], dtype=jnp.float32)
-_COL_WALL = jnp.array([0.078, 0.078, 0.784], dtype=jnp.float32)
+_COL_CORRIDOR = jnp.array(
+    [0.0, 0.11, 0.533], dtype=jnp.float32
+)  # blue  — movement areas
+_COL_WALL = jnp.array(
+    [0.894, 0.435, 0.435], dtype=jnp.float32
+)  # salmon — impassable walls
 _COL_DOT = jnp.array([1.0, 0.902, 0.725], dtype=jnp.float32)
 _COL_POWER = jnp.array([1.0, 1.0, 0.784], dtype=jnp.float32)
 _COL_MSPACMAN = jnp.array([1.0, 0.90, 0.0], dtype=jnp.float32)
@@ -166,6 +214,9 @@ _COL_GHOST_FRIGHT = jnp.array([0.0, 0.0, 0.784], dtype=jnp.float32)
 _COL_FRUIT = jnp.array([1.0, 0.314, 0.471], dtype=jnp.float32)
 
 _GHOST_COLOURS = [_COL_BLINKY, _COL_PINKY, _COL_INKY, _COL_SUE]
+
+# ── HUD pip geometry (Pac-Man circles)
+_HUD_PIP_R: float = 3.5
 
 
 @chex.dataclass
@@ -229,13 +280,119 @@ class MsPacMan(MazeNavigatorGame):
     """
     Ms. Pac-Man implemented as a pure-JAX function suite.
 
-    All four ghosts (Blinky, Pinky, Inky, Sue) chase Ms. Pac-Man by
-    minimising L1 distance. When frightened they scatter to corners.
+    Maze matches ALE Ms. Pac-Man Maze 1 topology.
+    Corridor tiles are rendered in salmon (matching ALE colour scheme).
+    Tunnel at row 16: col 0 and col 27 wrap horizontally.
+    All four ghosts (Blinky, Pinky, Inky, Sue) start in row 11 and chase
+    Ms. Pac-Man by minimising L1 distance; scatter to corners when frightened.
     Characters move one tile per agent step. No 4-frame skip.
     """
 
     num_actions: int = 9
     game_id: ClassVar[str] = "ms_pacman"
+
+    def _is_tunnel_row(self, row: chex.Array) -> chex.Array:
+        """Return True if `row` is one of the 9 tunnel rows."""
+        return (
+            (row == jnp.int32(_TUNNEL_ROWS[0]))
+            | (row == jnp.int32(_TUNNEL_ROWS[1]))
+            | (row == jnp.int32(_TUNNEL_ROWS[2]))
+            | (row == jnp.int32(_TUNNEL_ROWS[3]))
+            | (row == jnp.int32(_TUNNEL_ROWS[4]))
+            | (row == jnp.int32(_TUNNEL_ROWS[5]))
+            | (row == jnp.int32(_TUNNEL_ROWS[6]))
+            | (row == jnp.int32(_TUNNEL_ROWS[7]))
+            | (row == jnp.int32(_TUNNEL_ROWS[8]))
+        )
+
+    def _can_move(
+        self,
+        row: chex.Array,
+        col: chex.Array,
+        direction: chex.Array,
+        tile_map: chex.Array,
+    ) -> chex.Array:
+        """
+        Check passability with horizontal column wrapping only at tunnel rows.
+
+        Non-tunnel rows clip the column index; tunnel rows use modular arithmetic
+        so exiting col 0 leftward reappears at col 27 and vice versa.
+        """
+        rows, cols = tile_map.shape
+        next_row = jnp.clip(row + _DR[direction], 0, rows - 1)
+        raw_next_col = col + _DC[direction]
+        is_tunnel = self._is_tunnel_row(row)
+        next_col = jnp.where(
+            is_tunnel,
+            (raw_next_col + cols) % cols,
+            jnp.clip(raw_next_col, 0, cols - 1),
+        )
+        # Verify move actually changes position (avoids phantom moves at edges).
+        actually_moves = (next_row != row) | (next_col != col)
+        return (tile_map[next_row, next_col] == 0) & actually_moves
+
+    def _step_entity(
+        self,
+        row: chex.Array,
+        col: chex.Array,
+        direction: chex.Array,
+        tile_map: chex.Array,
+    ) -> tuple[chex.Array, chex.Array]:
+        """Step with horizontal column wrapping only at tunnel rows."""
+        rows, cols = tile_map.shape
+        passable = self._can_move(row, col, direction, tile_map)
+        next_row = jnp.clip(row + _DR[direction], 0, rows - 1)
+        raw_next_col = col + _DC[direction]
+        is_tunnel = self._is_tunnel_row(row)
+        next_col = jnp.where(
+            is_tunnel,
+            (raw_next_col + cols) % cols,
+            jnp.clip(raw_next_col, 0, cols - 1),
+        )
+        new_row = jnp.where(passable, next_row, row)
+        new_col = jnp.where(passable, next_col, col)
+        return new_row, new_col
+
+    def _pick_ghost_direction(
+        self,
+        row: chex.Array,
+        col: chex.Array,
+        current_dir: chex.Array,
+        target_row: chex.Array,
+        target_col: chex.Array,
+        tile_map: chex.Array,
+    ) -> chex.Array:
+        """
+        Ghost direction using Manhattan targeting; tunnel-aware, no phantom moves.
+
+        Overrides the base-class implementation to:
+        - Use modular column arithmetic at the tunnel row only.
+        - Reject directions that leave position unchanged (edge-clamping artefact).
+        """
+        rows, cols = tile_map.shape
+        reverse_dir = (current_dir + 2) % 4
+        dists = jnp.full((4,), jnp.iinfo(jnp.int32).max, dtype=jnp.int32)
+        is_tunnel = self._is_tunnel_row(row)
+        for d in range(4):
+            next_row = jnp.clip(row + _DR[d], 0, rows - 1)
+            raw_next_col = col + _DC[d]
+            next_col = jnp.where(
+                is_tunnel,
+                (raw_next_col + cols) % cols,
+                jnp.clip(raw_next_col, 0, cols - 1),
+            )
+            passable = tile_map[next_row, next_col] == 0
+            actually_moves = (next_row != row) | (next_col != col)
+            not_reverse = d != reverse_dir
+            dist = jnp.abs(next_row - target_row) + jnp.abs(next_col - target_col)
+            dists = dists.at[d].set(
+                jnp.where(
+                    passable & actually_moves & not_reverse,
+                    dist,
+                    jnp.iinfo(jnp.int32).max,
+                )
+            )
+        return jnp.argmin(dists).astype(jnp.int32)
 
     def _reset(self, rng: chex.PRNGKey) -> MsPacManState:
         """
@@ -265,6 +422,7 @@ class MsPacMan(MazeNavigatorGame):
             ghost_col=jnp.array(_GHOST_COLS, dtype=jnp.int32),
             ghost_dir=ghost_dirs,
             ghost_mode=ghost_mode,
+            hide_borders=jnp.bool_(True),
             # MsPacManState fields
             combo_count=jnp.int32(1),
             fruit_active=jnp.bool_(False),
@@ -327,11 +485,22 @@ class MsPacMan(MazeNavigatorGame):
         # ── 2. Collectible pickup
         has_coll = state.collectibles[new_pac_row, new_pac_col]
         is_power = (
-            (new_pac_row == jnp.int32(_POWER_ROWS[0]))
-            & (new_pac_col == jnp.int32(_POWER_COLS[0]))
-        ) | (
-            (new_pac_row == jnp.int32(_POWER_ROWS[1]))
-            & (new_pac_col == jnp.int32(_POWER_COLS[1]))
+            (
+                (new_pac_row == jnp.int32(_POWER_ROWS[0]))
+                & (new_pac_col == jnp.int32(_POWER_COLS[0]))
+            )
+            | (
+                (new_pac_row == jnp.int32(_POWER_ROWS[1]))
+                & (new_pac_col == jnp.int32(_POWER_COLS[1]))
+            )
+            | (
+                (new_pac_row == jnp.int32(_POWER_ROWS[2]))
+                & (new_pac_col == jnp.int32(_POWER_COLS[2]))
+            )
+            | (
+                (new_pac_row == jnp.int32(_POWER_ROWS[3]))
+                & (new_pac_col == jnp.int32(_POWER_COLS[3]))
+            )
         )
         ate_dot = has_coll & ~is_power
         ate_power = has_coll & is_power
@@ -403,16 +572,20 @@ class MsPacMan(MazeNavigatorGame):
                 jnp.where(can_eat, jnp.int32(_GHOST_COLS[g]), ghost_cols[g])
             )
 
-        # ── 5. Death: reset positions
+        # ── 5. Death: reset positions, directions, and power timer
         _start_rows = jnp.array(_GHOST_ROWS, dtype=jnp.int32)
         _start_cols = jnp.array(_GHOST_COLS, dtype=jnp.int32)
+        _start_dirs = jnp.array([2, 2, 2, 2], dtype=jnp.int32)  # all face DOWN
 
         new_lives = state.lives - jnp.where(life_lost, jnp.int32(1), jnp.int32(0))
         new_pac_row = jnp.where(life_lost, jnp.int32(_PAC_ROW), new_pac_row)
         new_pac_col = jnp.where(life_lost, jnp.int32(_PAC_COL), new_pac_col)
+        new_dir = jnp.where(life_lost, jnp.int32(3), new_dir)  # reset to face LEFT
         ghost_rows = jnp.where(life_lost, _start_rows, ghost_rows)
         ghost_cols = jnp.where(life_lost, _start_cols, ghost_cols)
+        ghost_dirs = jnp.where(life_lost, _start_dirs, ghost_dirs)
         new_power_timer = jnp.where(life_lost, jnp.int32(0), new_power_timer)
+        new_combo = jnp.where(life_lost, jnp.int32(1), new_combo)
 
         # ── 6. Level clear
         all_cleared = ~jnp.any(new_collectibles)
@@ -495,14 +668,43 @@ class MsPacMan(MazeNavigatorGame):
         Parameters
         ----------
         state : MsPacManState
-            Current game state.
+            Current game state. `state.hide_borders` controls whether maze
+            tiles are drawn edge-to-edge (no gap) or with thin border gaps.
 
         Returns
         -------
         frame : chex.Array
             uint8[210, 160, 3] — RGB image.
         """
+        # +1.0 so hw=2.5 > 2.0: boundary pixels (at exact tile edges) pass the
+        # strict `dx < hw` test inside render_rect_pool, eliminating the 1-px
+        # black gap that appears between every tile when draw_w == cell_w.
+        tile_draw_w = jnp.where(
+            state.hide_borders,
+            jnp.float32(_TILE_W + 1.0),
+            jnp.float32(_TILE_W * 0.96),
+        )
+        tile_draw_h = jnp.where(
+            state.hide_borders,
+            jnp.float32(_TILE_H + 1.0),
+            jnp.float32(_TILE_H * 0.96),
+        )
+
         canvas = make_canvas(_COL_BG)
+
+        # ── Maze layers ────────────────────────────────────────────────────
+
+        # Layer 0 — Corridor fill (open tiles rendered in ALE salmon colour)
+        corridor_mask = render_bool_grid(
+            (state.tile_map == 0).astype(jnp.bool_),
+            cell_x0=_OFFSET_X,
+            cell_y0=_OFFSET_Y,
+            cell_w=_TILE_W,
+            cell_h=_TILE_H,
+            draw_w=tile_draw_w,
+            draw_h=tile_draw_h,
+        )
+        canvas = paint_layer(canvas, corridor_mask, _COL_CORRIDOR)
 
         # Layer 1 — Walls
         wall_mask = render_bool_grid(
@@ -511,21 +713,25 @@ class MsPacMan(MazeNavigatorGame):
             cell_y0=_OFFSET_Y,
             cell_w=_TILE_W,
             cell_h=_TILE_H,
+            draw_w=tile_draw_w,
+            draw_h=tile_draw_h,
         )
         canvas = paint_layer(canvas, wall_mask, _COL_WALL)
 
-        # Layer 2 — Dots (small rects at tile centres)
+        # Layer 2 — Dots (small rects centred in each tile)
         dot_mask = render_bool_grid(
             state.collectibles,
             cell_x0=_OFFSET_X,
             cell_y0=_OFFSET_Y,
-            cell_w=_TILE_W * 0.3,
-            cell_h=_TILE_H * 0.3,
+            cell_w=_TILE_W,
+            cell_h=_TILE_H,
+            draw_w=2.1,
+            draw_h=2.1,
         )
         canvas = paint_layer(canvas, dot_mask, _COL_DOT)
 
-        # Layer 3 — Power pellets (2 larger circles at fixed positions)
-        for i in range(2):
+        # Layer 3 — Power pellets (4 larger circles at fixed positions)
+        for i in range(4):
             pr, pc = _POWER_ROWS[i], _POWER_COLS[i]
             pp_active = state.collectibles[pr, pc]
             pp_cx = _OFFSET_X + pc * _TILE_W + _TILE_W * 0.5
@@ -568,7 +774,7 @@ class MsPacMan(MazeNavigatorGame):
             jnp.float32(0.05),
         )
         pac_facing = _DIR_ANGLE[state.player_dir]
-        tip_r = jnp.float32(5.5)
+        tip_r = jnp.float32(7.0)
         mouth = sdf_triangle(
             px,
             py,
@@ -577,7 +783,7 @@ class MsPacMan(MazeNavigatorGame):
             px + jnp.cos(pac_facing - mouth_angle) * tip_r,
             py + jnp.sin(pac_facing - mouth_angle) * tip_r,
         )
-        pac_body = sdf_subtract(sdf_circle(px, py, jnp.float32(3.5)), mouth)
+        pac_body = sdf_subtract(sdf_circle(px, py, jnp.float32(6.0)), mouth)
         canvas = paint_sdf(canvas, pac_body, _COL_MSPACMAN)
 
         return finalise_rgb(canvas)

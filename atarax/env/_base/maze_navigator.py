@@ -29,8 +29,9 @@ and `MazeNavigatorGame` to gain shared movement helpers.
 import chex
 import jax.numpy as jnp
 
-from atarax.game import AtaraxGame
+from atarax.game import AtaraxGame, AtaraxParams
 from atarax.state import AtariState
+
 
 # Direction encoding used throughout the template.
 # DIR_UP=0, DIR_RIGHT=1, DIR_DOWN=2, DIR_LEFT=3
@@ -74,6 +75,9 @@ class MazeNavigatorState(AtariState):
     ghost_mode : chex.Array
         `(N,)` int32 — ghost AI mode: `0`=scatter, `1`=chase, `2`=fright,
         `3`=eaten, `4`=house.
+    hide_borders : chex.Array
+        bool scalar — when `True`, maze tiles are drawn edge-to-edge with no
+        gap between them, hiding the thin black border lines.
     """
 
     player_row: chex.Array
@@ -86,6 +90,7 @@ class MazeNavigatorState(AtariState):
     ghost_col: chex.Array
     ghost_dir: chex.Array
     ghost_mode: chex.Array
+    hide_borders: chex.Array
 
 
 class MazeNavigatorGame(AtaraxGame):
