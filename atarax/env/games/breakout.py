@@ -18,6 +18,7 @@
 All conditionals use `jnp.where`; the 4-frame skip uses `jax.lax.fori_loop`.
 
 Screen geometry (pixels, y=0 at top, coordinates are ball/entity centres):
+    Side walls : x ∈ [0, 8) left, x ∈ [152, 160) right — gray, full screen height
     Playfield  : x ∈ [8, 152),  y ∈ [19, 210)
     Brick area : y ∈ [57, 93),  x ∈ [8, 152)  — 6 rows × 18 cols × 8×6 px
     Paddle     : centre_y = 191,  half-width = 8,  half-height = 2
@@ -53,7 +54,7 @@ from atarax.game import AtaraxParams
 _PLAY_LEFT: float = 8.0
 _PLAY_RIGHT: float = 152.0
 _PLAY_TOP: float = 19.0
-_PLAY_BOTTOM: float = 210.0
+_PLAY_BOTTOM: float = 193.0
 
 _BRICK_X0: float = 8.0
 _BRICK_Y0: float = 57.0
@@ -66,7 +67,7 @@ _PADDLE_Y: float = 191.0
 _PADDLE_HW: float = 8.0
 _PADDLE_HH: float = 2.0
 
-_BALL_R: float = 1.0
+_BALL_R: float = 2.0
 
 # ── Physics
 # Speed tiers (pixels per emulated frame) — indexed by state.speed_tier.
@@ -77,6 +78,7 @@ _ROW_SCORES = jnp.array([7, 7, 4, 4, 1, 1], dtype=jnp.int32)
 
 # ── Colours (float32 RGB in [0, 1])
 _COL_BG = jnp.array([0.0, 0.0, 0.0], dtype=jnp.float32)
+_COL_WALL = jnp.array([0.502, 0.502, 0.502], dtype=jnp.float32)
 _COL_BALL = jnp.array([1.0, 1.0, 1.0], dtype=jnp.float32)
 _COL_PADDLE = jnp.array([0.765, 0.565, 0.239], dtype=jnp.float32)
 
@@ -120,7 +122,7 @@ class BreakoutState(BallPhysicsState):
     """
     Breakout game state.
 
-    Extends `BallPhysicsState` with a speed tier tracker.
+    Extends `BallPhysicsState` with a speed tier tracker and death timer.
 
     Inherited from `BallPhysicsState`:
         `ball_x`, `ball_y`, `ball_vx`, `ball_vy`, `ball_in_play`,
@@ -132,11 +134,16 @@ class BreakoutState(BallPhysicsState):
     Parameters
     ----------
     speed_tier : chex.Array
-        int32 scalar — current speed tier index (0–3). Advances when an upper-row
-        brick is hit or the board is cleared.
+        int32 scalar — current speed tier index (0–3). Advances as bricks are
+        cleared, keyed to bricks-remaining thresholds matching the ALE ROM.
+    death_timer : chex.Array
+        int32 scalar — emulated frames remaining before the player may serve
+        after losing a life (~36 frames, matching ALE ROM death-animation delay).
+        0 = serve is allowed.
     """
 
     speed_tier: chex.Array
+    death_timer: chex.Array
 
 
 class Breakout(BallPhysicsGame):
@@ -175,6 +182,7 @@ class Breakout(BallPhysicsGame):
             targets=jnp.ones((_BRICK_ROWS, _BRICK_COLS), dtype=jnp.bool_),
             # BreakoutState fields
             speed_tier=jnp.int32(0),
+            death_timer=jnp.int32(0),
             # AtariState fields
             lives=jnp.int32(5),
             score=jnp.int32(0),
@@ -238,12 +246,12 @@ class Breakout(BallPhysicsGame):
         vx = state.ball_vx
         vy = state.ball_vy
 
-        # ── 3. Serve on FIRE
-        fire = (action == jnp.int32(1)) & ~state.ball_in_play
+        # ── 3. Serve on FIRE — blocked while death animation timer is running
+        fire = (action == jnp.int32(1)) & ~state.ball_in_play & (state.death_timer == jnp.int32(0))
         angle = jax.random.uniform(rng, minval=-jnp.pi / 4.0, maxval=jnp.pi / 4.0)
         tier_speed = _SPEED_TIERS[state.speed_tier]
         serve_vx = tier_speed * jnp.sin(angle)
-        serve_vy = -tier_speed
+        serve_vy = -tier_speed * jnp.cos(angle)
         ball_in_play = state.ball_in_play | fire
         vx = jnp.where(fire, serve_vx, vx)
         vy = jnp.where(fire, serve_vy, vy)
@@ -279,15 +287,22 @@ class Breakout(BallPhysicsGame):
             _ROW_SCORES,
         )
 
-        # ── 7. Speed tier — advance when an upper-row (0–1) brick is destroyed
-        hit_upper = jnp.any(state.targets[:2, :] & ~targets[:2, :])
-        new_speed_tier = jnp.where(
-            hit_upper,
-            jnp.minimum(state.speed_tier + jnp.int32(1), jnp.int32(3)),
-            state.speed_tier,
+        # ── 7. Speed tier — bricks-remaining thresholds (matching ALE ROM):
+        #   108–54 remaining → tier 0 (2 px/frame)
+        #    53–38 remaining → tier 1 (3 px/frame)
+        #    37–12 remaining → tier 2 (4 px/frame)
+        #    11–0  remaining → tier 3 (5 px/frame)
+        remaining = jnp.sum(targets).astype(jnp.int32)
+        tier_from_remaining = jnp.where(
+            remaining <= jnp.int32(11), jnp.int32(3),
+            jnp.where(
+                remaining <= jnp.int32(37), jnp.int32(2),
+                jnp.where(remaining <= jnp.int32(53), jnp.int32(1), jnp.int32(0)),
+            ),
         )
+        new_speed_tier = jnp.maximum(state.speed_tier, tier_from_remaining)
 
-        # Level clear: reset brick grid, increment level and tier
+        # Level clear: reset brick grid, increment level; tier does NOT reset
         all_cleared = ~jnp.any(targets)
         targets = jnp.where(
             all_cleared,
@@ -295,10 +310,6 @@ class Breakout(BallPhysicsGame):
             targets,
         )
         new_level = state.level + jnp.where(all_cleared, jnp.int32(1), jnp.int32(0))
-        new_speed_tier = jnp.minimum(
-            new_speed_tier + jnp.where(all_cleared, jnp.int32(1), jnp.int32(0)),
-            jnp.int32(3),
-        )
 
         # Scale velocity when the tier advances
         old_speed = _SPEED_TIERS[state.speed_tier]
@@ -337,6 +348,14 @@ class Breakout(BallPhysicsGame):
         vx = jnp.where(ball_lost, jnp.float32(0.0), vx)
         vy = jnp.where(ball_lost, jnp.float32(0.0), vy)
 
+        # Death animation timer: set to 36 frames on life loss (≈ ALE ROM delay),
+        # otherwise decrement toward 0 each frame.
+        new_death_timer = jnp.where(
+            ball_lost,
+            jnp.int32(36),
+            jnp.maximum(state.death_timer - jnp.int32(1), jnp.int32(0)),
+        )
+
         done = new_lives <= jnp.int32(0)
 
         return state.__replace__(
@@ -348,6 +367,7 @@ class Breakout(BallPhysicsGame):
             paddle_x=paddle_x,
             targets=targets,
             speed_tier=new_speed_tier,
+            death_timer=new_death_timer,
             lives=new_lives,
             score=state.score + delta_score,
             reward=state.reward + delta_score.astype(jnp.float32),
@@ -406,7 +426,31 @@ class Breakout(BallPhysicsGame):
         """
         canvas = make_canvas(_COL_BG)
 
-        # Layer 1 — Bricks (one pass per row for distinct row colours)
+        # Cage walls — 8 px wide on all three sides (left, right, top).
+        # The three segments share the same top edge at y=_PLAY_TOP and the same
+        # thickness (hw/hh = 4.0 → 8 px), forming a flush rectangular frame.
+        #
+        #   Ceiling  : x ∈ [8, 152),  y ∈ [_PLAY_TOP, _PLAY_TOP+8)
+        #              centre (80, _PLAY_TOP+4), hw=72, hh=4
+        #   Left wall: x ∈ [0, 8),    y ∈ [_PLAY_TOP, _PLAY_BOTTOM]
+        #              centre (4, mid), hw=4, hh=(BOTTOM-TOP)/2
+        #   Right wall: x ∈ [152,160), same height
+        _CAGE_HW = jnp.float32(4.0)          # half-thickness of each wall segment
+        _CAGE_TOP = jnp.float32(_PLAY_TOP)
+        _CAGE_BOT = jnp.float32(_PLAY_BOTTOM)
+        _WALL_CY  = (_CAGE_TOP + _CAGE_BOT) * jnp.float32(0.5)
+        _WALL_HH  = (_CAGE_BOT - _CAGE_TOP) * jnp.float32(0.5)
+        _CEIL_CY  = _CAGE_TOP + _CAGE_HW    # ceiling centre y
+
+        # Layer 1 — Side walls (top-aligned with ceiling)
+        canvas = paint_sdf(canvas, sdf_rect(jnp.float32(4.0),   _WALL_CY, _CAGE_HW, _WALL_HH), _COL_WALL)
+        canvas = paint_sdf(canvas, sdf_rect(jnp.float32(156.0), _WALL_CY, _CAGE_HW, _WALL_HH), _COL_WALL)
+
+        # Layer 2 — Ceiling bar (same thickness, spanning play width only)
+        canvas = paint_sdf(canvas, sdf_rect(jnp.float32(80.0), _CEIL_CY, jnp.float32(72.0), _CAGE_HW), _COL_WALL)
+
+        # Layer 3 — Bricks (one pass per row; +1px overdraw eliminates the 1-px
+        # background gap that strict `<` in render_rect_pool leaves at cell edges)
         for row in range(_BRICK_ROWS):
             row_grid = state.targets[row : row + 1, :]
             row_mask = render_bool_grid(
@@ -415,10 +459,12 @@ class Breakout(BallPhysicsGame):
                 cell_y0=_BRICK_Y0 + row * _BRICK_H,
                 cell_w=_BRICK_W,
                 cell_h=_BRICK_H,
+                draw_w=_BRICK_W + 1.0,
+                draw_h=_BRICK_H + 1.0,
             )
             canvas = paint_layer(canvas, row_mask, _COL_BRICKS[row])
 
-        # Layer 2 — Paddle
+        # Layer 3 — Paddle
         canvas = paint_sdf(
             canvas,
             sdf_rect(
@@ -430,7 +476,7 @@ class Breakout(BallPhysicsGame):
             _COL_PADDLE,
         )
 
-        # Layer 3 — Ball
+        # Layer 4 — Ball
         canvas = paint_sdf(
             canvas,
             sdf_rect(

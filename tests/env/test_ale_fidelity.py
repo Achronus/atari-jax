@@ -56,9 +56,9 @@ _SEED = 42
 # ---------------------------------------------------------------------------
 _BANDS: dict[str, tuple[float, float]] = {
     # game_id: (lo, hi) — from scripts/calibrate_fidelity.py output (N=1000, SEED=42)
-    # Breakout: accepted 8.84× deviation (fixed π/4 serve angle vs ROM-randomised)
+    # Breakout: accepted 9.13× deviation — larger ball + random policy geometric catch rate vs ALE ROM physics
     "asteroids": (714.7, 800.1),
-    "breakout": (8.6, 10.1),
+    "breakout": (9.6, 10.4),
     "ms_pacman": (258.9, 269.2),
     "space_invaders": (148.1, 163.0),
 }
