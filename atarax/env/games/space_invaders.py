@@ -38,33 +38,38 @@ from atarax.env.sdf import (
     paint_layer,
     paint_sdf,
     render_bool_grid,
+    render_circle_pool,
     render_rect_pool,
     sdf_rect,
 )
 from atarax.game import AtaraxParams
 
-_ROWS: int = 5
-_COLS: int = 11
-_TOTAL_ALIENS: int = _ROWS * _COLS  # 55
+_ROWS: int = 6
+_COLS: int = 6
+_TOTAL_ALIENS: int = _ROWS * _COLS  # 36
 
-# Row score values (row 0 = top = highest value)
-_ROW_SCORES = jnp.array([30, 20, 20, 10, 10], dtype=jnp.int32)
+# Row score values (row 0 = top = highest value).
+# Atari 2600 version: top 2 rows = 30 pts, middle 2 = 20 pts, bottom 2 = 10 pts.
+_ROW_SCORES = jnp.array([30, 30, 20, 20, 10, 10], dtype=jnp.int32)
 
-# Shield layout: 4 shields, each 22 cells wide at 1 px/cell → 22 px per shield.
-# Positioned at x=[20, 54, 88, 122] with 12 px gaps between them.
-_SHIELD_ANCHOR_XS = jnp.array([20.0, 54.0, 88.0, 122.0], dtype=jnp.float32)
+# Shield layout: 3 shields, each 22 cells wide at 1 px/cell → 22 px per shield.
+# Positioned at x=[34, 69, 104] with 13 px gaps between them, centred on 160 px screen.
+_SHIELD_ANCHOR_XS = jnp.array([34.0, 69.0, 104.0], dtype=jnp.float32)
 _SHIELD_CELL_W: float = 1.0  # world-px per shield cell (horizontal)
 _SHIELD_CELL_H: float = 5.0  # world-px per shield cell (vertical)
 
 # Pre-computed column / row offset arrays for alien position derivation
-_COL_OFFSETS = jnp.arange(_COLS, dtype=jnp.float32)  # (11,)
-_ROW_OFFSETS = jnp.arange(_ROWS, dtype=jnp.float32)  # (5,)
+_COL_OFFSETS = jnp.arange(_COLS, dtype=jnp.float32)  # (6,)
+_ROW_OFFSETS = jnp.arange(_ROWS, dtype=jnp.float32)  # (6,)
 
 # Rendering colours (float32 RGB [0, 1])
 _COL_BG = jnp.array([0.0, 0.0, 0.0], dtype=jnp.float32)
 _COL_GROUND = jnp.array([0.3, 0.3, 0.3], dtype=jnp.float32)
 _COL_SHIELD = jnp.array([0.2, 0.5, 1.0], dtype=jnp.float32)
-_COL_ALIEN = jnp.array([0.85, 0.2, 0.2], dtype=jnp.float32)
+# Per-type alien colours: row 0 = squid (yellow), rows 1-2 = crab (red), rows 3-4 = octopus (orange)
+_COL_ALIEN_TOP = jnp.array([1.0, 0.90, 0.15], dtype=jnp.float32)
+_COL_ALIEN_MID = jnp.array([0.85, 0.20, 0.20], dtype=jnp.float32)
+_COL_ALIEN_BOT = jnp.array([1.0, 0.55, 0.10], dtype=jnp.float32)
 _COL_ALIEN_BULLET = jnp.array([1.0, 0.5, 0.1], dtype=jnp.float32)
 _COL_PLAYER_BULLET = jnp.array([1.0, 1.0, 0.2], dtype=jnp.float32)
 _COL_PLAYER = jnp.array([0.2, 1.0, 0.35], dtype=jnp.float32)
@@ -171,7 +176,7 @@ class SpaceInvadersState(FixedShooterState):
     Extends `FixedShooterState` with destructible shield grids.
 
     Inherited from `FixedShooterState`:
-        `player_x`, `fire_cooldown`, `enemy_grid` (5×11 alien grid),
+        `player_x`, `fire_cooldown`, `enemy_grid` (6×6 alien grid),
         `fleet_x`, `fleet_y`, `fleet_dir`, `fleet_speed`,
         `player_bullets` (3×3), `enemy_bullets` (6×3).
 
@@ -181,8 +186,8 @@ class SpaceInvadersState(FixedShooterState):
     Parameters
     ----------
     shields : chex.Array
-        (4, 22) bool — `True` where each shield cell is still intact.
-        Four shields, each 22 cells wide; cells degrade when hit by bullets.
+        (3, 22) bool — `True` where each shield cell is still intact.
+        Three shields, each 22 cells wide; cells degrade when hit by bullets.
     """
 
     shields: chex.Array
@@ -213,7 +218,7 @@ class SpaceInvaders(FixedShooterGame):
             player_bullets=jnp.zeros((3, 3), dtype=jnp.float32),
             enemy_bullets=jnp.zeros((6, 3), dtype=jnp.float32),
             # SpaceInvadersState fields
-            shields=jnp.ones((4, 22), dtype=jnp.bool_),
+            shields=jnp.ones((3, 22), dtype=jnp.bool_),
             # AtariState fields
             lives=jnp.int32(3),
             score=jnp.int32(0),
@@ -340,17 +345,17 @@ class SpaceInvaders(FixedShooterGame):
         # ── 7. Player bullets vs alien grid
         flat_xs = jnp.tile(
             fleet_x + _COL_OFFSETS * jnp.float32(params.fleet_col_gap), _ROWS
-        )  # (55,)
+        )  # (36,)
         flat_ys = jnp.repeat(
             fleet_y + _ROW_OFFSETS * jnp.float32(params.fleet_row_gap), _COLS
-        )  # (55,)
+        )  # (36,)
         pb_hits = self._bullet_rect_hits(
             player_bullets,
             flat_xs,
             flat_ys,
             jnp.float32(4.5),
-            jnp.float32(3.0),
-        )  # (3, 55)
+            jnp.float32(4.0),  # >speed/2=3 to prevent skip-through at 6px/step
+        )  # (3, 36)
         alive_flat = state.enemy_grid.ravel()
         pb_alien_hits = pb_hits & alive_flat[None, :]  # (3, 55) — only alive aliens
         alien_hit_flat = jnp.any(pb_alien_hits, axis=0)  # (55,)
@@ -372,7 +377,7 @@ class SpaceInvaders(FixedShooterGame):
         shield_ys = jnp.full((22,), jnp.float32(params.shield_y))
         hw = jnp.float32(_SHIELD_CELL_W * 0.6)
         hh = jnp.float32(_SHIELD_CELL_H * 0.6)
-        for s in range(4):
+        for s in range(3):
             cell_xs = _SHIELD_ANCHOR_XS[s] + cell_j * jnp.float32(_SHIELD_CELL_W)
             # Player bullets vs this shield
             pb_s_hits = self._bullet_rect_hits(
@@ -404,7 +409,7 @@ class SpaceInvaders(FixedShooterGame):
             jnp.array([player_x]),
             jnp.array([jnp.float32(params.player_y)]),
             jnp.float32(7.0),
-            jnp.float32(3.0),
+            jnp.float32(4.0),  # >speed/2=1.5 to prevent skip-through
         )  # (6, 1)
         player_hit = jnp.any(p_hits)
         lives = state.lives - player_hit.astype(jnp.int32)
@@ -482,30 +487,47 @@ class SpaceInvaders(FixedShooterGame):
             _COL_GROUND,
         )
 
-        # Layer 2 — Shields (4 shields × 22 cells each)
-        for s in range(4):
+        # Layer 2 — Shields (3 shields × 22 cells each)
+        # cell_x0 shifted by -0.5 so centres land on integer pixel columns
+        for s in range(3):
             shield_row = state.shields[s].reshape(1, 22)
             shield_mask = render_bool_grid(
                 shield_row,
-                cell_x0=_SHIELD_ANCHOR_XS[s],
+                cell_x0=_SHIELD_ANCHOR_XS[s] - 0.5,
                 cell_y0=153.5,
                 cell_w=_SHIELD_CELL_W,
                 cell_h=_SHIELD_CELL_H,
             )
             canvas = paint_layer(canvas, shield_mask, _COL_SHIELD)
 
-        # Layer 3 — Alien grid (55-entity pool derived from fleet anchor)
-        alien_xs = jnp.tile(
-            state.fleet_x + _COL_OFFSETS * jnp.float32(14.0), _ROWS
-        )  # (55,)
-        alien_ys = jnp.repeat(
-            state.fleet_y + _ROW_OFFSETS * jnp.float32(12.0), _COLS
-        )  # (55,)
-        alien_active = state.enemy_grid.ravel().astype(jnp.float32)  # (55,)
-        alien_pool = jnp.stack([alien_xs, alien_ys, alien_active], axis=1)  # (55, 3)
-        canvas = paint_layer(
-            canvas, render_rect_pool(alien_pool, hw=4.5, hh=3.0), _COL_ALIEN
-        )
+        # Layer 3 — Alien grid (per-row shapes: circle/flat/tall for squid/crab/octopus)
+        # Atari 2600: 6 rows × 6 cols. Top 2=squid(30pt), mid 2=crab(20pt), bot 2=octopus(10pt).
+        row_xs = state.fleet_x + _COL_OFFSETS * jnp.float32(14.0)  # (6,) x-centres
+        row_ys = state.fleet_y + _ROW_OFFSETS * jnp.float32(12.0)  # (6,) y-centres
+
+        # Rows 0-1 — squid (top, 30 pts): circles
+        for _r in (0, 1):
+            _rp = jnp.stack(
+                [row_xs, jnp.full(_COLS, row_ys[_r]), state.enemy_grid[_r].astype(jnp.float32)],
+                axis=1,
+            )
+            canvas = paint_layer(canvas, render_circle_pool(_rp, radius=3.5), _COL_ALIEN_TOP)
+
+        # Rows 2-3 — crab (20 pts): wide flat rectangles
+        for _r in (2, 3):
+            _rp = jnp.stack(
+                [row_xs, jnp.full(_COLS, row_ys[_r]), state.enemy_grid[_r].astype(jnp.float32)],
+                axis=1,
+            )
+            canvas = paint_layer(canvas, render_rect_pool(_rp, hw=5.5, hh=1.8), _COL_ALIEN_MID)
+
+        # Rows 4-5 — octopus (10 pts): taller rectangles
+        for _r in (4, 5):
+            _rp = jnp.stack(
+                [row_xs, jnp.full(_COLS, row_ys[_r]), state.enemy_grid[_r].astype(jnp.float32)],
+                axis=1,
+            )
+            canvas = paint_layer(canvas, render_rect_pool(_rp, hw=3.5, hh=3.0), _COL_ALIEN_BOT)
 
         # Layer 4 — Alien bullets
         canvas = paint_layer(

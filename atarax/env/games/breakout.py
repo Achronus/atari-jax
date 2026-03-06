@@ -76,18 +76,18 @@ _ROW_SCORES = jnp.array([7, 7, 4, 4, 1, 1], dtype=jnp.int32)
 # ── Colours (float32 RGB in [0, 1])
 _COL_BG = jnp.array([0.0, 0.0, 0.0], dtype=jnp.float32)
 _COL_BALL = jnp.array([1.0, 1.0, 1.0], dtype=jnp.float32)
-_COL_BALL_TRAIL = _COL_BALL / jnp.float32(3.0)
 _COL_PADDLE = jnp.array([0.765, 0.565, 0.239], dtype=jnp.float32)
 
-# Per-row brick colours (rows 0–1 red, 2–3 orange, 4–5 green).
+# Per-row brick colours matching ALE Breakout (one distinct colour per row, top→bottom).
+# Scores: rows 0-1 = 7pts, rows 2-3 = 4pts, rows 4-5 = 1pt.
 _COL_BRICKS = jnp.array(
     [
-        [0.784, 0.282, 0.282],
-        [0.784, 0.282, 0.282],
-        [0.765, 0.565, 0.239],
-        [0.765, 0.565, 0.239],
-        [0.361, 0.729, 0.361],
-        [0.361, 0.729, 0.361],
+        [0.90, 0.20, 0.20],   # Row 0: Red      (7 pts)
+        [0.95, 0.55, 0.10],   # Row 1: Orange   (7 pts)
+        [0.95, 0.90, 0.10],   # Row 2: Yellow   (4 pts)
+        [0.25, 0.75, 0.25],   # Row 3: Green    (4 pts)
+        [0.10, 0.75, 0.85],   # Row 4: Cyan     (1 pt)
+        [0.30, 0.30, 0.90],   # Row 5: Blue     (1 pt)
     ],
     dtype=jnp.float32,
 )
@@ -428,14 +428,7 @@ class Breakout(BallPhysicsGame):
             _COL_PADDLE,
         )
 
-        # Layer 3 — Ball trail then ball
-        trail_bx = state.ball_x - state.ball_vx
-        trail_by = state.ball_y - state.ball_vy
-        canvas = paint_sdf(
-            canvas,
-            sdf_rect(trail_bx, trail_by, jnp.float32(_BALL_R), jnp.float32(_BALL_R)),
-            _COL_BALL_TRAIL,
-        )
+        # Layer 3 — Ball
         canvas = paint_sdf(
             canvas,
             sdf_rect(
