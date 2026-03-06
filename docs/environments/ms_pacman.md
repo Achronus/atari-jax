@@ -11,7 +11,7 @@ for bonus points.  Clear all dots and pellets to advance to the next level.
 | | Value |
 | --- | --- |
 | **Observation** | `Box(uint8, shape=(210, 160, 3))` |
-| **Actions** | `Discrete(5)` |
+| **Actions** | `Discrete(9)` |
 
 ### Action table
 
@@ -19,9 +19,13 @@ for bonus points.  Clear all dots and pellets to advance to the next level.
 | --- | --- |
 | `0` | NOOP (continue current direction) |
 | `1` | UP |
-| `2` | DOWN |
+| `2` | RIGHT |
 | `3` | LEFT |
-| `4` | RIGHT |
+| `4` | DOWN |
+| `5` | UPRIGHT (treated as UP) |
+| `6` | UPLEFT (treated as UP) |
+| `7` | DOWNRIGHT (treated as DOWN) |
+| `8` | DOWNLEFT (treated as DOWN) |
 
 ## Reward
 
