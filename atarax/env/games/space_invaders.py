@@ -32,6 +32,7 @@ import jax
 import jax.numpy as jnp
 
 from atarax.env._base.fixed_shooter import FixedShooterGame, FixedShooterState
+from atarax.env.hud import render_life_pips, render_score
 from atarax.env.sdf import (
     finalise_rgb,
     make_canvas,
@@ -552,17 +553,15 @@ class SpaceInvaders(FixedShooterGame):
             _COL_PLAYER,
         )
 
-        # Layer 7 — Lives HUD (small cannon icons bottom-left)
-        for i in range(3):
-            hud_x = jnp.float32(10.0 + i * 18.0)
-            alive = (state.lives > jnp.int32(i)).astype(jnp.float32)
-            hud_sdf = sdf_rect(
-                hud_x, jnp.float32(204.0), jnp.float32(4.0), jnp.float32(2.0)
-            )
-            canvas = paint_layer(
-                canvas,
-                (hud_sdf < jnp.float32(0.0)) & (alive > jnp.float32(0.5)),
-                _COL_HUD,
-            )
+        # ── HUD (top 30 px) — cannon life pips + score ─────────────────────
+        canvas = render_life_pips(
+            canvas,
+            state.lives,
+            pip_sdf_fn=lambda cx, cy: sdf_rect(
+                jnp.float32(cx), jnp.float32(cy), jnp.float32(4.0), jnp.float32(2.0)
+            ),
+            pip_colour=_COL_PLAYER,
+        )
+        canvas = render_score(canvas, state.score, colour=_COL_PLAYER)
 
         return finalise_rgb(canvas)

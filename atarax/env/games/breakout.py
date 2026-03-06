@@ -37,12 +37,14 @@ import jax
 import jax.numpy as jnp
 
 from atarax.env._base.ball_physics import BallPhysicsGame, BallPhysicsState
+from atarax.env.hud import render_life_pips, render_score
 from atarax.env.sdf import (
     finalise_rgb,
     make_canvas,
     paint_layer,
     paint_sdf,
     render_bool_grid,
+    sdf_circle,
     sdf_rect,
 )
 from atarax.game import AtaraxParams
@@ -436,5 +438,14 @@ class Breakout(BallPhysicsGame):
             ),
             _COL_BALL,
         )
+
+        # ── HUD (top 30 px) — ball life pips + score ───────────────────────
+        canvas = render_life_pips(
+            canvas,
+            state.lives,
+            pip_sdf_fn=lambda cx, cy: sdf_circle(cx, cy, 3.5),
+            pip_colour=_COL_BALL,
+        )
+        canvas = render_score(canvas, state.score)
 
         return finalise_rgb(canvas)

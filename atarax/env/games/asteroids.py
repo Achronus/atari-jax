@@ -42,6 +42,7 @@ import jax
 import jax.numpy as jnp
 
 from atarax.env._base.free_2d_shooter import Free2DShooterGame, Free2DShooterState
+from atarax.env.hud import render_life_pips, render_score
 from atarax.env.sdf import (
     finalise_rgb,
     make_canvas,
@@ -680,5 +681,14 @@ class Asteroids(Free2DShooterGame):
         canvas = paint_layer(
             canvas, (ship_sdf < jnp.float32(0.0)) & state.ship_alive, _COL_SHIP
         )
+
+        # ── HUD (top 30 px) — ship-triangle life pips + score ──────────────
+        canvas = render_life_pips(
+            canvas,
+            state.lives,
+            pip_sdf_fn=lambda cx, cy: sdf_ship_triangle(cx, cy, -jnp.pi / 2, 5.0),
+            pip_colour=_COL_SHIP,
+        )
+        canvas = render_score(canvas, state.score)
 
         return finalise_rgb(canvas)

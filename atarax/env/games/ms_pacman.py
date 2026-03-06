@@ -44,6 +44,7 @@ import jax.numpy as jnp
 import numpy as np
 
 from atarax.env._base.maze_navigator import MazeNavigatorGame, MazeNavigatorState
+from atarax.env.hud import render_life_pips, render_score
 from atarax.env.sdf import (
     finalise_rgb,
     make_canvas,
@@ -691,6 +692,15 @@ class MsPacMan(MazeNavigatorGame):
         )
 
         canvas = make_canvas(_COL_BG)
+
+        # ── HUD (top 30 px) — lives pips + 6-digit score ──────────────────
+        canvas = render_life_pips(
+            canvas,
+            state.lives,
+            pip_sdf_fn=lambda cx, cy: sdf_circle(cx, cy, _HUD_PIP_R),
+            pip_colour=_COL_MSPACMAN,
+        )
+        canvas = render_score(canvas, state.score, colour=_COL_DOT)
 
         # ── Maze layers ────────────────────────────────────────────────────
 

@@ -19,7 +19,7 @@ from typing import List, Tuple, Type
 import jax
 
 from atarax._compile import DEFAULT_CACHE_DIR, setup_cache
-from atarax.env.registry import get_game
+from atarax.env.registry import PARAMS, get_game
 from atarax.game import AtaraxGame, AtaraxParams
 from atarax.spec import EnvSpec
 from atarax.wrappers import AtariPreprocessing, VmapEnv, Wrapper, _WrapperFactory
@@ -75,9 +75,10 @@ def make(
     if wrappers is not None and preset:
         raise ValueError("Provide either `wrappers` or `preset`, not both.")
 
+    spec = EnvSpec.parse(game_id)
     game_cls = get_game(game_id)
     env = game_cls()
-    params = params or AtaraxParams()
+    params = params or PARAMS.get(spec.env_name, AtaraxParams)()
 
     if preset:
         env = AtariPreprocessing(env, h=84, w=84, n_stack=4)
