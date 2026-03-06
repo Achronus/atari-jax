@@ -24,6 +24,7 @@ test = [
     "gymnasium>=1.2.3",
     "imageio>=2.37.2",
     "imageio-ffmpeg>=0.6.0",
+    "tqdm>=4.67.3",
 ]
 
 [build-system]

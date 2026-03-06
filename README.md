@@ -1,13 +1,65 @@
 # Atarax
 
-A pure-JAX library of all 57 Atari 2600 game environments. Each game's
-mutable state lives in an `AtariState` pytree, making every
+A pure-JAX library of Atari 2600 game environments designed to **match the
+structural RL challenge of each game, not its pixel fidelity**. Each game is
+reimplemented from scratch in JAX: branch-free physics, procedural rendering
+with distinct entity colours, and motion trails that encode velocity into a
+single RGB frame — without ROM loading, C++ dependencies, or hardware artefacts.
+
+Each game's mutable state lives in an `AtariState` pytree, making every
 `step(rng, state, action, params) → (obs, state, reward, done, info)` call a
 stateless JAX computation that compiles with `jax.jit` and batches with
 `jax.vmap` — no Python loops, no host-side control flow, no ROM loading.
 
 Part of the [Envrax suite](https://github.com/Achronus/envrax) — installs
 `envrax` automatically.
+
+## Design Philosophy
+
+> **Match the challenge, not the chrome.**
+
+Atarax aims to preserve the eight structural properties that make each Atari
+game a meaningful RL benchmark, while discarding hardware artefacts that
+have no bearing on the learning problem:
+
+| # | Property | Description |
+|---|-----------|-------------|
+| 1 | **Exploration difficulty** | Sparse or delayed reward structures that require sustained exploration |
+| 2 | **Credit assignment horizon** | Long action-to-outcome delays that stress temporal credit assignment |
+| 3 | **Observation complexity** | Multiple moving entities at different spatial scales |
+| 4 | **Task diversity** | A variety of sub-goals within a single episode |
+| 5 | **Generalisation pressure** | Randomised or procedurally varied states that prevent memorisation |
+| 6 | **Partial observability** | Entities that appear, disappear, or occlude each other |
+| 7 | **Non-stationarity** | Changing enemy behaviour, speed escalation, or level progression |
+| 8 | **Reward density** | Balance between dense shaping signals and sparse terminal rewards |
+
+### Rendering approach
+
+Procedural RGB rendering with **distinct colours per entity type** is
+sufficient and preferable to sprite art for RL. A CNN policy requires:
+
+- **Spatial distinctness** — entities must differ from background and each other
+- **Positional accuracy** — entity bounding boxes must be at their physics coordinates
+- **Colour identity** — entity type must be inferrable from colour alone
+
+**Standard palette** (thematic deviations allowed provided all entities are
+distinct within a game):
+
+| Entity type | Colour | RGB |
+|-------------|--------|-----|
+| Player | Green | `[92, 186, 92]` |
+| Enemy | Red | `[213, 80, 80]` |
+| Projectile | Yellow | `[255, 255, 100]` |
+| Ball | White | `[255, 255, 255]` |
+| Pickup / treasure | Blue | `[100, 180, 255]` |
+| Wall / structure | Grey | `[140, 140, 140]` |
+
+### Motion trails
+
+Every moving entity draws a faded ghost at its previous position
+`(x − dx, y − dy)` at 33% brightness before rendering the entity itself.
+This encodes velocity into a single RGB frame, removing the need for frame
+stacking to infer motion direction and speed.
 
 ## Features
 
@@ -22,14 +74,15 @@ Part of the [Envrax suite](https://github.com/Achronus/envrax) — installs
   `reset(rng, params) → (obs, state)` and
   `step(rng, state, action, params) → (obs, state, reward, done, info)` with
   external state, fully compatible with `jit`, `vmap`, and `lax.scan`.
-- **`make()` / `make_vec()`** — factory functions returning `(env, params)`
-  and `(VmapEnv, params)` tuples; optional wrapper presets (including the
-  standard DQN stack) and a persistent XLA compilation cache built in.
-- **`make_multi()` / `make_multi_vec()`** — convenience variants for creating
-  one environment per game from a list of IDs; useful for multi-game training
-  loops.
-- **Composable wrappers** — three Atari-native wrappers (`AtariPreprocessing`,
-  `EpisodicLife`, `JitWrapper`) plus additional generic wrappers from `envrax`.
+- **`envrax.make()` / `envrax.make_vec()`** — factory functions returning
+  `(env, params)` and `(VmapEnv, params)` tuples; optional wrapper lists and
+  a persistent XLA compilation cache built in.
+- **`envrax.make_multi()` / `envrax.make_multi_vec()`** — convenience variants
+  for creating one environment per game from a list of IDs; useful for
+  multi-game training loops.
+- **Composable wrappers** — two Atari-native wrappers (`AtariPreprocessing`,
+  `EpisodicLife`) plus `JitWrapper` and additional generic wrappers from
+  `envrax`, all re-exported through `atarax.wrappers`.
   See the [Wrappers](#wrappers) section below.
 - **Rendering + interactive play** — single-frame rendering and a
   keyboard-driven `env.play()` loop backed by pygame.
@@ -47,6 +100,12 @@ Part of the [Envrax suite](https://github.com/Achronus/envrax) — installs
 pip install atarax
 ```
 
+To also enable gif/mp4 recording (`record_episode`):
+
+```bash
+pip install "atarax[viz]"
+```
+
 Or from source with [uv](https://docs.astral.sh/uv/):
 
 ```bash
@@ -57,37 +116,35 @@ uv sync
 
 ## Quick Start
 
-### `make()`
+### `envrax.make()`
+
+`import atarax` automatically registers all Atari games into the envrax
+registry. Use `envrax.make()` directly:
 
 ```python
 import jax
 import jax.numpy as jnp
-from atarax import make, AtaraxParams
+import envrax
+import atarax  # registers "atari/*-v0" environments
 
 key = jax.random.PRNGKey(0)
-params = AtaraxParams()
 
-# Raw environment — use the "atari/<name>-v0" string
-env, params = make("atari/breakout-v0")
+# Raw environment — JIT-compiled by default
+env, params = envrax.make("atari/breakout-v0")
 obs, state = env.reset(key, params)           # obs: uint8[210, 160, 3]
 obs, state, reward, done, info = env.step(key, state, jnp.int32(0), params)
 
-# Full DQN preprocessing stack (JIT-compiled with XLA cache by default)
-env, params = make("atari/breakout-v0", preset=True)
+# DQN preprocessing stack — classic grayscale 4-frame stack
+from atarax.wrappers import AtariPreprocessing
+env, params = envrax.make("atari/breakout-v0", wrappers=[AtariPreprocessing])
 obs, state = env.reset(key, params)           # obs: uint8[84, 84, 4]
 
-# AtariPreprocessing can also be used standalone
-from atarax.wrappers import AtariPreprocessing
-env, _ = make("atari/breakout-v0", jit_compile=False)
-env = AtariPreprocessing(env)                 # 84×84, 4-frame stack
-env = AtariPreprocessing(env, h=42, w=42, n_stack=2)
-
 # Custom wrapper list (applied innermost → outermost)
-from atarax.wrappers import GrayscaleObservation, ResizeObservation
-env, params = make("atari/breakout-v0", wrappers=[GrayscaleObservation, ResizeObservation])
+from envrax.wrappers import GrayscaleObservation, ResizeObservation
+env, params = envrax.make("atari/breakout-v0", wrappers=[GrayscaleObservation, ResizeObservation])
 
 # Disable the XLA cache for ephemeral runs
-env, params = make("atari/breakout-v0", preset=True, cache_dir=None)
+env, params = envrax.make("atari/breakout-v0", cache_dir=None)
 
 # Multi-step rollout via lax.scan
 def rollout_step(carry, _):
@@ -100,32 +157,31 @@ obs, state = env.reset(key, params)
 (_, final_state), (obs_seq, rewards, dones) = jax.lax.scan(
     rollout_step, (key, state), None, length=128
 )
-# obs_seq: uint8[128, 84, 84, 4]
+# obs_seq: uint8[128, 210, 160, 3]
 ```
 
-### `make_vec()`
+### `envrax.make_vec()`
 
 ```python
 import jax
 import jax.numpy as jnp
-from atarax import make_vec
+import envrax
+import atarax
 
 key = jax.random.PRNGKey(0)
 
 # reset() splits the key 32 ways — each env gets a distinct random start
-vec_env, params = make_vec("atari/breakout-v0", n_envs=32, preset=True)
-obs, states = vec_env.reset(key, params)      # obs: uint8[32, 84, 84, 4]
+vec_env, params = envrax.make_vec("atari/breakout-v0", n_envs=32)
+obs, states = vec_env.reset(key, params)      # obs: uint8[32, 210, 160, 3]
 
 # step() operates across all 32 envs simultaneously
-keys = jax.random.split(key, 32)
 actions = jnp.zeros(32, dtype=jnp.int32)
 obs, states, reward, done, info = vec_env.step(key, states, actions, params)
 
-# Multi-step rollout via lax.scan + vmap
+# Multi-step rollout via lax.scan
 def vec_step(carry, _):
     key, states = carry
     key, subkey = jax.random.split(key)
-    keys = jax.random.split(subkey, 32)
     obs, states, reward, done, info = vec_env.step(subkey, states, actions, params)
     return (key, states), (obs, reward, done)
 
@@ -133,10 +189,10 @@ obs, states = vec_env.reset(key, params)
 (_, final_states), (obs_seq, rewards, dones) = jax.lax.scan(
     vec_step, (key, states), None, length=128
 )
-# obs_seq: uint8[128, 32, 84, 84, 4]
+# obs_seq: uint8[128, 32, 210, 160, 3]
 ```
 
-### `make_multi()` / `make_multi_vec()`
+### `envrax.make_multi()` / `envrax.make_multi_vec()`
 
 Create one `(env, params)` or `(VmapEnv, params)` tuple per game from a list
 of IDs. Intended for multi-game training loops where each game needs its own
@@ -144,46 +200,76 @@ independent environment.
 
 ```python
 import jax
-from atarax import make_multi, make_multi_vec
+import envrax
+import atarax
 
 key = jax.random.PRNGKey(0)
 
-# Returns List[Tuple[AtaraxGame, AtaraxParams]] — one per game
-results = make_multi(["atari/breakout-v0", "atari/pong-v0"])
+# Returns List[Tuple[JaxEnv, EnvParams]] — one per game
+results = envrax.make_multi(["atari/breakout-v0", "atari/asteroids-v0"])
 env, params = results[0]
 obs, state = env.reset(key, params)          # obs: uint8[210, 160, 3]
 
-# Vectorized variant — Returns List[Tuple[VmapEnv, AtaraxParams]]
-vec_results = make_multi_vec(["atari/breakout-v0"], n_envs=16)
+# Vectorized variant — Returns List[Tuple[VmapEnv, EnvParams]]
+vec_results = envrax.make_multi_vec(["atari/breakout-v0"], n_envs=16)
 vec_env, params = vec_results[0]
 obs, states = vec_env.reset(key, params)     # obs: uint8[16, 210, 160, 3]
 
 # List all registered games
-from atarax.games import GAMES
-print(sorted(GAMES))
+print(envrax.registered_names())
 ```
 
 ### Rendering and Interactive Play
 
 ```python
 import jax
-import jax.numpy as jnp
-from atarax import make
+import numpy as np
+from atarax.env.games.breakout import Breakout
+from atarax.game import AtaraxParams
+from atarax.render import play, render_grid, record_episode
 
-key = jax.random.PRNGKey(0)
-env, params = make("atari/breakout-v0", jit_compile=False)
+game   = Breakout()
+params = AtaraxParams()
 
-# Render a single frame (returns uint8[210, 160, 3])
-obs, state = env.reset(key, params)
-frame = env.render(state)
+# Render a single frame — uint8[210, 160, 3], score + lives HUD included
+obs, state = game.reset(jax.random.PRNGKey(0), params)
+frame = game.render(state)
 
-# Play a game interactively in a pygame window
-env.play()                                   # Esc or close window to quit
-env.play(scale=4, fps=30)
+# Interactive pygame window (requires pygame) — Esc or close to quit
+play("atari/breakout-v0", scale=3, fps=15)
 ```
 
-`Esc` or closing the window always quits. Per-game keyboard controls are
-defined in each game's `_key_map()` method.
+#### Multi-environment grid
+
+Tile N vmap'd frames into a single image — useful for monitoring parallel
+training runs at a glance:
+
+```python
+N = 16
+rngs = jax.random.split(jax.random.PRNGKey(0), N)
+_, states = jax.vmap(game.reset, in_axes=(0, None))(rngs, params)
+frames = np.asarray(jax.vmap(game.render)(states))  # (16, 210, 160, 3)
+
+grid = render_grid(frames, nrow=4)   # (840, 640, 3)
+```
+
+#### Recording episodes
+
+Save a gif or mp4 of a full episode (requires `pip install "atarax[viz]"`):
+
+```python
+_rng = jax.random.PRNGKey(42)
+
+def random_policy(obs):
+    global _rng
+    _rng, key = jax.random.split(_rng)
+    return jax.random.randint(key, shape=(), minval=0, maxval=4)
+
+record_episode(game, params, random_policy, path="episode.gif", fps=15)
+```
+
+Per-game keyboard controls for interactive play are defined in each game's
+`_key_map()` method.
 
 ## Wrappers
 
@@ -193,40 +279,55 @@ interface.
 
 | Wrapper | Input | Output | Description | Extra state |
 | --- | --- | --- | --- | --- |
-| `AtariPreprocessing` | `uint8[210, 160, 3]` | `uint8[84, 84, 4]` | Full DQN stack (grayscale → resize → frame-stack → clip reward → record stats + episodic life) | `EpisodeStatisticsState` |
+| `AtariPreprocessing(n_stack=4)` | `uint8[210, 160, 3]` | `uint8[84, 84, 4]` | DQN stack: grayscale → resize → 4-frame stack + clip reward + episodic life + record stats | `EpisodeStatisticsState` |
 | `EpisodicLife` | any env | same obs | Terminal on every life loss | `EpisodicLifeState` |
-| `JitWrapper` | any env | same obs | JIT-compiles `reset` + `step` with a warmup pass; applied automatically by `make()` when `jit_compile=True` | — |
+| `JitWrapper` | any env | same obs | JIT-compiles `reset` + `step` with a warmup pass; from `envrax`, applied automatically by `make()` when `jit_compile=True` | — |
 
 Additional generic wrappers (grayscale, resize, normalize, frame-stack, clip
-reward, episode statistics, and more) are available via the
-[`envrax`](https://github.com/Achronus/envrax) package and re-exported through
+reward, episode statistics, and more) are available via
+[`envrax`](https://github.com/Achronus/envrax) and re-exported through
 `atarax.wrappers`.
 
-`JitWrapper` can also be used standalone to eagerly compile any env:
+`JitWrapper` can also be used standalone:
 
 ```python
-from atarax.wrappers import JitWrapper
-from atarax import make
+import envrax
+import atarax
+from envrax.wrappers import JitWrapper
 
-env, params = make("atari/breakout-v0", jit_compile=False)
+env, params = envrax.make("atari/breakout-v0", jit_compile=False)
 env = JitWrapper(env)
 ```
 
-### Standard DQN preprocessing stack
+### Observation format
 
-The standard Mnih et al. (2015) observation pipeline:
+The raw observation is a full-colour RGB frame — motion trails encode velocity
+directly so no frame stacking is needed for basic experiments:
 
 ```python
 import jax
 import jax.numpy as jnp
-from atarax import make
+import envrax
+import atarax
 
 key = jax.random.PRNGKey(0)
-env, params = make("atari/breakout-v0", preset=True)
+env, params = envrax.make("atari/breakout-v0")
 
-obs, state = env.reset(key, params)          # obs: uint8[84, 84, 4]
+obs, state = env.reset(key, params)          # obs: uint8[210, 160, 3]
 obs, state, reward, done, info = env.step(key, state, jnp.int32(0), params)
 # done                    → True on life loss or game over
+# info["lives"]           → remaining lives
+# info["score"]           → current score
+```
+
+For the classic Mnih et al. (2015) 4-frame grayscale stack:
+
+```python
+from atarax.wrappers import AtariPreprocessing
+
+env, params = envrax.make("atari/breakout-v0", wrappers=[AtariPreprocessing])
+obs, state = env.reset(key, params)          # obs: uint8[84, 84, 4]
+obs, state, reward, done, info = env.step(key, state, jnp.int32(0), params)
 # reward                  → clipped to {-1, 0, +1}
 # info["episode"]["r"]    → episode return (non-zero at episode end)
 # info["episode"]["l"]    → episode length (non-zero at episode end)
@@ -234,77 +335,13 @@ obs, state, reward, done, info = env.step(key, state, jnp.int32(0), params)
 
 ## Games
 
-Randomization is a core component of RL environments and the [ALE](https://github.com/Farama-Foundation/Arcade-Learning-Environment) games. The random-policy episode return — mean cumulative reward when taking uniformly random actions across many episodes — is a reliable calibration target for aligning JAX-native implementations against the reference ALE C++ engine.
+All 57 Mnih et al. (2015) games are implemented. Use `"atari/<name>-v0"` as the
+`envrax.make()` ID — see [Quick Start](#envraxmake) for examples.
 
-We target a ≤5% deviation from the ALE random-policy baseline (JAX mean / ALE mean within [0.95×, 1.05×]). Exact replication is not the goal: atarax uses JAX's XLA-based PRNG and branch-free collision detection, so some deviation is inherent by design. Each game's fidelity band (`mean ± 3·SE`, N=1,000, SEED=42) acts as a statistical regression guard — catching broken physics or scoring bugs — rather than an ALE mirror.
-
-Calibration setup: 1,000 parallel environments (JAX vmap), 3,000 agent steps (12,000 emulated frames), single vmap pass.
-
-Use `"atari/<name>-v0"` as the `make()` ID.
-
-| Game | `make()` ID | ALE Baseline | JAX Mean | JAX Std | Fidelity Band | Ratio |
-| --- | --- | --- | --- | --- | --- | --- |
-| Alien | `"atari/alien-v0"` | 227.8 | — | — | — | — |
-| Amidar | `"atari/amidar-v0"` | 5.8 | — | — | — | — |
-| Assault | `"atari/assault-v0"` | 240.3 | 239.00 | 135.56 | [226.1, 251.9] | 0.995× |
-| Asterix | `"atari/asterix-v0"` | 210.0 | — | — | — | — |
-| Asteroids | `"atari/asteroids-v0"` | 719.1 | — | — | — | — |
-| Atlantis | `"atari/atlantis-v0"` | 17185.5 | 17390.25 | 4410.74 | [16971.8, 17808.7] | 1.012× |
-| Bank Heist | `"atari/bank_heist-v0"` | 14.2 | — | — | — | — |
-| Battle Zone | `"atari/battle_zone-v0"` | 2360.0 | — | — | — | — |
-| Beam Rider | `"atari/beam_rider-v0"` | 363.9 | — | — | — | — |
-| Berzerk | `"atari/berzerk-v0"` | 123.7 | — | — | — | — |
-| Bowling | `"atari/bowling-v0"` | 23.1 | — | — | — | — |
-| Boxing | `"atari/boxing-v0"` | 0.1 | −1.99 | 3.39 | [−6.0, 2.0] | −19.9× |
-| Breakout | `"atari/breakout-v0"` | 1.7 | 8.40 | 10.09 | [7.4, 9.4] | 4.94× |
-| Centipede | `"atari/centipede-v0"` | 2090.9 | — | — | — | — |
-| Chopper Command | `"atari/chopper_command-v0"` | 811.0 | — | — | — | — |
-| Crazy Climber | `"atari/crazy_climber-v0"` | 10780.5 | — | — | — | — |
-| Defender | `"atari/defender-v0"` | 2874.5 | — | — | — | — |
-| Demon Attack | `"atari/demon_attack-v0"` | 175.0 | 173.64 | 83.12 | [165.8, 181.5] | 0.992× |
-| Double Dunk | `"atari/double_dunk-v0"` | −18.6 | — | — | — | — |
-| Enduro | `"atari/enduro-v0"` | 0.0 | — | — | — | — |
-| Fishing Derby | `"atari/fishing_derby-v0"` | −94.0 | −95.57 | 6.16 | [−96.2, −95.0] | 1.017× |
-| Freeway | `"atari/freeway-v0"` | 0.0 | 0.00 | 0.00 | [−0.1, 0.5] | 1.0× |
-| Frostbite | `"atari/frostbite-v0"` | 65.2 | — | — | — | — |
-| Gopher | `"atari/gopher-v0"` | 350.8 | 350.00 | 376.38 | [314.3, 385.7] | 0.998× |
-| Gravitar | `"atari/gravitar-v0"` | 173.0 | 176.25 | 534.20 | [125.6, 226.9] | 1.019× |
-| Hero | `"atari/hero-v0"` | 1027.0 | — | — | — | — |
-| Ice Hockey | `"atari/ice_hockey-v0"` | −11.2 | — | — | — | — |
-| James Bond | `"atari/jamesbond-v0"` | 29.0 | — | — | — | — |
-| Kangaroo | `"atari/kangaroo-v0"` | 52.0 | — | — | — | — |
-| Krull | `"atari/krull-v0"` | 1598.0 | — | — | — | — |
-| Kung Fu Master | `"atari/kung_fu_master-v0"` | 258.5 | — | — | — | — |
-| Montezuma's Revenge | `"atari/montezuma_revenge-v0"` | 0.0 | — | — | — | — |
-| Ms. Pac-Man | `"atari/ms_pacman-v0"` | 197.5 | — | — | — | — |
-| Name This Game | `"atari/name_this_game-v0"` | 2292.3 | — | — | — | — |
-| Phoenix | `"atari/phoenix-v0"` | 721.0 | 706.52 | 395.36 | [669.0, 744.0] | 0.980× |
-| Pitfall | `"atari/pitfall-v0"` | −229.4 | −227.70 | 156.98 | [−242.6, −212.8] | 0.993× |
-| Pong | `"atari/pong-v0"` | −20.7 | −19.66 | 1.19 | [−22.0, −17.0] | 0.950× |
-| Private Eye | `"atari/private_eye-v0"` | 24.9 | — | — | — | — |
-| Q\*bert | `"atari/qbert-v0"` | 163.9 | — | — | — | — |
-| River Raid | `"atari/riverraid-v0"` | 1338.5 | — | — | — | — |
-| Road Runner | `"atari/road_runner-v0"` | 11.5 | — | — | — | — |
-| Robotank | `"atari/robotank-v0"` | 2.2 | — | — | — | — |
-| Seaquest | `"atari/seaquest-v0"` | 68.4 | — | — | — | — |
-| Skiing | `"atari/skiing-v0"` | −17098.1 | — | — | — | — |
-| Solaris | `"atari/solaris-v0"` | 1236.3 | — | — | — | — |
-| Space Invaders | `"atari/space_invaders-v0"` | 148.0 | 152.80 | 34.22 | [149.6, 156.0] | 1.032× |
-| Star Gunner | `"atari/star_gunner-v0"` | 664.0 | — | — | — | — |
-| Surround | `"atari/surround-v0"` | −10.0 | — | — | — | — |
-| Tennis | `"atari/tennis-v0"` | −23.8 | −24.00 | 0.00 | [−24.5, −23.5] | 1.008× |
-| Time Pilot | `"atari/time_pilot-v0"` | 3568.0 | — | — | — | — |
-| Tutankham | `"atari/tutankham-v0"` | 11.4 | — | — | — | — |
-| Up 'n Down | `"atari/up_n_down-v0"` | 533.4 | — | — | — | — |
-| Venture | `"atari/venture-v0"` | 0.0 | — | — | — | — |
-| Video Pinball | `"atari/video_pinball-v0"` | 24425.6 | 24574.10 | 59832.67 | [18897.9, 30250.3] | 1.006× |
-| Wizard of Wor | `"atari/wizard_of_wor-v0"` | 563.5 | — | — | — | — |
-| Yars' Revenge | `"atari/yars_revenge-v0"` | 3092.9 | — | — | — | — |
-| Zaxxon | `"atari/zaxxon-v0"` | 32.5 | — | — | — | — |
-
-**Breakout (4.94×):** The structural gap is expected and accepted. JAX serves at a fixed `π/4` angle rather than a ROM-randomized angle, so the random policy achieves consistent brick coverage that the ALE random policy does not. The fidelity band `[7.4, 9.4]` acts as a regression guard for broken physics, not an ALE mirror.
-
-**Boxing (−19.9× ):** The ALE baseline is +0.1 while the JAX mean is −1.99, a sign flip caused by a more aggressive CPU AI. A multiplier is not meaningful here. The band `[−6.0, 2.0]` guards against broken punch/movement physics.
+Each game is validated against the reference ALE C++ engine using a statistical
+random-policy calibration. We target a ≤5% deviation from the ALE baseline
+(ratio within [0.95×, 1.05×], 1× optimal). For the full calibration methodology,
+fidelity bands, and known deviations, see [docs/fidelity_testing.md](docs/fidelity_testing.md).
 
 ## Architecture Notes
 

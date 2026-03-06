@@ -52,7 +52,7 @@ from ale_py.roms import get_rom_path
 from tqdm import tqdm
 
 from atarax import make
-from atarax._compile import DEFAULT_CACHE_DIR, _live_bar
+from envrax._compile import DEFAULT_CACHE_DIR, _live_bar
 from atarax.base import EnvParams
 
 # Maps ALE action indices to JAX-env action indices.

@@ -31,7 +31,7 @@ import time
 import jax
 
 from atarax import make
-from atarax._compile import DEFAULT_CACHE_DIR
+from envrax._compile import DEFAULT_CACHE_DIR
 
 
 def run(game: str, n_steps: int, n_warmup: int) -> None:

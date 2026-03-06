@@ -29,9 +29,9 @@ you can flag large dynamics mismatches before committing the bands.
 
 Usage::
 
-    uv run python scripts/calibrate_fidelity.py            # all 15 games
-    uv run python scripts/calibrate_fidelity.py --games breakout pong
-    uv run python scripts/calibrate_fidelity.py --seed 42 --n 1000
+    uv run python scripts/calibrate_fidelity.py            # all registered games
+    uv run python scripts/calibrate_fidelity.py --games breakout space_invaders
+    uv run python scripts/calibrate_fidelity.py --seed 42 --n 1000 --n-ale 10
 
 Requires ALE test dependencies::
 
@@ -53,6 +53,7 @@ from atarax.env.registry import GAMES, PARAMS
 # Constants — match the fidelity test exactly so bands are compatible
 # ---------------------------------------------------------------------------
 _N_ENVS = 1000
+_N_ALE = 10       # ALE is sequential; 10 episodes is sufficient for a baseline check
 _MAX_STEPS = 1_000
 _SEED = 42
 
@@ -185,9 +186,9 @@ def _fmt_band(lo: float, hi: float, decimals: int = 1) -> str:
 # ---------------------------------------------------------------------------
 # Per-game calibration
 # ---------------------------------------------------------------------------
-def calibrate_game(game_id: str, n: int, max_steps: int, seed: int) -> dict:
+def calibrate_game(game_id: str, n: int, n_ale: int, max_steps: int, seed: int) -> dict:
     print(f"  {game_id}: ALE...", end="", flush=True)
-    ale_ret, ale_steps = _run_ale(game_id, n, max_steps, seed)
+    ale_ret, ale_steps = _run_ale(game_id, n_ale, max_steps, seed)
     print(" JAX...", end="", flush=True)
     jax_ret, jax_steps, jax_iqm = _run_jax(game_id, n, max_steps, seed)
     print(" done.")
@@ -284,7 +285,8 @@ def main() -> None:
         metavar="GAME",
         help="Games to calibrate (space-separated snake_case). Default: all.",
     )
-    ap.add_argument("--n", type=int, default=_N_ENVS, help=f"Episodes per game. Default: {_N_ENVS}.")
+    ap.add_argument("--n", type=int, default=_N_ENVS, help=f"JAX episodes per game (vmapped). Default: {_N_ENVS}.")
+    ap.add_argument("--n-ale", type=int, default=_N_ALE, help=f"ALE episodes per game (sequential). Default: {_N_ALE}.")
     ap.add_argument("--max-steps", type=int, default=_MAX_STEPS, help=f"Max steps per episode. Default: {_MAX_STEPS}.")
     ap.add_argument("--seed", type=int, default=_SEED, help=f"PRNG seed. Default: {_SEED}.")
     args = ap.parse_args()
@@ -295,11 +297,11 @@ def main() -> None:
         print(f"Unknown games: {invalid}. Valid: {_ALL_GAMES}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Calibrating {len(games)} game(s) — N={args.n}, seed={args.seed}, max_steps={args.max_steps}")
+    print(f"Calibrating {len(games)} game(s) — N={args.n} (JAX) / {args.n_ale} (ALE), seed={args.seed}, max_steps={args.max_steps}")
     results = []
     for gid in games:
         try:
-            results.append(calibrate_game(gid, args.n, args.max_steps, args.seed))
+            results.append(calibrate_game(gid, args.n, args.n_ale, args.max_steps, args.seed))
         except Exception as exc:
             print(f"  {gid}: FAILED — {exc}")
 
