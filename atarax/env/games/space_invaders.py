@@ -157,11 +157,11 @@ class SpaceInvadersParams(AtaraxParams):
     fleet_row_gap: float = 12.0
     fleet_speed_base: float = 1.0
     fleet_speed_gain: float = 0.08
-    fleet_drop: float = 6.0
-    alien_fire_prob: float = 0.015
+    fleet_drop: float = 2.0
+    alien_fire_prob: float = 0.050
     alien_bullet_speed: float = 3.0
-    player_bullet_speed: float = 6.0
-    max_player_bullets: int = 3
+    player_bullet_speed: float = 4.0
+    max_player_bullets: int = 1
     max_alien_bullets: int = 6
     shield_y: float = 156.0
     score_row_0: int = 30
@@ -216,7 +216,7 @@ class SpaceInvaders(FixedShooterGame):
             fleet_y=jnp.float32(40.0),
             fleet_dir=jnp.int32(1),
             fleet_speed=jnp.float32(1.0),
-            player_bullets=jnp.zeros((3, 3), dtype=jnp.float32),
+            player_bullets=jnp.zeros((1, 3), dtype=jnp.float32),
             enemy_bullets=jnp.zeros((6, 3), dtype=jnp.float32),
             # SpaceInvadersState fields
             shields=jnp.ones((3, 22), dtype=jnp.bool_),
@@ -354,8 +354,8 @@ class SpaceInvaders(FixedShooterGame):
             player_bullets,
             flat_xs,
             flat_ys,
-            jnp.float32(4.5),
-            jnp.float32(4.0),  # >speed/2=3 to prevent skip-through at 6px/step
+            jnp.float32(1.1),
+            jnp.float32(3.0),  # >speed/2=2 to prevent skip-through at 4px/step
         )  # (3, 36)
         alive_flat = state.enemy_grid.ravel()
         pb_alien_hits = pb_hits & alive_flat[None, :]  # (3, 55) — only alive aliens

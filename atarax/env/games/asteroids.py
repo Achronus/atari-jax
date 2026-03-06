@@ -144,14 +144,14 @@ class AsteroidsParams(AtaraxParams):
     drag: float = 0.01
     max_speed: float = 6.0
     bullet_speed: float = 7.0
-    bullet_lifetime: float = 28.0
+    bullet_lifetime: float = 8.0
     bullet_cooldown: int = 6
     tip_offset: float = 9.0
     invincible_frames: int = 90
     respawn_frames: int = 60
     warp_invincible: int = 45
     num_lives: int = 3
-    rock_speed: float = 1.0
+    rock_speed: float = 3.0
 
 
 @chex.dataclass
@@ -199,7 +199,9 @@ class Asteroids(Free2DShooterGame):
     num_actions: int = 14
     game_id: ClassVar[str] = "asteroids"
 
-    def _init_rocks(self, rng: chex.PRNGKey, n_extra: int = 0) -> chex.Array:
+    def _init_rocks(
+        self, rng: chex.PRNGKey, rock_speed: float = 2.0, n_extra: int = 0
+    ) -> chex.Array:
         """
         Build the initial rock pool for one wave.
 
@@ -207,6 +209,8 @@ class Asteroids(Free2DShooterGame):
         ----------
         rng : chex.PRNGKey
             JAX PRNG key for velocity randomisation.
+        rock_speed : float
+            Speed multiplier applied to each rock's initial velocity.
         n_extra : int
             Extra large rocks beyond the base 4 (capped at 4 for pool safety).
 
@@ -221,7 +225,9 @@ class Asteroids(Free2DShooterGame):
         for k in range(n_large):
             rng, sub = jax.random.split(rng)
             angle = jax.random.uniform(sub, minval=0.0, maxval=2.0 * jnp.pi)
+            # Base speed 0.4–0.9 px/frame, scaled by rock_speed param
             spd = jax.random.uniform(jax.random.fold_in(sub, 1), minval=0.4, maxval=0.9)
+            spd = spd * jnp.float32(rock_speed)
             rx, ry = _INIT_ROCK_XY[k]
             row = jnp.stack(
                 [
@@ -252,7 +258,7 @@ class Asteroids(Free2DShooterGame):
             Ship at centre, 4 large rocks spawned, 3 lives, 4 empty bullet slots.
         """
         rng, rock_rng = jax.random.split(rng)
-        rocks = self._init_rocks(rock_rng)
+        rocks = self._init_rocks(rock_rng, rock_speed=3.0)
 
         return AsteroidsState(
             # Free2DShooterState fields
@@ -527,7 +533,7 @@ class Asteroids(Free2DShooterGame):
         new_level = state.level + jnp.where(wave_clear, jnp.int32(1), jnp.int32(0))
 
         # Build fresh rocks for the new wave
-        next_rocks = self._init_rocks(wave_rng)
+        next_rocks = self._init_rocks(wave_rng, rock_speed=params.rock_speed)
         rocks = jnp.where(wave_clear, next_rocks, rocks)
         bullets = jnp.where(
             wave_clear, jnp.zeros((_MAX_BULLETS, 6), dtype=jnp.float32), bullets

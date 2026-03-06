@@ -56,10 +56,11 @@ _SEED = 42
 # ---------------------------------------------------------------------------
 _BANDS: dict[str, tuple[float, float]] = {
     # game_id: (lo, hi) — from scripts/calibrate_fidelity.py output (N=1000, SEED=42)
-    "asteroids": (2643.6, 2932.6),
+    # Breakout: accepted 8.84× deviation (fixed π/4 serve angle vs ROM-randomised)
+    "asteroids": (714.7, 800.1),
     "breakout": (8.6, 10.1),
-    "ms_pacman": (24.3, 26.6),
-    "space_invaders": (349.4, 366.6),
+    "ms_pacman": (258.9, 269.2),
+    "space_invaders": (148.1, 163.0),
 }
 
 

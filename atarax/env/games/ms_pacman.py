@@ -77,17 +77,16 @@ _TUNNEL_ROWS: tuple = (13, 14, 15, 19, 20, 21, 25, 26, 27)
 _PAC_ROW: int = 26
 _PAC_COL: int = 20
 
-# Ghost starting positions (OG-faithful approximation for sealed ghost house):
-#   OG arcade: Blinky outside the house (center above door);
-#              Pinky/Inky/Sue inside, exit in order.
-#   Our ghost house (rows 17-23, cols 17-22) is sealed — all 4 start outside.
-#   Blinky (0): row 14 col 20 — upper linked corridor center (OG "outside house")
-#   Pinky  (1): row 17 col 13 — left entrance corridor, near ghost house
-#   Inky   (2): row 17 col 26 — right entrance corridor, near ghost house
-#   Sue    (3): row 26 col 31 — lower linked corridor, right side
+# Ghost starting positions — near the ghost-house entrance area.
+#   Scatter timer protects Pac-Man (row 26) while ghosts navigate to their
+#   assigned corners. After scatter expires, ghosts return to chase mode.
+#   Blinky (0): row 14 col 20 — upper linked corridor centre
+#   Pinky  (1): row 17 col 13 — left entrance corridor
+#   Inky   (2): row 17 col 26 — right entrance corridor
+#   Sue    (3): row 14 col 30 — upper linked corridor, right
 # Ghosts respawn at their starting positions after being eaten.
-_GHOST_ROWS: tuple = (14, 17, 17, 26)
-_GHOST_COLS: tuple = (20, 13, 26, 31)
+_GHOST_ROWS: tuple = (14, 17, 17, 14)
+_GHOST_COLS: tuple = (20, 13, 26, 30)
 
 # ── Power pellet positions ('*' tiles at rows 5 and 38, cols 2 and 37)
 _POWER_ROWS: tuple = (5, 5, 38, 38)
@@ -101,6 +100,11 @@ _FRUIT_SCORE: int = 100
 # ── Ghost scatter corners in frightened mode (near power pellet corners)
 _FRIGHT_TR = jnp.array([5, 5, 38, 38], dtype=jnp.int32)
 _FRIGHT_TC = jnp.array([0, 39, 0, 39], dtype=jnp.int32)
+
+# ── Ghost scatter corners for normal scatter phase (maze corners)
+# Blinky→top-left, Pinky→top-right, Inky→bottom-left, Sue→bottom-right
+_SCATTER_TR = jnp.array([2, 2, 42, 42], dtype=jnp.int32)
+_SCATTER_TC = jnp.array([1, 38, 1, 38], dtype=jnp.int32)
 
 # ── Direction deltas (0=UP, 1=RIGHT, 2=DOWN, 3=LEFT) — mirrors maze_navigator.py
 _DR = jnp.array([-1, 0, 1, 0], dtype=jnp.int32)
@@ -229,23 +233,23 @@ class MsPacManParams(AtaraxParams):
     ----------
     max_steps : int
         Maximum agent steps per episode.
-    noop_max : int
-        Overrides `AtaraxParams` default to 0 — maze games have no stochastic
-        start via NOOP actions (characters would chase Ms. Pac-Man before the
-        player has control).
     fright_duration : int
         Steps a power pellet keeps ghosts frightened.
     fruit_trigger : int
         Dots eaten before fruit spawns.
     fruit_duration : int
         Steps the fruit remains before despawning.
+    scatter_duration : int
+        Steps ghosts spend in scatter mode at the start of each life
+        (move toward maze corners instead of chasing Pac-Man).
+        Approximates the scatter/chase cycles in ALE.
     """
 
     max_steps: int = 18000
-    noop_max: int = 0
     fright_duration: int = 30
     fruit_trigger: int = 70
     fruit_duration: int = 20
+    scatter_duration: int = 248
 
 
 @chex.dataclass
@@ -276,6 +280,8 @@ class MsPacManState(MazeNavigatorState):
         int32 — total collectibles eaten this episode (triggers fruit spawn).
     respawn_timer : chex.Array
         int32 — steps of post-death invincibility remaining; 0 = vulnerable.
+    scatter_timer : chex.Array
+        int32 — steps of scatter mode remaining for this life; 0 = chase mode.
     """
 
     combo_count: chex.Array
@@ -283,6 +289,7 @@ class MsPacManState(MazeNavigatorState):
     fruit_timer: chex.Array
     dots_eaten: chex.Array
     respawn_timer: chex.Array
+    scatter_timer: chex.Array
 
 
 class MsPacMan(MazeNavigatorGame):
@@ -438,6 +445,7 @@ class MsPacMan(MazeNavigatorGame):
             fruit_timer=jnp.int32(0),
             dots_eaten=jnp.int32(0),
             respawn_timer=jnp.int32(0),
+            scatter_timer=jnp.int32(248),  # matches MsPacManParams.scatter_duration default
             # AtariState fields
             lives=jnp.int32(3),
             score=jnp.int32(0),
@@ -534,16 +542,26 @@ class MsPacMan(MazeNavigatorGame):
             ate_dot | ate_power, jnp.int32(1), jnp.int32(0)
         )
 
-        # ── 3. Ghost movement — all 4 ghosts chase directly (L1 to Ms. Pac-Man)
+        # ── 3. Ghost movement
         frightened = new_power_timer > jnp.int32(0)
+        in_scatter = (state.scatter_timer > jnp.int32(0)) & ~frightened
+        new_scatter_timer = jnp.maximum(state.scatter_timer - jnp.int32(1), jnp.int32(0))
 
         ghost_rows = state.ghost_row
         ghost_cols = state.ghost_col
         ghost_dirs = state.ghost_dir
 
         for g in range(4):
-            target_r = jnp.where(frightened, _FRIGHT_TR[g], new_pac_row)
-            target_c = jnp.where(frightened, _FRIGHT_TC[g], new_pac_col)
+            target_r = jnp.where(
+                frightened,
+                _FRIGHT_TR[g],
+                jnp.where(in_scatter, _SCATTER_TR[g], new_pac_row),
+            )
+            target_c = jnp.where(
+                frightened,
+                _FRIGHT_TC[g],
+                jnp.where(in_scatter, _SCATTER_TC[g], new_pac_col),
+            )
             new_dir_g = self._pick_ghost_direction(
                 ghost_rows[g],
                 ghost_cols[g],
@@ -602,11 +620,15 @@ class MsPacMan(MazeNavigatorGame):
         ghost_dirs = jnp.where(life_lost, _start_dirs, ghost_dirs)
         new_power_timer = jnp.where(life_lost, jnp.int32(0), new_power_timer)
         new_combo = jnp.where(life_lost, jnp.int32(1), new_combo)
-        # Respawn invincibility: 15 steps after each death; decrement otherwise.
+        # Respawn invincibility: 60 steps after each death; decrement otherwise.
         new_respawn_timer = jnp.where(
             life_lost,
-            jnp.int32(15),
+            jnp.int32(60),
             jnp.maximum(state.respawn_timer - jnp.int32(1), jnp.int32(0)),
+        )
+        # Reset scatter timer on death — each life starts with a scatter phase.
+        new_scatter_timer = jnp.where(
+            life_lost, jnp.int32(params.scatter_duration), new_scatter_timer
         )
 
         # ── 6. Level clear
@@ -617,6 +639,9 @@ class MsPacMan(MazeNavigatorGame):
         new_pac_col = jnp.where(all_cleared, jnp.int32(_PAC_COL), new_pac_col)
         ghost_rows = jnp.where(all_cleared, _start_rows, ghost_rows)
         ghost_cols = jnp.where(all_cleared, _start_cols, ghost_cols)
+        new_scatter_timer = jnp.where(
+            all_cleared, jnp.int32(params.scatter_duration), new_scatter_timer
+        )
 
         # ── 7. Fruit spawn / collect / despawn
         spawn_fruit = (
@@ -657,7 +682,11 @@ class MsPacMan(MazeNavigatorGame):
         ghost_mode = jnp.where(
             new_power_timer > jnp.int32(0),
             jnp.full(4, jnp.int32(2), dtype=jnp.int32),
-            jnp.zeros(4, dtype=jnp.int32),
+            jnp.where(
+                new_scatter_timer > jnp.int32(0),
+                jnp.ones(4, dtype=jnp.int32),   # 1 = scatter
+                jnp.zeros(4, dtype=jnp.int32),  # 0 = chase
+            ),
         )
 
         return state.__replace__(
@@ -675,6 +704,7 @@ class MsPacMan(MazeNavigatorGame):
             fruit_timer=new_fruit_timer,
             dots_eaten=new_dots_eaten,
             respawn_timer=new_respawn_timer,
+            scatter_timer=new_scatter_timer,
             lives=new_lives,
             score=new_score,
             level=new_level,

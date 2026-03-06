@@ -31,9 +31,13 @@ Usage::
 
     uv run python scripts/calibrate_fidelity.py            # all registered games
     uv run python scripts/calibrate_fidelity.py --games breakout space_invaders
-    uv run python scripts/calibrate_fidelity.py --seed 42 --n 1000 --n-ale 10
+    uv run python scripts/calibrate_fidelity.py --jax-only --games asteroids
 
-Requires ALE test dependencies::
+    # JAX-only mode skips ALE and compares against stored baselines:
+    uv run python scripts/calibrate_fidelity.py --jax-only
+    uv run python scripts/calibrate_fidelity.py --jax-only --games ms_pacman space_invaders
+
+Requires ALE test dependencies (full mode only)::
 
     uv sync --group test
 """
@@ -42,12 +46,22 @@ import argparse
 import math
 import sys
 
-import ale_py
 import jax
 import jax.numpy as jnp
 import numpy as np
 
 from atarax.env.registry import GAMES, PARAMS
+
+# ---------------------------------------------------------------------------
+# Stored ALE baselines (N=10 episodes, SEED=42, max_steps=1000, frame-skip=4)
+# Used by --jax-only mode to avoid importing ale_py.
+# ---------------------------------------------------------------------------
+_ALE_BASELINES: dict[str, float] = {
+    "asteroids": 754.5,
+    "breakout": 1.1,
+    "ms_pacman": 257.0,
+    "space_invaders": 154.3,
+}
 
 # ---------------------------------------------------------------------------
 # Constants — match the fidelity test exactly so bands are compatible
@@ -186,15 +200,29 @@ def _fmt_band(lo: float, hi: float, decimals: int = 1) -> str:
 # ---------------------------------------------------------------------------
 # Per-game calibration
 # ---------------------------------------------------------------------------
-def calibrate_game(game_id: str, n: int, n_ale: int, max_steps: int, seed: int) -> dict:
-    print(f"  {game_id}: ALE...", end="", flush=True)
-    ale_ret, ale_steps = _run_ale(game_id, n_ale, max_steps, seed)
-    print(" JAX...", end="", flush=True)
+def calibrate_game(
+    game_id: str,
+    n: int,
+    max_steps: int,
+    seed: int,
+    n_ale: int = 10,
+    jax_only: bool = False,
+) -> dict:
+    if jax_only:
+        ale_mean_r = _ALE_BASELINES.get(game_id, float("nan"))
+        ale_std_r = float("nan")
+        ale_mean_s = float("nan")
+        ale_std_s = float("nan")
+        print(f"  {game_id}: JAX...", end="", flush=True)
+    else:
+        print(f"  {game_id}: ALE...", end="", flush=True)
+        ale_ret, ale_steps = _run_ale(game_id, n_ale, max_steps, seed)
+        ale_mean_r, ale_std_r = float(np.mean(ale_ret)), float(np.std(ale_ret))
+        ale_mean_s, ale_std_s = float(np.mean(ale_steps)), float(np.std(ale_steps))
+        print(" JAX...", end="", flush=True)
+
     jax_ret, jax_steps, jax_iqm = _run_jax(game_id, n, max_steps, seed)
     print(" done.")
-
-    ale_mean_r, ale_std_r = float(np.mean(ale_ret)), float(np.std(ale_ret))
-    ale_mean_s, ale_std_s = float(np.mean(ale_steps)), float(np.std(ale_steps))
 
     jax_mean_r, jax_std_r = float(np.mean(jax_ret)), float(np.std(jax_ret))
     jax_mean_s, jax_std_s = float(np.mean(jax_steps)), float(np.std(jax_steps))
@@ -289,7 +317,15 @@ def main() -> None:
     ap.add_argument("--n-ale", type=int, default=_N_ALE, help=f"ALE episodes per game (sequential). Default: {_N_ALE}.")
     ap.add_argument("--max-steps", type=int, default=_MAX_STEPS, help=f"Max steps per episode. Default: {_MAX_STEPS}.")
     ap.add_argument("--seed", type=int, default=_SEED, help=f"PRNG seed. Default: {_SEED}.")
+    ap.add_argument(
+        "--jax-only",
+        action="store_true",
+        help="Skip ALE run; compare JAX results against stored baselines in _ALE_BASELINES. Faster — no ale_py required.",
+    )
     args = ap.parse_args()
+
+    if not args.jax_only:
+        import ale_py  # noqa: F401 — validate ale_py is available before starting
 
     games = args.games if args.games else _ALL_GAMES
     invalid = [g for g in games if g not in GAMES]
@@ -297,11 +333,14 @@ def main() -> None:
         print(f"Unknown games: {invalid}. Valid: {_ALL_GAMES}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Calibrating {len(games)} game(s) — N={args.n} (JAX) / {args.n_ale} (ALE), seed={args.seed}, max_steps={args.max_steps}")
+    mode = "JAX-only (stored ALE baselines)" if args.jax_only else f"JAX + ALE (N={args.n_ale})"
+    print(f"Calibrating {len(games)} game(s) — N={args.n} (JAX), seed={args.seed}, max_steps={args.max_steps} [{mode}]")
     results = []
     for gid in games:
         try:
-            results.append(calibrate_game(gid, args.n, args.n_ale, args.max_steps, args.seed))
+            results.append(
+                calibrate_game(gid, args.n, args.max_steps, args.seed, n_ale=args.n_ale, jax_only=args.jax_only)
+            )
         except Exception as exc:
             print(f"  {gid}: FAILED — {exc}")
 

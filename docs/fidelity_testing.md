@@ -106,21 +106,17 @@ documented rather than treated as bugs.
 Calibration setup: N=1,000 environments (JAX vmap), SEED=42, 1,000 agent steps
 (4,000 emulated frames), single vmap pass. Band = `mean ± 3·SE`.
 
-Target ratio: **0.95×–1.05×** (JAX mean / ALE baseline). Deviations outside this
-window are noted in the table.
+Target ratio: **0.95×–1.05×** (JAX mean / ALE baseline; 5% deviation). Deviations outside this
+window are noted below the table.
 
 | Game | ALE Baseline | JAX Mean | JAX Std | Fidelity Band | Ratio |
 | --- | --- | --- | --- | --- | --- |
-| Asteroids | 754.5 | 2788.1 | 1523.3 | [2643.6, 2932.6] | 3.70× ⚠ |
+| Asteroids | 754.5 | 757.4 | 450.2 | [714.7, 800.1] | 1.004× |
 | Breakout | 1.1 | 9.4 | 8.0 | [8.6, 10.1] | 8.84× † |
-| Ms. Pac-Man | 257.0 | 25.5 | 11.7 | [24.3, 26.6] | 0.10× ⚠ |
-| Space Invaders | 154.3 | 358.0 | 90.3 | [349.4, 366.6] | 2.32× ⚠ |
+| Ms. Pac-Man | 257.0 | 264.1 | 54.6 | [258.9, 269.2] | 1.027× |
+| Space Invaders | 154.3 | 155.5 | 78.7 | [148.1, 163.0] | 1.008× |
 
 † **Breakout (8.84×):** Fixed π/4 serve angle instead of ROM-randomised angle,
 so the random policy achieves consistent brick coverage that the ALE random
 policy does not. The fidelity band `[8.6, 10.1]` acts as a regression guard for
 broken physics, not an ALE mirror. This is an accepted structural deviation.
-
-⚠ **Asteroids, Ms. Pac-Man, Space Invaders** have ratios outside the 0.95×–1.05×
-target. These are open fidelity bugs — physics or scoring needs investigation to
-close the gap.

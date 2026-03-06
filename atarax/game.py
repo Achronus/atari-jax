@@ -37,11 +37,12 @@ class AtaraxParams(EnvParams):
         Matches the ALE 108 000-frame limit at 4× frame-skip.
     noop_max : int
         Maximum number of NOOP actions at episode start for stochastic
-        initialisation. Set to 0 to disable. Default: 30.
+        initialisation. Default: 0 (disabled). JAX-native environments
+        randomise via the PRNG key at reset — NOOP starts are not needed.
     """
 
     max_steps: int = 27000
-    noop_max: int = 30
+    noop_max: int = 0
 
 
 class AtaraxGame(JaxEnv):
