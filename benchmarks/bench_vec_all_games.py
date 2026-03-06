@@ -39,7 +39,7 @@ from tqdm import tqdm
 
 from atarax import make_multi_vec
 from atarax._compile import DEFAULT_CACHE_DIR
-from atarax.games.registry import GAME_SPECS
+from atarax.env.registry import GAME_SPECS
 
 
 def run(n_envs: int, n_steps: int, n_passes: int, verbose: bool) -> None:

@@ -24,12 +24,13 @@ import jax
 import jax.numpy as jnp
 
 from atarax import make
+from atarax.env.games.breakout import BreakoutParams
 from atarax.game import AtaraxGame, AtaraxParams
 from atarax.wrappers import JitWrapper, Wrapper
 
 _key = jax.random.PRNGKey(0)
 _BREAKOUT = "atari/breakout-v0"
-_params = AtaraxParams()
+_params = BreakoutParams()
 
 
 def _base_env() -> AtaraxGame:

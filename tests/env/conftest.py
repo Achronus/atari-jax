@@ -13,7 +13,15 @@
 # limitations under the License.
 # ==============================================================================
 
-from atarax.games.registry import GAME_SPECS, GAMES, get_game
-from atarax.state import AtariState, GameState
+"""Shared fixtures for Track 2 SDF game tests."""
 
-__all__ = ["GAME_SPECS", "GAMES", "GameState", "AtariState", "get_game"]
+import jax
+import pytest
+
+_KEY = jax.random.PRNGKey(0)
+
+
+@pytest.fixture(scope="session")
+def rng():
+    """Shared PRNG key for all SDF game tests."""
+    return _KEY
