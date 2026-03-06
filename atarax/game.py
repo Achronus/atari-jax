@@ -14,7 +14,7 @@
 # ==============================================================================
 
 from abc import abstractmethod
-from typing import Any, Dict, Tuple
+from typing import Any, ClassVar, Dict, Tuple
 
 import chex
 import jax
@@ -55,6 +55,7 @@ class AtaraxGame(JaxEnv):
 
     Subclasses must:
       - Define `num_actions: int` as a class attribute
+      - Define `game_id: ClassVar[str]` as a class attribute (snake_case name)
       - Implement `_reset(rng)` → game-specific state
       - Implement `_step(rng, state, action, params)` → new state (branch-free)
       - Implement `render(state)` → uint8[210, 160, 3] RGB frame
@@ -63,7 +64,11 @@ class AtaraxGame(JaxEnv):
     and works correctly with this API.
     """
 
+    game_id: ClassVar[str] = ""
     num_actions: int
+
+    def __init__(self) -> None:
+        super().__init__()
 
     @abstractmethod
     def _reset(self, rng: chex.PRNGKey) -> AtariState:

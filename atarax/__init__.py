@@ -24,10 +24,10 @@ from atarax.envs import (
     AtariEnvs,
 )
 from atarax.game import AtaraxGame, AtaraxParams
-from atarax.games.registry import GAME_SPECS, GAMES, get_game
+from atarax.env.registry import GAME_SPECS, GAMES, PARAMS, get_game
 from atarax.make import make, make_multi, make_multi_vec, make_vec
 from atarax.spec import EnvSpec
-from atarax.state import AtaraxState, AtariState, GameState
+from atarax.state import AtariState, GameState
 from atarax.wrappers import (
     AtariPreprocessing,
     EpisodicLife,
@@ -48,7 +48,6 @@ __all__ = [
     "AtariEnvs",
     "AtariPreprocessing",
     "AtariState",
-    "AtaraxState",
     "Box",
     "Discrete",
     "EnvSpec",
@@ -57,6 +56,7 @@ __all__ = [
     "GAME_SPECS",
     "GAMES",
     "GameState",
+    "PARAMS",
     "JitWrapper",
     "VmapEnv",
     "Wrapper",

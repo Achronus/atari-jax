@@ -15,41 +15,26 @@
 
 from typing import Dict, List, Type
 
+from atarax.env.games.asteroids import Asteroids, AsteroidsParams
+from atarax.env.games.breakout import Breakout, BreakoutParams
+from atarax.env.games.ms_pacman import MsPacMan, MsPacManParams
+from atarax.env.games.space_invaders import SpaceInvaders, SpaceInvadersParams
 from atarax.envs import ATARI_57
-from atarax.game import AtaraxGame
-from atarax.games.assault import Assault
-from atarax.games.atlantis import Atlantis
-from atarax.games.boxing import Boxing
-from atarax.games.breakout import Breakout
-from atarax.games.demon_attack import DemonAttack
-from atarax.games.fishing_derby import FishingDerby
-from atarax.games.freeway import Freeway
-from atarax.games.gopher import Gopher
-from atarax.games.gravitar import Gravitar
-from atarax.games.phoenix import Phoenix
-from atarax.games.pitfall import Pitfall
-from atarax.games.pong import Pong
-from atarax.games.space_invaders import SpaceInvaders
-from atarax.games.tennis import Tennis
-from atarax.games.video_pinball import VideoPinball
+from atarax.game import AtaraxGame, AtaraxParams
 from atarax.spec import EnvSpec
 
 GAMES: Dict[str, Type[AtaraxGame]] = {
-    "assault": Assault,
-    "atlantis": Atlantis,
-    "boxing": Boxing,
+    "asteroids": Asteroids,
     "breakout": Breakout,
-    "demon_attack": DemonAttack,
-    "fishing_derby": FishingDerby,
-    "freeway": Freeway,
-    "gopher": Gopher,
-    "gravitar": Gravitar,
-    "phoenix": Phoenix,
-    "pitfall": Pitfall,
-    "pong": Pong,
+    "ms_pacman": MsPacMan,
     "space_invaders": SpaceInvaders,
-    "tennis": Tennis,
-    "video_pinball": VideoPinball,
+}
+
+PARAMS: Dict[str, Type[AtaraxParams]] = {
+    "asteroids": AsteroidsParams,
+    "breakout": BreakoutParams,
+    "ms_pacman": MsPacManParams,
+    "space_invaders": SpaceInvadersParams,
 }
 
 GAME_SPECS: List[EnvSpec] = [EnvSpec.parse(name) for name in ATARI_57.all_names()]
