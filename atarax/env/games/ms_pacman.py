@@ -229,6 +229,10 @@ class MsPacManParams(AtaraxParams):
     ----------
     max_steps : int
         Maximum agent steps per episode.
+    noop_max : int
+        Overrides `AtaraxParams` default to 0 — maze games have no stochastic
+        start via NOOP actions (characters would chase Ms. Pac-Man before the
+        player has control).
     fright_duration : int
         Steps a power pellet keeps ghosts frightened.
     fruit_trigger : int
@@ -238,6 +242,7 @@ class MsPacManParams(AtaraxParams):
     """
 
     max_steps: int = 18000
+    noop_max: int = 0
     fright_duration: int = 30
     fruit_trigger: int = 70
     fruit_duration: int = 20
@@ -269,12 +274,15 @@ class MsPacManState(MazeNavigatorState):
         int32 — steps until the fruit despawns.
     dots_eaten : chex.Array
         int32 — total collectibles eaten this episode (triggers fruit spawn).
+    respawn_timer : chex.Array
+        int32 — steps of post-death invincibility remaining; 0 = vulnerable.
     """
 
     combo_count: chex.Array
     fruit_active: chex.Array
     fruit_timer: chex.Array
     dots_eaten: chex.Array
+    respawn_timer: chex.Array
 
 
 class MsPacMan(MazeNavigatorGame):
@@ -429,6 +437,7 @@ class MsPacMan(MazeNavigatorGame):
             fruit_active=jnp.bool_(False),
             fruit_timer=jnp.int32(0),
             dots_eaten=jnp.int32(0),
+            respawn_timer=jnp.int32(0),
             # AtariState fields
             lives=jnp.int32(3),
             score=jnp.int32(0),
@@ -553,11 +562,17 @@ class MsPacMan(MazeNavigatorGame):
         # ── 4. Ghost–player collisions
         ghost_reward = jnp.int32(0)
         life_lost = jnp.bool_(False)
+        invincible = state.respawn_timer > jnp.int32(0)
 
         for g in range(4):
-            hit = (ghost_rows[g] == new_pac_row) & (ghost_cols[g] == new_pac_col)
+            # Post-move same tile OR crossing: Pac-Man stepped onto ghost's prior tile.
+            same_tile = (ghost_rows[g] == new_pac_row) & (ghost_cols[g] == new_pac_col)
+            pac_on_ghost_start = (
+                (state.ghost_row[g] == new_pac_row) & (state.ghost_col[g] == new_pac_col)
+            )
+            hit = same_tile | pac_on_ghost_start
             can_eat = frightened & hit
-            can_die = (~frightened) & hit
+            can_die = (~frightened) & hit & (~invincible)
 
             ghost_score = _GHOST_SCORES[
                 jnp.clip(new_combo - jnp.int32(1), jnp.int32(0), jnp.int32(3))
@@ -587,6 +602,12 @@ class MsPacMan(MazeNavigatorGame):
         ghost_dirs = jnp.where(life_lost, _start_dirs, ghost_dirs)
         new_power_timer = jnp.where(life_lost, jnp.int32(0), new_power_timer)
         new_combo = jnp.where(life_lost, jnp.int32(1), new_combo)
+        # Respawn invincibility: 15 steps after each death; decrement otherwise.
+        new_respawn_timer = jnp.where(
+            life_lost,
+            jnp.int32(15),
+            jnp.maximum(state.respawn_timer - jnp.int32(1), jnp.int32(0)),
+        )
 
         # ── 6. Level clear
         all_cleared = ~jnp.any(new_collectibles)
@@ -653,6 +674,7 @@ class MsPacMan(MazeNavigatorGame):
             fruit_active=new_fruit_active,
             fruit_timer=new_fruit_timer,
             dots_eaten=new_dots_eaten,
+            respawn_timer=new_respawn_timer,
             lives=new_lives,
             score=new_score,
             level=new_level,

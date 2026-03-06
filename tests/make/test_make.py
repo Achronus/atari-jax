@@ -25,7 +25,7 @@ import jax.numpy as jnp
 import pytest
 
 from atarax import make
-from atarax.games.registry import GAMES
+from atarax.env.registry import GAMES
 from atarax.game import AtaraxGame
 from atarax.wrappers import EpisodeStatisticsState, GrayscaleObservation
 
