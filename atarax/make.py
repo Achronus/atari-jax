@@ -19,8 +19,8 @@ from typing import List, Tuple, Type
 import jax
 
 from atarax._compile import DEFAULT_CACHE_DIR, setup_cache
+from atarax.env.registry import get_game
 from atarax.game import AtaraxGame, AtaraxParams
-from atarax.games.registry import get_game
 from atarax.spec import EnvSpec
 from atarax.wrappers import AtariPreprocessing, VmapEnv, Wrapper, _WrapperFactory
 from atarax.wrappers.jit_wrapper import JitWrapper
