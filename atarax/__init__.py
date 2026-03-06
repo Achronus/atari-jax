@@ -13,8 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 
+import envrax
+from envrax.make import make, make_multi, make_multi_vec, make_vec
 from envrax.spaces import Box, Discrete
 
+from atarax.env.registry import GAME_SPECS, GAMES, PARAMS, get_game
 from atarax.envs import (
     ATARI_57,
     ATARI_BASE,
@@ -24,8 +27,6 @@ from atarax.envs import (
     AtariEnvs,
 )
 from atarax.game import AtaraxGame, AtaraxParams
-from atarax.env.registry import GAME_SPECS, GAMES, PARAMS, get_game
-from atarax.make import make, make_multi, make_multi_vec, make_vec
 from atarax.spec import EnvSpec
 from atarax.state import AtariState, GameState
 from atarax.wrappers import (
@@ -36,6 +37,15 @@ from atarax.wrappers import (
     VmapEnv,
     Wrapper,
 )
+
+# Auto-register all implemented atarax games into the envrax registry.
+# This runs once per Python process (module caching guarantees idempotency).
+for _name, _cls in GAMES.items():
+    _env_id = f"atari/{_name}-v0"
+    if _env_id not in envrax.registered_names():
+        envrax.register(_env_id, _cls, PARAMS[_name]())
+
+del _name, _cls, _env_id
 
 __all__ = [
     "ATARI_57",

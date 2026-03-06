@@ -38,7 +38,13 @@ dependencies = [
     { name = "chex" },
     { name = "envrax" },
     { name = "jax" },
-    { name = "tqdm" },
+    { name = "pillow" },
+]
+
+[package.optional-dependencies]
+viz = [
+    { name = "imageio" },
+    { name = "imageio-ffmpeg" },
 ]
 
 [package.dev-dependencies]
@@ -47,7 +53,6 @@ test = [
     { name = "gymnasium" },
     { name = "imageio" },
     { name = "imageio-ffmpeg" },
-    { name = "pillow" },
     { name = "pygame" },
     { name = "pytest" },
     { name = "pytest-xdist" },
@@ -56,10 +61,13 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "chex", specifier = ">=0.1.91" },
-    { name = "envrax", specifier = "==0.1.1" },
+    { name = "envrax", specifier = ">=0.1.2" },
+    { name = "imageio", marker = "extra == 'viz'", specifier = ">=2.37.2" },
+    { name = "imageio-ffmpeg", marker = "extra == 'viz'", specifier = ">=0.6.0" },
     { name = "jax", specifier = ">=0.9.0.1" },
-    { name = "tqdm", specifier = ">=4.67.3" },
+    { name = "pillow", specifier = ">=12.1.1" },
 ]
+provides-extras = ["viz"]
 
 [package.metadata.requires-dev]
 test = [
@@ -67,7 +75,6 @@ test = [
     { name = "gymnasium", specifier = ">=1.2.3" },
     { name = "imageio", specifier = ">=2.37.2" },
     { name = "imageio-ffmpeg", specifier = ">=0.6.0" },
-    { name = "pillow", specifier = ">=12.1.1" },
     { name = "pygame", specifier = ">=2.6.1" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
@@ -110,16 +117,16 @@ wheels = [
 
 [[package]]
 name = "envrax"
-version = "0.1.1"
+version = "0.1.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "chex" },
     { name = "jax" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/77/80/66eb01475b5cbb439f94e7326263da97a1a9812e3925661b484af8fa2431/envrax-0.1.1.tar.gz", hash = "sha256:81b3496996616800d6df138a04a6ff8d4732cd5c3be005a2b2e6387845e465b2", size = 45588, upload-time = "2026-03-01T21:28:22.048Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/21/ff/7d49d619b37e49c58c05c948b7b54dfd18cd5d4db434506ba2a5deb35a83/envrax-0.1.2.tar.gz", hash = "sha256:446bc59e42cb182a3a32e71d311e59f0f4a67ce1286274da3a303f46810dce77", size = 49823, upload-time = "2026-03-06T21:03:12.004Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/37/bb/ba4613b4a7929cf5d7a18e1fe5b74eaaec6bd0a61f847a549ccd742160b8/envrax-0.1.1-py3-none-any.whl", hash = "sha256:13891eb34e6e8ef5ccd9c8b9de876e38bc52020d4710b2b1e882b1f0ee914645", size = 34731, upload-time = "2026-03-01T21:28:22.986Z" },
+    { url = "https://files.pythonhosted.org/packages/07/dc/39faff756e6450413cef20761f86d8857a93dfdba28145d0ad81423efff3/envrax-0.1.2-py3-none-any.whl", hash = "sha256:a3e4b14a9435850cab24906f4ae96b40cc98a6de29eb46d47c9dd5f37819160c", size = 39857, upload-time = "2026-03-06T21:03:10.884Z" },
 ]
 
 [[package]]

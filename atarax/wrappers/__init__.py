@@ -21,6 +21,7 @@ from envrax.wrappers import (
     FrameStackObservation,
     FrameStackState,
     GrayscaleObservation,
+    JitWrapper,
     NormalizeObservation,
     RecordEpisodeStatistics,
     RecordVideo,
@@ -33,7 +34,6 @@ from envrax.wrappers import (
 
 from atarax.wrappers.atari_preprocessing import AtariPreprocessing
 from atarax.wrappers.episodic_life import EpisodicLife, EpisodicLifeState
-from atarax.wrappers.jit_wrapper import JitWrapper
 
 __all__ = [
     "AtariPreprocessing",

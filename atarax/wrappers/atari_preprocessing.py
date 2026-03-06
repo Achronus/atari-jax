@@ -32,16 +32,18 @@ if TYPE_CHECKING:
 
 class AtariPreprocessing(Wrapper):
     """
-    Standard DQN preprocessing stack from Mnih et al. (2015).
+    Standard Atari DQN preprocessing stack.
 
-    Applies, in order:
+    Applies the following transforms in order (innermost first):
 
-    - `GrayscaleObservation` — NTSC luminance, `uint8[H, W]`
-    - `ResizeObservation(h, w)` — bilinear resize, `uint8[84, 84]`
-    - `FrameStackObservation(n_stack)` — rolling buffer, `uint8[84, 84, 4]`
-    - `ClipReward` — reward ∈ {-1, 0, +1}
-    - `EpisodicLife` — terminal on every life loss
-    - `RecordEpisodeStatistics` — episode return + length in `info["episode"]`
+    1. `GrayscaleObservation` — NTSC luminance → `uint8[H, W]`
+    2. `ResizeObservation(h, w)` — bilinear resize → `uint8[h, w]`
+    3. `FrameStackObservation(n_stack)` — rolling buffer → `uint8[h, w, n_stack]`
+    4. `ClipReward` — reward ∈ {-1, 0, +1}
+    5. `EpisodicLife` — terminal on every life loss
+    6. `RecordEpisodeStatistics` — episode return + length in `info["episode"]`
+
+    Output observation: `uint8[h, w, n_stack]`.
 
     Parameters
     ----------
@@ -52,7 +54,7 @@ class AtariPreprocessing(Wrapper):
     w : int (optional)
         Output frame width after resize. Default is `84`.
     n_stack : int (optional)
-        Number of frames to stack. Default is `4`.
+        Number of grayscale frames to stack. Default is `4` (standard DQN).
     """
 
     def __init__(
