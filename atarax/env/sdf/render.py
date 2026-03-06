@@ -264,6 +264,9 @@ def render_bool_grid(
     cell_y0: float,
     cell_w: float,
     cell_h: float,
+    *,
+    draw_w: float | None = None,
+    draw_h: float | None = None,
 ) -> chex.Array:
     """
     Render a boolean occupancy grid as a field of same-sized rectangles.
@@ -281,9 +284,17 @@ def render_bool_grid(
     cell_y0 : float
         World y coordinate of the grid's top edge.
     cell_w : float
-        Width of each cell in world pixels.
+        Horizontal spacing between cell centres in world pixels.
     cell_h : float
-        Height of each cell in world pixels.
+        Vertical spacing between cell centres in world pixels.
+    draw_w : float | None (optional)
+        Width of each drawn rectangle in world pixels.
+        Defaults to `cell_w * 0.96` (nearly fills the full cell).
+        Set smaller than `cell_w` to draw small markers (e.g. Pac-Man dots)
+        centred in larger tile cells.
+    draw_h : float | None (optional)
+        Height of each drawn rectangle in world pixels.
+        Defaults to `cell_h * 0.96`.
 
     Returns
     -------
@@ -299,4 +310,6 @@ def render_bool_grid(
     all_cy = jnp.repeat(cy, cols)  # (rows*cols,)
     active = grid.ravel().astype(jnp.float32)
     pool = jnp.stack([all_cx, all_cy, active], axis=1)  # (rows*cols, 3)
-    return render_rect_pool(pool, hw=cell_w * 0.48, hh=cell_h * 0.48)
+    hw = (draw_w if draw_w is not None else cell_w * 0.96) / 2.0
+    hh = (draw_h if draw_h is not None else cell_h * 0.96) / 2.0
+    return render_rect_pool(pool, hw=hw, hh=hh)
