@@ -18,6 +18,7 @@
 from atarax.env.games.assault import Assault, AssaultParams, AssaultState
 from atarax.env.games.asteroids import Asteroids, AsteroidsParams, AsteroidsState
 from atarax.env.games.breakout import Breakout, BreakoutParams, BreakoutState
+from atarax.env.games.demon_attack import DemonAttack, DemonAttackParams, DemonAttackState
 from atarax.env.games.freeway import Freeway, FreewayParams, FreewayState
 from atarax.env.games.ms_pacman import MsPacMan, MsPacManParams, MsPacManState
 from atarax.env.games.pong import Pong, PongParams, PongState
@@ -33,6 +34,9 @@ __all__ = [
     "Breakout",
     "BreakoutParams",
     "BreakoutState",
+    "DemonAttack",
+    "DemonAttackParams",
+    "DemonAttackState",
     "Freeway",
     "FreewayParams",
     "FreewayState",

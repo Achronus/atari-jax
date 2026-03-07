@@ -1,5 +1,9 @@
 # Demon Attack
 
+![Demon Attack](../assets/imgs/demon_attack.gif)
+
+*Figure 1.1. Atarax (left) vs. ALE (right)*
+
 > Game ID: `"atari/demon_attack-v0"`
 
 Destroy waves of demons descending from the sky using a cannon on an ice planet. Demons fire back; getting hit costs a life. Waves grow more difficult as enemies split into two when their row is shot out.

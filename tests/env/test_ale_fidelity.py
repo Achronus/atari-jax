@@ -59,6 +59,7 @@ _BANDS: dict[str, tuple[float, float]] = {
     # Note: test PRNG schedule (split→swapaxes) differs from calibrate_fidelity.py; bands are test-path values.
     # Breakout: accepted 9.5× deviation — larger ball + random policy geometric catch rate vs ALE ROM physics
     "assault": (222.8, 251.7),
+    "demon_attack": (158.0, 181.0),
     "asteroids": (714.7, 800.1),
     "breakout": (10.0, 10.9),
     # Freeway: random policy almost never crosses — mean ≈ 0.0. ALE reference: [−0.1, 0.1]
