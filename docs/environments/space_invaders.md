@@ -1,5 +1,9 @@
 # Space Invaders
 
+![Space Invaders](../assets/imgs/space_invaders.gif)
+
+*Figure 1.1. Atarax (left) vs. ALE (right)*
+
 > Game ID: `"atari/space_invaders-v0"`
 
 Defend Earth by shooting descending alien invaders before they reach the ground.

@@ -1,5 +1,9 @@
 # Asteroids
 
+![Asteroids](../assets/imgs/asteroids.gif)
+
+*Figure 1.1. Atarax (left) vs. ALE (right)*
+
 > Game ID: `"atari/asteroids-v0"`
 
 Pilot a rotating spaceship through an asteroid field, destroying rocks with

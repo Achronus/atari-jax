@@ -1,5 +1,9 @@
 # Breakout
 
+![Breakout](../assets/imgs/breakout.gif)
+
+*Figure 1.1. Atarax (left) vs. ALE (right)*
+
 > Game ID: `"atari/breakout-v0"`
 
 Use a paddle to bounce a ball upward and destroy all the coloured bricks arranged

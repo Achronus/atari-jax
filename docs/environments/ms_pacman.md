@@ -1,5 +1,9 @@
 # Ms. Pac-Man
 
+![Ms. Pac-Man](../assets/imgs/ms_pacman.gif)
+
+*Figure 1.1. Atarax (left) vs. ALE (right)*
+
 > Game ID: `"atari/ms_pacman-v0"`
 
 Guide Ms. Pac-Man through a maze, eating dots and power pellets while avoiding
