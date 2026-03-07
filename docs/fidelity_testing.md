@@ -112,8 +112,8 @@ window are noted below the table.
 | Game | ALE Baseline | JAX Mean | JAX Std | Fidelity Band | Ratio |
 | --- | --- | --- | --- | --- | --- |
 | Asteroids | 754.5 | 757.4 | 450.2 | [714.7, 800.1] | 1.004× |
-| Breakout | 1.1 | 10.0 | 4.2 | [9.6, 10.4] | 9.13× † |
-| Ms. Pac-Man | 257.0 | 264.1 | 54.6 | [258.9, 269.2] | 1.027× |
+| Breakout | 1.1 | 10.5 | 4.8 | [10.0, 10.9] | 9.5× † |
+| Ms. Pac-Man | 257.0 | 269.9 | 66.1 | [263.6, 276.1] | 1.050× |
 | Space Invaders | 154.3 | 155.5 | 78.7 | [148.1, 163.0] | 1.008× |
 
 † **Breakout (9.13×):** A JAX random policy catches the ball at ~11% geometric

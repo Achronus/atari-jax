@@ -261,11 +261,11 @@ def test_no_death_when_frightened(env, default_params, initial_state):
 
 
 def test_death_sets_respawn_timer(env, default_params, initial_state):
-    """After dying, respawn_timer should be 15 (invincibility window)."""
+    """After dying, respawn_timer should be 60 (invincibility window, ~2s at 1 step/frame)."""
     state = _place_ghost_on_pac(initial_state)
     _, state_after, _, _, _ = env.step(_KEY, state, jnp.int32(0), default_params)
-    assert int(state_after.respawn_timer) == 15, (
-        f"Expected respawn_timer=15 after death, got {int(state_after.respawn_timer)}"
+    assert int(state_after.respawn_timer) == 60, (
+        f"Expected respawn_timer=60 after death, got {int(state_after.respawn_timer)}"
     )
 
 

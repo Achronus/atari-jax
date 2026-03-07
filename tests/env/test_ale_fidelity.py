@@ -55,11 +55,12 @@ _SEED = 42
 # Bands added as each game is calibrated.
 # ---------------------------------------------------------------------------
 _BANDS: dict[str, tuple[float, float]] = {
-    # game_id: (lo, hi) — from scripts/calibrate_fidelity.py output (N=1000, SEED=42)
-    # Breakout: accepted 9.13× deviation — larger ball + random policy geometric catch rate vs ALE ROM physics
+    # game_id: (lo, hi) — measured via test's own _run_jax (N=1000, SEED=42)
+    # Note: test PRNG schedule (split→swapaxes) differs from calibrate_fidelity.py; bands are test-path values.
+    # Breakout: accepted 9.5× deviation — larger ball + random policy geometric catch rate vs ALE ROM physics
     "asteroids": (714.7, 800.1),
-    "breakout": (9.6, 10.4),
-    "ms_pacman": (258.9, 269.2),
+    "breakout": (10.0, 10.9),
+    "ms_pacman": (263.6, 276.1),
     "space_invaders": (148.1, 163.0),
 }
 
