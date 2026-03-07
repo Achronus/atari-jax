@@ -1,5 +1,9 @@
 # Pong
 
+![Pong](../assets/imgs/pong.gif)
+
+*Figure 1.1. Atarax (left) vs. ALE (right)*
+
 > Game ID: `"atari/pong-v0"`
 
 Volley a ball back and forth against a CPU opponent using a paddle on the right

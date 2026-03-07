@@ -111,14 +111,17 @@ window are noted below the table.
 
 | Game | ALE Baseline | JAX Mean | JAX Std | Fidelity Band | Ratio |
 | --- | --- | --- | --- | --- | --- |
+| Assault | 238.0 | 237.2 | 152.2 | [222.8, 251.7] | 0.997× |
 | Asteroids | 754.5 | 757.4 | 450.2 | [714.7, 800.1] | 1.004× |
 | Breakout | 1.1 | 10.5 | 4.8 | [10.0, 10.9] | 9.5× † |
+| Freeway | 0.0 | 0.0 | 0.0 | [−0.1, 0.1] | 1× |
 | Ms. Pac-Man | 257.0 | 269.9 | 66.1 | [263.6, 276.1] | 1.050× |
+| Pong | −19.7 | −20.6 | 0.6 | [−20.7, −20.6] | 1.046× |
 | Space Invaders | 154.3 | 155.5 | 78.7 | [148.1, 163.0] | 1.008× |
 
-† **Breakout (9.13×):** A JAX random policy catches the ball at ~11% geometric
+† **Breakout (9.5×):** A JAX random policy catches the ball at ~11% geometric
 probability (paddle width / play width) whereas the ALE ROM's angular physics
 make it much harder for a random policy to catch. Core mechanics match ALE
 (death timer, bricks-remaining speed tiers, randomized serve angle). The
-fidelity band `[9.6, 10.4]` acts as a regression guard for broken physics, not
+fidelity band `[10.0, 10.9]` acts as a regression guard for broken physics, not
 an ALE mirror. This is an accepted structural deviation.

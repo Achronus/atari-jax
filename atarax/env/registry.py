@@ -15,25 +15,34 @@
 
 from typing import Dict, List, Type
 
+from atarax.env.games.assault import Assault, AssaultParams
 from atarax.env.games.asteroids import Asteroids, AsteroidsParams
 from atarax.env.games.breakout import Breakout, BreakoutParams
+from atarax.env.games.freeway import Freeway, FreewayParams
 from atarax.env.games.ms_pacman import MsPacMan, MsPacManParams
+from atarax.env.games.pong import Pong, PongParams
 from atarax.env.games.space_invaders import SpaceInvaders, SpaceInvadersParams
 from atarax.envs import ATARI_57
 from atarax.game import AtaraxGame, AtaraxParams
 from atarax.spec import EnvSpec
 
 GAMES: Dict[str, Type[AtaraxGame]] = {
+    "assault": Assault,
     "asteroids": Asteroids,
     "breakout": Breakout,
+    "freeway": Freeway,
     "ms_pacman": MsPacMan,
+    "pong": Pong,
     "space_invaders": SpaceInvaders,
 }
 
 PARAMS: Dict[str, Type[AtaraxParams]] = {
+    "assault": AssaultParams,
     "asteroids": AsteroidsParams,
     "breakout": BreakoutParams,
+    "freeway": FreewayParams,
     "ms_pacman": MsPacManParams,
+    "pong": PongParams,
     "space_invaders": SpaceInvadersParams,
 }
 

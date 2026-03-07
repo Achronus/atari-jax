@@ -15,21 +15,33 @@
 
 """Concrete JAX-native Atari game implementations."""
 
+from atarax.env.games.assault import Assault, AssaultParams, AssaultState
 from atarax.env.games.asteroids import Asteroids, AsteroidsParams, AsteroidsState
 from atarax.env.games.breakout import Breakout, BreakoutParams, BreakoutState
+from atarax.env.games.freeway import Freeway, FreewayParams, FreewayState
 from atarax.env.games.ms_pacman import MsPacMan, MsPacManParams, MsPacManState
+from atarax.env.games.pong import Pong, PongParams, PongState
 from atarax.env.games.space_invaders import SpaceInvaders, SpaceInvadersParams, SpaceInvadersState
 
 __all__ = [
+    "Assault",
+    "AssaultParams",
+    "AssaultState",
     "Asteroids",
     "AsteroidsParams",
     "AsteroidsState",
     "Breakout",
     "BreakoutParams",
     "BreakoutState",
+    "Freeway",
+    "FreewayParams",
+    "FreewayState",
     "MsPacMan",
     "MsPacManParams",
     "MsPacManState",
+    "Pong",
+    "PongParams",
+    "PongState",
     "SpaceInvaders",
     "SpaceInvadersParams",
     "SpaceInvadersState",

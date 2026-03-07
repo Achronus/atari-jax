@@ -58,9 +58,14 @@ _BANDS: dict[str, tuple[float, float]] = {
     # game_id: (lo, hi) — measured via test's own _run_jax (N=1000, SEED=42)
     # Note: test PRNG schedule (split→swapaxes) differs from calibrate_fidelity.py; bands are test-path values.
     # Breakout: accepted 9.5× deviation — larger ball + random policy geometric catch rate vs ALE ROM physics
+    "assault": (222.8, 251.7),
     "asteroids": (714.7, 800.1),
     "breakout": (10.0, 10.9),
+    # Freeway: random policy almost never crosses — mean ≈ 0.0. ALE reference: [−0.1, 0.1]
+    "freeway": (-0.1, 0.1),
     "ms_pacman": (263.6, 276.1),
+    # Pong: AI tracks ball tightly — random policy always loses. ALE reference: [−19.8, −19.5]
+    "pong": (-20.7, -20.6),
     "space_invaders": (148.1, 163.0),
 }
 
